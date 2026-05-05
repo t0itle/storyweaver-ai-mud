@@ -210,6 +210,31 @@ export default function GameClient({ session }: { session: Session }) {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
       } finally { setThinking(false); }
+    } else if (c === "lore" || c === "codex") {
+      if (!args) {
+        setCodexEntry(null); setCodexOpen(true);
+      } else {
+        // open a specific entry if discovered
+        const entry = lore.find(l =>
+          l.slug === args.toLowerCase() ||
+          l.title.toLowerCase().includes(args.toLowerCase()),
+        );
+        if (entry && discoveredSlugs.has(entry.slug)) {
+          setCodexEntry(entry.slug); setCodexOpen(true);
+        } else {
+          setMessages((m) => [...m, localSys(`You know nothing of "${args}". Yet.`)]);
+        }
+      }
+    } else if (c === "examine" || c === "ex" || c === "study") {
+      if (!args) { setMessages((m) => [...m, localSys("Examine what?")]); return; }
+      // Build pool of text to scan: room desc, ambience, npc names/titles, plus the literal arg
+      const pool = [args, room.description, room.ambience ?? "", ...npcs.map(n => `${n.name} ${n.title ?? ""}`)].join(" ");
+      const matched = await tryDiscover(pool, `examine:${args}`);
+      if (matched.length) {
+        setMessages((m) => [...m, localSys(`You study the ${args} closely. Memory and meaning rise to meet you…`)]);
+      } else {
+        setMessages((m) => [...m, localSys(`You examine the ${args}, but glean nothing new.`)]);
+      }
     } else {
       // default = say
       await post("say", text);
