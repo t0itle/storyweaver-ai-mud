@@ -349,7 +349,85 @@ export default function GameClient({ session }: { session: Session }) {
           </div>
         </aside>
       </div>
+
+      {codexOpen && (
+        <CodexModal
+          lore={lore}
+          discoveries={discoveries}
+          openSlug={codexEntry}
+          setOpenSlug={setCodexEntry}
+          onClose={() => setCodexOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+function CodexModal({
+  lore, discoveries, openSlug, setOpenSlug, onClose,
+}: {
+  lore: LoreEntry[]; discoveries: Discovery[];
+  openSlug: string | null; setOpenSlug: (s: string | null) => void;
+  onClose: () => void;
+}) {
+  const discMap = new Map(discoveries.map(d => [d.lore_slug, d]));
+  const sorted = [...lore].sort((a, b) => a.title.localeCompare(b.title));
+  const open = openSlug ? lore.find(l => l.slug === openSlug) : null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background/85 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card border border-border max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-ember" />
+            <h2 className="font-display text-xl text-parchment">Codex of {discoveries.length} {discoveries.length === 1 ? "Truth" : "Truths"}</h2>
+            <span className="font-mono text-[10px] text-ash uppercase tracking-widest">of {lore.length} known to the world</span>
+          </div>
+          <button onClick={onClose} className="text-ash hover:text-parchment"><X className="w-5 h-5" /></button>
+        </div>
+
+        {open ? (
+          <div className="overflow-y-auto px-6 py-5">
+            <button onClick={() => setOpenSlug(null)} className="font-mono text-xs text-ash hover:text-ember mb-3">← back to codex</button>
+            <h3 className="font-display text-3xl text-ember mb-1">{open.title}</h3>
+            {open.summary && <p className="text-whisper italic mb-4">{open.summary}</p>}
+            <div className="text-parchment whitespace-pre-line leading-relaxed font-body">{open.content}</div>
+            <p className="font-mono text-[10px] text-ash mt-6">
+              discovered via {discMap.get(open.slug)?.source ?? "unknown"} ·{" "}
+              <a href={open.source_url} target="_blank" rel="noreferrer" className="hover:text-ember underline">source</a>
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-y-auto px-3 py-3">
+            {sorted.length === 0 && <p className="text-ash italic p-6 text-center">The world is wide and you know almost none of it.</p>}
+            {sorted.map((l) => {
+              const known = discMap.has(l.slug);
+              return (
+                <button
+                  key={l.slug}
+                  disabled={!known}
+                  onClick={() => known && setOpenSlug(l.slug)}
+                  className={`w-full text-left px-4 py-3 border-l-2 transition-colors ${
+                    known
+                      ? "border-ember/60 hover:bg-ember/5 hover:border-ember"
+                      : "border-border opacity-50 cursor-not-allowed"
+                  }`}
+                >
+                  <div className="font-display text-lg text-parchment">
+                    {known ? l.title : "▓▓▓▓▓▓▓▓▓▓"}
+                  </div>
+                  <div className="font-body text-sm text-ash italic">
+                    {known ? l.summary : "An untold thread of the world. Seek it out."}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
   );
 }
 
