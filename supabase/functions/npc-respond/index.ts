@@ -186,6 +186,19 @@ Do not mention these tags in your prose.`;
       await supabase.from("player_lore_discoveries").upsert(rows, { onConflict: "user_id,lore_slug", ignoreDuplicates: true });
     }
 
+    // Persist NPC's memory of this exchange (service role bypasses RLS).
+    if (memoryToStore) {
+      const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      await admin.from("npc_memories").insert({
+        npc_id: npc.id,
+        user_id: user.id,
+        summary: String(memoryToStore.summary).slice(0, 280),
+        emotion: memoryToStore.emotion ? String(memoryToStore.emotion).slice(0, 32) : null,
+        importance: Math.max(1, Math.min(5, Number(memoryToStore.importance) || 1)),
+        room,
+      });
+    }
+
     return new Response(JSON.stringify({ content, discovered, mentioned_places: mentionedPlaces }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
