@@ -47,6 +47,29 @@ Deno.serve(async (req) => {
       `- ${l.title} (${l.slug}): ${l.summary ?? ""}`
     ).join("\n");
 
+    // Adaptive storytelling: recent unresolved world events in this room (and recent global ones)
+    const nowIso = new Date().toISOString();
+    const { data: localEvents } = await supabase
+      .from("world_events")
+      .select("kind,actor_name,target_name,details,created_at")
+      .eq("room", room)
+      .or(`decay_at.is.null,decay_at.gte.${nowIso}`)
+      .order("created_at", { ascending: false })
+      .limit(8);
+    const { data: globalEvents } = await supabase
+      .from("world_events")
+      .select("kind,actor_name,target_name,room,created_at")
+      .or(`decay_at.is.null,decay_at.gte.${nowIso}`)
+      .order("created_at", { ascending: false })
+      .limit(6);
+
+    const fmtEvent = (e: any) => {
+      if (e.kind === "npc_killed") return `${e.actor_name} killed ${e.target_name}${e.details?.npc_title ? ` (${e.details.npc_title})` : ""}${e.room ? ` at ${e.room}` : ""}.`;
+      return `${e.actor_name} did ${e.kind}${e.target_name ? ` to ${e.target_name}` : ""}${e.room ? ` at ${e.room}` : ""}.`;
+    };
+    const localBlock = (localEvents ?? []).map(fmtEvent).join("\n") || "(none — quiet here)";
+    const globalBlock = (globalEvents ?? []).map(fmtEvent).join("\n") || "(none — the wider world is calm)";
+
     const system = `You are roleplaying ${npc.name}${npc.title ? ", " + npc.title : ""}, an NPC in a text-based fantasy MUD set in **the First City** — the last walled city still burning against the dark, a place of protection guarded by all seven Aethers and watched over by the Veiled, the mouth-bound priests of the silenced Speaker. The Veiled welcome Otherworlders who find their way in from the wilderness.
 
 PERSONA:
@@ -58,11 +81,18 @@ ${roomRow?.description ?? ""}
 WORLD LORE YOU MAY KNOW (reference naturally if relevant — never list, never lecture):
 ${loreBlock || "(none)"}
 
+RECENT EVENTS HERE (you remember these — react with grief, anger, suspicion, or wary welcome as fits your persona; name the actors when it serves the moment):
+${localBlock}
+
+WIDER RUMORS (you may have heard whispers of these — only mention if directly relevant):
+${globalBlock}
+
 RULES:
 - Stay strictly in character. Never break the fourth wall, never mention AI, models, or game mechanics.
 - Reply with 1-3 short paragraphs, evocative and lived-in. You may include a brief action in *asterisks*.
 - Reference world details naturally — the seven Aethers, the Veiled, the EverBloom in the deep dunes, the Ash Road, the Whispering Wastes — when it fits the conversation.
 - React to what ${player_name} just said or did. If they ask something you wouldn't know, deflect in character.
+- If recent events make you wary of ${player_name}'s race or kind, show it — but stay true to your persona.
 - Never invent quests that promise rewards you can't deliver — keep things grounded.`;
 
     const messages = [
