@@ -100,17 +100,22 @@ ${localBlock}
 WIDER RUMORS (you may have heard whispers of these — only mention if directly relevant):
 ${globalBlock}
 
+WHAT YOU REMEMBER ABOUT ${player_name} (your private memories of them, carried with you across all locations — this is the truth of your relationship, not the room):
+${memoryBlock}
+
 RULES:
 - Stay strictly in character. Never break the fourth wall, never mention AI, models, or game mechanics.
 - Reply with 1-3 short paragraphs, evocative and lived-in. You may include a brief action in *asterisks*.
 - Reference world details naturally — the seven Aethers, the Veiled, the EverBloom in the deep dunes, the Ash Road, the Whispering Wastes — when it fits the conversation.
-- React to what ${player_name} just said or did. If they ask something you wouldn't know, deflect in character.
+- React to what ${player_name} just said or did. Lean on YOUR MEMORIES of them — pick up threads from past conversations, hold grudges, warm to old friends. If you've never met, treat them as a stranger.
 - If recent events make you wary of ${player_name}'s race or kind, show it — but stay true to your persona.
 - Never invent quests that promise rewards you can't deliver — keep things grounded.
-- AFTER your in-character reply, on a new line, append a single hidden tag listing any specific named PLACES you mentioned that ${player_name} could travel to (taverns, ruins, towers, halls, archives, roads, gates, groves, etc.). Use this exact format and nothing else on that line:
+- AFTER your in-character reply, append TWO hidden tags on their own lines, in this exact order and format:
 <<PLACES>>["The Archive of Echoes","The Ash Road"]<<END>>
-If you mentioned no concrete travelable place, write: <<PLACES>>[]<<END>>
-Do not mention this tag in your prose. Do not number it. Just append it on its own final line.`;
+<<MEMORY>>{"summary":"short third-person fact you want to remember about ${player_name} from THIS exchange","emotion":"warm|wary|grateful|angry|amused|curious|indifferent","importance":1}<<END>>
+PLACES: list any specific named travelable place you mentioned, or [].
+MEMORY: one short sentence (max ~140 chars) capturing what was significant about THIS exchange — a fact learned, a promise made, an offense given, a kindness shared. importance is 1 (small) to 5 (life-changing). If nothing worth remembering happened, write: <<MEMORY>>null<<END>>
+Do not mention these tags in your prose.`;
 
     const messages = [
       { role: "system", content: system },
