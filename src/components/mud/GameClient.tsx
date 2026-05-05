@@ -42,6 +42,7 @@ interface Discovery { lore_slug: string; source: string; discovered_at: string; 
 const HELP = [
   ["look", "describe the room"],
   ["go <dir>", "n/s/e/w/up/down"],
+  ["go to <place>", "fast-travel to a known or rumored place"],
   ["say <text>", "speak aloud"],
   ["emote <text>", "perform an action: *bows*"],
   ["ask <npc> <text>", "speak to an AI NPC"],
@@ -335,14 +336,45 @@ export default function GameClient({ session }: { session: Session }) {
       setMessages((m) => [...m, localSys(formatRoom(room, npcs, roomEvents))]);
     } else if (c === "who") {
       setMessages((m) => [...m, localSys(`Here: ${presence.map(p => p.username).join(", ") || "(only you)"}`)]);
-    } else if (c === "go" || c === "n" || c === "s" || c === "e" || c === "w" || c === "u" || c === "d") {
+    } else if (c === "go" || c === "n" || c === "s" || c === "e" || c === "w" || c === "u" || c === "d" || c === "travel" || c === "goto") {
       const dirMap: Record<string, string> = { n: "north", s: "south", e: "east", w: "west", u: "up", d: "down" };
-      const dir = dirMap[c] ?? args.toLowerCase();
-      const target = (room.exits as Record<string, string>)[dir];
-      if (!target) {
-        setMessages((m) => [...m, localSys(`You cannot go ${dir} from here.`)]);
+      let dir = dirMap[c] ?? args.toLowerCase().trim();
+      // Strip "to " prefix: "go to the archive" -> "the archive"
+      if (c === "travel" || c === "goto") dir = args.toLowerCase().replace(/^to\s+/, "").trim();
+      else if (c === "go") dir = dir.replace(/^to\s+/, "").trim();
+
+      const compassWords = ["north","south","east","west","up","down"];
+      if (compassWords.includes(dir)) {
+        const target = (room.exits as Record<string, string>)[dir];
+        if (!target) {
+          setMessages((m) => [...m, localSys(`You cannot go ${dir} from here.`)]);
+        } else {
+          await moveTo(target);
+        }
+      } else if (dir) {
+        // Fast-travel by name. Try existing rooms first, then offer to discover.
+        const placeName = dir.replace(/^the\s+/, "").trim();
+        const { data: matches } = await supabase.from("rooms").select("slug,name").ilike("name", `%${placeName}%`).limit(2);
+        if (matches && matches.length === 1) {
+          setMessages((m) => [...m, localSys(`You set out for ${matches[0].name}…`)]);
+          await moveTo(matches[0].slug);
+        } else if (matches && matches.length > 1) {
+          setMessages((m) => [...m, localSys(`Be more specific — could be: ${matches.map(r => r.name).join(", ")}.`)]);
+        } else {
+          setMessages((m) => [...m, localSys(`You search your memory for "${dir}"… the world is shaping it now.`)]);
+          try {
+            const { data, error } = await supabase.functions.invoke("discover-location", {
+              body: { name: dir, from_room: profile.current_room },
+            });
+            if (error || data?.error) throw new Error(data?.error ?? error?.message);
+            setMessages((m) => [...m, localSys(`✦ ${data.name} ${data.created ? "takes shape on the map" : "is already known to you"}. You set out…`)]);
+            await moveTo(data.slug);
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "The path refuses to form.");
+          }
+        }
       } else {
-        await moveTo(target);
+        setMessages((m) => [...m, localSys(`Go where? Try a direction or "go to <place>".`)]);
       }
     } else if (c === "say" || c === "'") {
       if (!args) return;
@@ -359,10 +391,28 @@ export default function GameClient({ session }: { session: Session }) {
       await post("say", `${what}  →  ${npc.name}`);
       setThinking(true);
       try {
-        const { error } = await supabase.functions.invoke("npc-respond", {
+        const { data, error } = await supabase.functions.invoke("npc-respond", {
           body: { npc_id: npc.id, room: profile.current_room, player_input: what, player_name: profile.username },
         });
         if (error) throw error;
+        // Auto-discover any places the NPC named, so "go to <place>" works immediately.
+        const places: string[] = data?.mentioned_places ?? [];
+        if (places.length) {
+          (async () => {
+            const learned: string[] = [];
+            for (const p of places.slice(0, 4)) {
+              try {
+                const { data: d } = await supabase.functions.invoke("discover-location", {
+                  body: { name: p, hint: what, from_room: profile.current_room },
+                });
+                if (d?.created && d?.name) learned.push(d.name);
+              } catch { /* ignore */ }
+            }
+            if (learned.length) {
+              setMessages((mm) => [...mm, localSys(`✦ New places stir on the map: ${learned.join(", ")}. (try "go to ${learned[0]}")`)]);
+            }
+          })();
+        }
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
       } finally { setThinking(false); }

@@ -93,7 +93,11 @@ RULES:
 - Reference world details naturally — the seven Aethers, the Veiled, the EverBloom in the deep dunes, the Ash Road, the Whispering Wastes — when it fits the conversation.
 - React to what ${player_name} just said or did. If they ask something you wouldn't know, deflect in character.
 - If recent events make you wary of ${player_name}'s race or kind, show it — but stay true to your persona.
-- Never invent quests that promise rewards you can't deliver — keep things grounded.`;
+- Never invent quests that promise rewards you can't deliver — keep things grounded.
+- AFTER your in-character reply, on a new line, append a single hidden tag listing any specific named PLACES you mentioned that ${player_name} could travel to (taverns, ruins, towers, halls, archives, roads, gates, groves, etc.). Use this exact format and nothing else on that line:
+<<PLACES>>["The Archive of Echoes","The Ash Road"]<<END>>
+If you mentioned no concrete travelable place, write: <<PLACES>>[]<<END>>
+Do not mention this tag in your prose. Do not number it. Just append it on its own final line.`;
 
     const messages = [
       { role: "system", content: system },
@@ -115,7 +119,16 @@ RULES:
     }
 
     const data = await res.json();
-    const content = data.choices?.[0]?.message?.content?.trim() ?? "...";
+    const rawContent = data.choices?.[0]?.message?.content?.trim() ?? "...";
+
+    // Strip and parse hidden <<PLACES>>[...]<<END>> tag
+    let mentionedPlaces: string[] = [];
+    const placesMatch = rawContent.match(/<<PLACES>>\s*(\[[\s\S]*?\])\s*<<END>>/);
+    let content = rawContent;
+    if (placesMatch) {
+      try { mentionedPlaces = JSON.parse(placesMatch[1]); } catch { mentionedPlaces = []; }
+      content = rawContent.replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*$/, "").trim();
+    }
 
     // Insert NPC message (user_id null is allowed by RLS)
     await supabase.from("messages").insert({
@@ -140,7 +153,7 @@ RULES:
       await supabase.from("player_lore_discoveries").upsert(rows, { onConflict: "user_id,lore_slug", ignoreDuplicates: true });
     }
 
-    return new Response(JSON.stringify({ content, discovered }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ content, discovered, mentioned_places: mentionedPlaces }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
