@@ -12,11 +12,11 @@ interface Race {
 
 const INTRO_BEATS: { text: string; cta: string }[] = [
   {
-    text: "Long ago the gods spoke, and the world listened.\n\nThen the gods went quiet — all but One, whose mouth was stitched shut by the others before they fled. That god still whispers, beneath the sand, beneath the stone, beneath the tongue.",
+    text: "First there was the Light.\n\nThen came the Speaker, and the Speaker opened its mouth, and from that mouth poured everything that is — sky, stone, sea, breath, name. The spoken things were called the Aethers, and they were good, and they were many.\n\nBut not all things are spoken. For every light there is a shadow. And the Shadow was already there, waiting, older than any word.",
     cta: "And then —",
   },
   {
-    text: "The cities forgot their names. The roads forgot their travelers. The desert ate the maps.\n\nOnly one walled town still burns against the dark — its priests cover their mouths so they will not answer what answers them. And in the deep desert, where no map remembers, a single pool blooms with flowers that exist nowhere else. The world calls it the EverBloom. The world is mostly wrong about it.",
+    text: "Somewhere, the Speaker was silenced. Some say its own children stitched its mouth shut, terrified of what it might unspeak. Some say it bit down on a Shadow and could not let go.\n\nNow the Aethers fade like a story half-remembered. The cities forget their names. The desert eats the maps. Only one walled town still burns against the dark — and its priests cover their own mouths, so they will not finish what the Speaker began.\n\nAnd in the deep desert, where no map remembers, a single pool blooms with flowers that exist nowhere else. The world calls it the EverBloom. The world is mostly wrong about it.",
     cta: "Go on —",
   },
   {
