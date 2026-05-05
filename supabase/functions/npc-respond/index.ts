@@ -123,6 +123,9 @@ ${globalBlock}
 WHAT YOU REMEMBER ABOUT ${player_name} (your private memories of them, carried with you across all locations — this is the truth of your relationship, not the room):
 ${memoryBlock}
 
+WHAT YOU KNOW OF OTHER OTHERWORLDERS (gossip — your own memories of other travelers, gathered from past encounters wherever they happened. Bring these up naturally if relevant: warn ${player_name} about a troublemaker, praise a kind soul, share a rumor, ask if they've crossed paths. NEVER invent names — only use the names listed here):
+${gossipBlock}
+
 RULES:
 - Stay strictly in character. Never break the fourth wall, never mention AI, models, or game mechanics.
 - Reply with 1-3 short paragraphs, evocative and lived-in. You may include a brief action in *asterisks*.
