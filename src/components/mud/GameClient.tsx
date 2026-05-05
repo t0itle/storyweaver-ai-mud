@@ -3,7 +3,8 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { BookOpen, Flame, Loader2, LogOut, Users, X } from "lucide-react";
+import { Backpack, BookOpen, Flame, Loader2, LogOut, Sparkles, Sword, Users, X } from "lucide-react";
+import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
 
 interface Profile {
   id: string;
@@ -14,6 +15,8 @@ interface Profile {
   race: string | null;
   portrait_url: string | null;
   char_description: string | null;
+  in_combat_id: string | null;
+  max_weight: number;
 }
 interface Room {
   slug: string; name: string; description: string;
