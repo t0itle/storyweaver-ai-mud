@@ -709,6 +709,18 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
   if (m.kind === "emote") {
     return <div className="text-moss italic">* {m.author_name} {m.content}</div>;
   }
+  if (m.kind === "shadow") {
+    return (
+      <div className="border-l-2 border-whisper/40 pl-3 my-1">
+        <div className="font-mono text-[10px] text-ash uppercase tracking-[0.3em]">— a whisper from the unspoken —</div>
+        <p className="text-whisper italic lowercase tracking-wide">{m.content}</p>
+        <div className="mt-1 flex gap-2 font-mono text-[10px]">
+          <button data-shadow="submit" className="text-ember/80 hover:text-ember underline underline-offset-2">listen</button>
+          <button data-shadow="resist" className="text-moss hover:text-parchment underline underline-offset-2">speak against it</button>
+        </div>
+      </div>
+    );
+  }
   if (m.kind === "npc") {
     return (
       <div className="border-l-2 border-whisper/60 pl-3">
