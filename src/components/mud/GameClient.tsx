@@ -803,6 +803,7 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
 }) {
   return (
     <div className="border-l-2 border-ember/60 pl-4 py-1 mb-4">
+      <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-ash mb-1">{room.label ?? "Place"}</div>
       <h2 className="font-display text-2xl text-ember mb-2">{room.name}</h2>
       <div className="mb-3 aspect-[16/9] bg-card/50 border border-border overflow-hidden relative">
         {sceneUrl ? (
@@ -822,9 +823,15 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
       <p className="text-parchment whitespace-pre-line">{room.description}</p>
       {room.ambience && <p className="text-ash italic mt-2">{room.ambience}</p>}
       {npcs.length > 0 && (
-        <p className="text-whisper italic mt-2">
-          {npcs.map((n) => `${n.name}${n.title ? `, ${n.title}` : ""}`).join("; ")} {npcs.length === 1 ? "is" : "are"} here.
-        </p>
+        <div className="text-whisper italic mt-2 space-y-0.5">
+          {npcs.map((n) => (
+            <p key={n.id}>
+              <span className="text-parchment">{n.name}</span>
+              {n.title ? <span>, {n.title}</span> : null}
+              {n.current_activity ? <span className="text-ash"> — {n.current_activity}</span> : null}
+            </p>
+          ))}
+        </div>
       )}
       {events.length > 0 && (
         <div className="mt-3 border-l-2 border-shadow/60 pl-3 py-1 bg-shadow/5">
