@@ -63,6 +63,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
   const [npcs, setNpcs] = useState<Npc[]>([]);
+  const [roomEvents, setRoomEvents] = useState<{ kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [presence, setPresence] = useState<{ username: string }[]>([]);
   const [input, setInput] = useState("");
