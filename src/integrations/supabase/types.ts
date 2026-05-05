@@ -14,7 +14,145 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      messages: {
+        Row: {
+          author_name: string
+          content: string
+          created_at: string
+          id: string
+          kind: string
+          npc_id: string | null
+          room: string
+          user_id: string | null
+        }
+        Insert: {
+          author_name: string
+          content: string
+          created_at?: string
+          id?: string
+          kind?: string
+          npc_id?: string | null
+          room: string
+          user_id?: string | null
+        }
+        Update: {
+          author_name?: string
+          content?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          npc_id?: string | null
+          room?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_npc_id_fkey"
+            columns: ["npc_id"]
+            isOneToOne: false
+            referencedRelation: "npcs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      npcs: {
+        Row: {
+          greeting: string | null
+          id: string
+          name: string
+          persona: string
+          room: string
+          title: string | null
+        }
+        Insert: {
+          greeting?: string | null
+          id?: string
+          name: string
+          persona: string
+          room: string
+          title?: string | null
+        }
+        Update: {
+          greeting?: string | null
+          id?: string
+          name?: string
+          persona?: string
+          room?: string
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "npcs_room_fkey"
+            columns: ["room"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          current_room: string
+          gold: number
+          hp: number
+          id: string
+          level: number
+          max_hp: number
+          updated_at: string
+          username: string
+          xp: number
+        }
+        Insert: {
+          created_at?: string
+          current_room?: string
+          gold?: number
+          hp?: number
+          id: string
+          level?: number
+          max_hp?: number
+          updated_at?: string
+          username: string
+          xp?: number
+        }
+        Update: {
+          created_at?: string
+          current_room?: string
+          gold?: number
+          hp?: number
+          id?: string
+          level?: number
+          max_hp?: number
+          updated_at?: string
+          username?: string
+          xp?: number
+        }
+        Relationships: []
+      }
+      rooms: {
+        Row: {
+          ambience: string | null
+          description: string
+          exits: Json
+          name: string
+          slug: string
+        }
+        Insert: {
+          ambience?: string | null
+          description: string
+          exits?: Json
+          name: string
+          slug: string
+        }
+        Update: {
+          ambience?: string | null
+          description?: string
+          exits?: Json
+          name?: string
+          slug?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
