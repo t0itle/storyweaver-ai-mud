@@ -59,11 +59,14 @@ export default function Landing() {
           a living text world of silent gods
         </p>
         <p className="font-body italic text-lg md:text-xl text-ash leading-relaxed">
-          The gods spoke once, and the world listened. Then they fled — all but One,
-          whose mouth was stitched shut, whose whispers still crawl beneath the sand.
+          First there was the Light. Then the <span className="text-parchment">Speaker</span> opened its mouth,
+          and the <span className="text-parchment">Aethers</span> poured forth — every spoken thing.
           <br /><br />
-          The maps are eaten. The cities are forgetting their names.
-          <span className="text-parchment"> But somewhere in the deep desert a pool still blooms,</span>
+          But some things are <span className="text-ember">not</span> spoken into being.
+          For every light there is a <span className="text-ember">Shadow</span>, and the Shadow was already waiting.
+          <br /><br />
+          Now the Speaker is silenced. The maps are eaten, the cities forget their names —
+          <span className="text-parchment"> yet a single pool still blooms in the deep desert,</span>
           <span className="text-ember"> and it is asking who you mean to be.</span>
         </p>
       </header>
