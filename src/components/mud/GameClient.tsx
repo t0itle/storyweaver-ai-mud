@@ -158,11 +158,13 @@ export default function GameClient({ session }: { session: Session }) {
     setSceneUrl(null);
     (async () => {
       const nowIso = new Date().toISOString();
+      // Only show conversations from the moment the player arrived in this room.
       const [{ data: r }, { data: n }, { data: m }, { data: ev }] = await Promise.all([
         supabase.from("rooms").select("*").eq("slug", slug).maybeSingle(),
         supabase.from("npcs").select("*").eq("room", slug)
           .or(`dead_until.is.null,dead_until.lte.${nowIso}`),
         supabase.from("messages").select("*").eq("room", slug)
+          .gte("created_at", nowIso)
           .or(`addressed_to.is.null,addressed_to.eq.${profile.id}`)
           .order("created_at", { ascending: false }).limit(40),
         supabase.from("world_events").select("kind,actor_name,target_name,details,created_at")
