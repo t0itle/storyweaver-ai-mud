@@ -97,7 +97,20 @@ RULES:
       user_id: null,
     });
 
-    return new Response(JSON.stringify({ content }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // Lore discovery: scan NPC reply for keywords; unlock matching entries for this player.
+    const lower = content.toLowerCase();
+    const discovered: string[] = [];
+    for (const l of (lore ?? []) as Array<{ slug: string; title: string; keywords: string[] }>) {
+      const kws = [l.slug, ...(l.keywords ?? [])].map(k => k.toLowerCase());
+      if (kws.some(k => k && lower.includes(k))) discovered.push(l.slug);
+    }
+    if (discovered.length) {
+      const rows = discovered.map(slug => ({ user_id: user.id, lore_slug: slug, source: `npc:${npc.name}` }));
+      // ignore duplicates via unique constraint
+      await supabase.from("player_lore_discoveries").upsert(rows, { onConflict: "user_id,lore_slug", ignoreDuplicates: true });
+    }
+
+    return new Response(JSON.stringify({ content, discovered }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
