@@ -279,10 +279,17 @@ export default function GameClient({ session }: { session: Session }) {
       {/* Top bar */}
       <header className="border-b border-border bg-card/60 backdrop-blur px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <Flame className="w-5 h-5 text-ember ember-flicker" />
+          {profile.portrait_url ? (
+            <img src={profile.portrait_url} alt={profile.username}
+              className="w-10 h-10 object-cover border border-ember/60 rounded-sm" />
+          ) : (
+            <Flame className="w-5 h-5 text-ember ember-flicker" />
+          )}
           <div>
-            <div className="font-display text-lg leading-none text-parchment">Ember-Hold</div>
-            <div className="font-mono text-[10px] text-ash uppercase tracking-widest">{profile.username} · lvl {profile.level}</div>
+            <div className="font-display text-lg leading-none text-parchment">{profile.username}</div>
+            <div className="font-mono text-[10px] text-ash uppercase tracking-widest">
+              {profile.race ?? "wanderer"} · lvl {profile.level}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-4 font-mono text-xs">
