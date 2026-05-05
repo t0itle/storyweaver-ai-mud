@@ -60,10 +60,44 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
     } finally { setBusy(false); }
   };
 
+  if (step === "intro") {
+    const b = INTRO_BEATS[beat];
+    const last = beat === INTRO_BEATS.length - 1;
+    return (
+      <div className="min-h-screen flex items-center justify-center px-5 py-12 bg-background">
+        <div className="max-w-2xl w-full space-y-8 animate-in fade-in duration-1000" key={beat}>
+          <div className="flex items-center gap-3">
+            <Flame className="w-6 h-6 text-ember ember-flicker" />
+            <h1 className="font-display text-3xl text-parchment">
+              {beat === 0 ? "When the Gods Stopped Speaking" : beat === 1 ? "The Last Burning City" : "A Walker on the Sand"}
+            </h1>
+          </div>
+          <p className="font-body text-parchment text-lg leading-relaxed whitespace-pre-line">{b.text}</p>
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={() => (last ? setStep("prologue") : setBeat(beat + 1))}
+              className="bg-ember hover:bg-ember/90 text-background font-display"
+            >
+              {b.cta}
+            </Button>
+            <span className="font-mono text-[10px] text-ash tracking-widest">
+              {beat + 1} / {INTRO_BEATS.length}
+            </span>
+            {!last && (
+              <button onClick={() => setStep("prologue")} className="font-mono text-[10px] text-whisper hover:text-ash underline underline-offset-4 ml-auto">
+                skip the telling
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (step === "prologue") {
     return (
       <div className="min-h-screen flex items-center justify-center px-5 py-12 bg-background">
-        <div className="max-w-2xl w-full space-y-8">
+        <div className="max-w-2xl w-full space-y-8 animate-in fade-in duration-1000">
           <div className="flex items-center gap-3">
             <Flame className="w-6 h-6 text-ember ember-flicker" />
             <h1 className="font-display text-3xl text-parchment">Before You Were Anyone</h1>
