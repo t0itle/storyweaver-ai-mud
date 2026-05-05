@@ -3,7 +3,7 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { BookOpen, Flame, LogOut, Users, X } from "lucide-react";
+import { BookOpen, Flame, Loader2, LogOut, Users, X } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -11,6 +11,9 @@ interface Profile {
   current_room: string;
   hp: number; max_hp: number;
   level: number; xp: number; gold: number;
+  race: string | null;
+  portrait_url: string | null;
+  char_description: string | null;
 }
 interface Room {
   slug: string; name: string; description: string;
@@ -53,6 +56,8 @@ export default function GameClient({ session }: { session: Session }) {
   const [discoveries, setDiscoveries] = useState<Discovery[]>([]);
   const [codexOpen, setCodexOpen] = useState(false);
   const [codexEntry, setCodexEntry] = useState<string | null>(null);
+  const [sceneUrl, setSceneUrl] = useState<string | null>(null);
+  const [sceneLoading, setSceneLoading] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -66,6 +71,7 @@ export default function GameClient({ session }: { session: Session }) {
   useEffect(() => {
     if (!profile) return;
     const slug = profile.current_room;
+    setSceneUrl(null);
     (async () => {
       const [{ data: r }, { data: n }, { data: m }] = await Promise.all([
         supabase.from("rooms").select("*").eq("slug", slug).maybeSingle(),
@@ -77,6 +83,22 @@ export default function GameClient({ session }: { session: Session }) {
       setMessages(((m ?? []) as Message[]).reverse());
     })();
   }, [profile?.current_room]);
+
+  // Generate / fetch scene image when room changes
+  useEffect(() => {
+    if (!profile || !room) return;
+    const slug = profile.current_room;
+    let cancelled = false;
+    setSceneLoading(true);
+    supabase.functions.invoke("scene-image", { body: { room: slug } })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) console.warn("scene", error);
+        else if (data?.image_url) setSceneUrl(data.image_url);
+      })
+      .finally(() => { if (!cancelled) setSceneLoading(false); });
+    return () => { cancelled = true; };
+  }, [profile?.current_room, room?.slug]);
 
   // Realtime: messages in current room + presence
   useEffect(() => {
@@ -257,10 +279,17 @@ export default function GameClient({ session }: { session: Session }) {
       {/* Top bar */}
       <header className="border-b border-border bg-card/60 backdrop-blur px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
-          <Flame className="w-5 h-5 text-ember ember-flicker" />
+          {profile.portrait_url ? (
+            <img src={profile.portrait_url} alt={profile.username}
+              className="w-10 h-10 object-cover border border-ember/60 rounded-sm" />
+          ) : (
+            <Flame className="w-5 h-5 text-ember ember-flicker" />
+          )}
           <div>
-            <div className="font-display text-lg leading-none text-parchment">Ember-Hold</div>
-            <div className="font-mono text-[10px] text-ash uppercase tracking-widest">{profile.username} · lvl {profile.level}</div>
+            <div className="font-display text-lg leading-none text-parchment">{profile.username}</div>
+            <div className="font-mono text-[10px] text-ash uppercase tracking-widest">
+              {profile.race ?? "wanderer"} · lvl {profile.level}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-4 font-mono text-xs">
@@ -285,7 +314,7 @@ export default function GameClient({ session }: { session: Session }) {
         {/* Main log */}
         <main className="flex-1 flex flex-col min-w-0">
           <div ref={logRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-6 space-y-3 font-body text-[17px] leading-relaxed">
-            <RoomBlock room={room} npcs={npcs} />
+            <RoomBlock room={room} npcs={npcs} sceneUrl={sceneUrl} sceneLoading={sceneLoading} />
             {messages.map((m) => <MessageLine key={m.id} m={m} you={profile.username} />)}
             {thinking && <div className="text-whisper italic typewriter">a voice gathers in the dark</div>}
           </div>
@@ -428,10 +457,27 @@ function CodexModal({
     </div>
   );
 }
-function RoomBlock({ room, npcs }: { room: Room; npcs: Npc[] }) {
+function RoomBlock({ room, npcs, sceneUrl, sceneLoading }: {
+  room: Room; npcs: Npc[]; sceneUrl: string | null; sceneLoading: boolean;
+}) {
   return (
     <div className="border-l-2 border-ember/60 pl-4 py-1 mb-4">
       <h2 className="font-display text-2xl text-ember mb-2">{room.name}</h2>
+      <div className="mb-3 aspect-[16/9] bg-card/50 border border-border overflow-hidden relative">
+        {sceneUrl ? (
+          <img src={sceneUrl} alt={room.name} className="w-full h-full object-cover animate-in fade-in duration-700" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            {sceneLoading ? (
+              <div className="flex items-center gap-2 text-whisper text-xs font-mono italic">
+                <Loader2 className="w-3 h-3 animate-spin" /> the world is being painted…
+              </div>
+            ) : (
+              <span className="text-ash text-xs italic">…</span>
+            )}
+          </div>
+        )}
+      </div>
       <p className="text-parchment whitespace-pre-line">{room.description}</p>
       {room.ambience && <p className="text-ash italic mt-2">{room.ambience}</p>}
       {npcs.length > 0 && (
