@@ -27,7 +27,7 @@ const INTRO_BEATS: { text: string; cta: string }[] = [
 
 const PROLOGUE = `You crest a dune and the world opens — flat sand to every horizon, a single thread of cracked road unrolling east. Behind you, your footprints have already begun to vanish.
 
-There is no guide. No snake. No oasis waiting to name you. Only the wind, and the silence the Speaker left behind, and the choice of which way to put one foot in front of the other.
+There is no guide. Only the wind, and the silence the Speaker left behind, and the choice of which way to put one foot in front of the other.
 
 But first — before the road, before the city, before the Shadow learns the shape of you — the heat shimmer above the sand catches your reflection. It is asking who you mean to be.`;
 
@@ -222,7 +222,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
             <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-ember ember-flicker shrink-0" />
             <h1 className="font-display text-2xl sm:text-3xl text-parchment leading-tight">Which Way Do You Walk?</h1>
           </div>
-          <p className="font-body text-ash italic text-sm sm:text-base">No guide. No snake. Only the wind, and a road that runs north.</p>
+          <p className="font-body text-ash italic text-sm sm:text-base">No guide. Only the wind, and a road that runs north.</p>
 
           <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
             <button
