@@ -267,6 +267,14 @@ export default function GameClient({ session }: { session: Session }) {
           <span className="text-ember">♥ {profile.hp}/{profile.max_hp}</span>
           <span className="text-accent">✦ {profile.xp} xp</span>
           <span className="text-parchment">⚜ {profile.gold}g</span>
+          <button
+            onClick={() => { setCodexEntry(null); setCodexOpen(true); }}
+            className="flex items-center gap-1 text-whisper hover:text-ember transition-colors"
+            title="Codex of discoveries"
+          >
+            <BookOpen className="w-4 h-4" />
+            <span>{discoveries.length}/{lore.length}</span>
+          </button>
           <Button size="sm" variant="ghost" onClick={signOut} className="text-ash hover:text-parchment">
             <LogOut className="w-4 h-4" />
           </Button>
