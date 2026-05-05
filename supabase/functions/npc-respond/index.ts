@@ -54,18 +54,24 @@ Deno.serve(async (req) => {
       ? memRows!.map((m: any) => `- (${m.emotion ?? "neutral"}, imp ${m.importance}${m.room ? `, at ${m.room}` : ""}) ${m.summary}`).join("\n")
       : "(you have not met this person before)";
 
-    // Gossip: this NPC's strongest memories of OTHER otherworlders, joined with their names.
+    // Gossip: this NPC's strongest memories of OTHER otherworlders.
     const { data: gossipRows } = await supabase
       .from("npc_memories")
-      .select("summary,emotion,importance,room,created_at,user_id,profiles!inner(username)")
+      .select("summary,emotion,importance,room,created_at,user_id")
       .eq("npc_id", npc_id)
       .neq("user_id", user.id)
       .gte("importance", 2)
       .order("importance", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(8);
+    const otherIds = [...new Set((gossipRows ?? []).map((g: any) => g.user_id))];
+    let nameMap = new Map<string, string>();
+    if (otherIds.length) {
+      const { data: profs } = await supabase.from("profiles").select("id,username").in("id", otherIds);
+      nameMap = new Map((profs ?? []).map((p: any) => [p.id, p.username]));
+    }
     const gossipBlock = (gossipRows ?? []).length
-      ? gossipRows!.map((m: any) => `- ${m.profiles?.username ?? "another otherworlder"} (${m.emotion ?? "neutral"}, imp ${m.importance}${m.room ? `, at ${m.room}` : ""}): ${m.summary}`).join("\n")
+      ? gossipRows!.map((m: any) => `- ${nameMap.get(m.user_id) ?? "another otherworlder"} (${m.emotion ?? "neutral"}, imp ${m.importance}${m.room ? `, at ${m.room}` : ""}): ${m.summary}`).join("\n")
       : "(no one else of note has crossed your path)";
 
     // Pull all lore for the NPC's knowledge — they may reference it naturally.
