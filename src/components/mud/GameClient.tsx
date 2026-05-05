@@ -156,6 +156,33 @@ export default function GameClient({ session }: { session: Session }) {
     return () => { cancelled = true; };
   }, [profile?.current_room, room?.slug]);
 
+  // Auto-open Hall of Choice when the player enters it (only if not yet sworn)
+  useEffect(() => {
+    if (profile?.current_room === "hall-of-choice" && !profile.aether) setHallOpen(true);
+  }, [profile?.current_room, profile?.aether]);
+
+  // The Shadow whispers in the deep, unspoken places (dunes, oasis).
+  useEffect(() => {
+    if (!profile) return;
+    const slug = profile.current_room;
+    const wild = slug === "dunes-edge" || slug === "dunes-fork" || slug === "the-oasis" || slug === "ash-road";
+    if (!wild) return;
+    const tick = async () => {
+      try {
+        const { data } = await supabase.functions.invoke("shadow-tempt", { body: { kind: "whisper" } });
+        if (data?.whisper) {
+          setMessages((m) => [...m, {
+            id: crypto.randomUUID(), room: slug, author_name: "the Shadow",
+            kind: "shadow", content: data.whisper, created_at: new Date().toISOString(),
+            user_id: null, npc_id: null,
+          }]);
+        }
+      } catch { /* silence is also a whisper */ }
+    };
+    const t = setTimeout(tick, 25_000 + Math.random() * 25_000);
+    return () => clearTimeout(t);
+  }, [profile?.current_room, messages.length]);
+
   // Realtime: messages in current room + presence
   useEffect(() => {
     if (!profile) return;
