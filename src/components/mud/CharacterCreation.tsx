@@ -16,7 +16,7 @@ const INTRO_BEATS: { text: string; cta: string }[] = [
     cta: "And then —",
   },
   {
-    text: "Somewhere, the Speaker was silenced. Some say its own children stitched its mouth shut, terrified of what it might unspeak. Some say it bit down on a Shadow and could not let go.\n\nNow the Aethers fade like a story half-remembered. The cities forget their names. The desert eats the maps. Only one walled town still burns against the dark — and its priests cover their own mouths, so they will not finish what the Speaker began.\n\nAnd in the deep desert, where no map remembers, a single pool blooms with flowers that exist nowhere else. The world calls it the EverBloom. The world is mostly wrong about it.",
+    text: "Somewhere, the Speaker was silenced. Some say its own children stitched its mouth shut, terrified of what it might unspeak. Some say it bit down on a Shadow and could not let go.\n\nNow the Aethers fade like a story half-remembered. The cities forget their names. The desert eats the maps. Only the First City still burns against the dark — guarded by the Veiled, priests who cover their own mouths so they will not finish what the Speaker began.\n\nAnd in the deep desert, where no map remembers, a single pool blooms with flowers that exist nowhere else. The world calls it the EverBloom. The world is mostly wrong about it.",
     cta: "Go on —",
   },
   {
@@ -117,22 +117,22 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
     const last = beat === INTRO_BEATS.length - 1;
     const advance = () => (last ? setStep("prologue") : setBeat(beat + 1));
     return (
-      <div className="min-h-screen flex items-center justify-center px-5 py-12 bg-background">
-        <div className="max-w-2xl w-full space-y-8 animate-fade-in" key={beat}>
+      <div className="min-h-screen flex items-center justify-center px-4 sm:px-5 py-8 sm:py-12 bg-background">
+        <div className="max-w-2xl w-full space-y-6 sm:space-y-8 animate-fade-in" key={beat}>
           <div className="flex items-center gap-3 animate-fade-in" style={{ animationDelay: "100ms", animationFillMode: "backwards" }}>
-            <Flame className="w-6 h-6 text-ember ember-flicker" />
-            <h1 className="font-display text-3xl text-parchment">
+            <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-ember ember-flicker shrink-0" />
+            <h1 className="font-display text-2xl sm:text-3xl text-parchment leading-tight">
               {beat === 0 ? "When the Gods Stopped Speaking" : beat === 1 ? "The Last Burning City" : "A Walker on the Sand"}
             </h1>
           </div>
           <p
-            className="font-body text-parchment text-lg leading-relaxed whitespace-pre-line animate-fade-in"
+            className="font-body text-parchment text-base sm:text-lg leading-relaxed whitespace-pre-line animate-fade-in"
             style={{ animationDelay: "350ms", animationDuration: "900ms", animationFillMode: "backwards" }}
           >
             {b.text}
           </p>
           <div
-            className="flex items-center gap-4 animate-fade-in"
+            className="flex flex-wrap items-center gap-3 sm:gap-4 animate-fade-in"
             style={{ animationDelay: "1100ms", animationFillMode: "backwards" }}
           >
             <Button
@@ -155,7 +155,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
             {!last && (
               <button
                 onClick={() => setStep("prologue")}
-                className="font-mono text-[10px] text-whisper hover:text-ash underline underline-offset-4 ml-auto transition-colors"
+                className="font-mono text-[10px] text-whisper hover:text-ash underline underline-offset-4 sm:ml-auto transition-colors"
               >
                 skip the telling
               </button>
@@ -165,23 +165,22 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
       </div>
     );
   }
-
   if (step === "prologue") {
     return (
-     <div className="min-h-screen flex items-start md:items-center justify-center px-5 py-10 bg-background overflow-y-auto">
+      <div className="min-h-screen flex items-start md:items-center justify-center px-4 sm:px-5 py-8 sm:py-10 bg-background overflow-y-auto">
         <div className="max-w-2xl w-full space-y-6 pb-32">
           <div className="flex items-center gap-3 animate-fade-in" style={{ animationDelay: "100ms", animationFillMode: "backwards" }}>
-            <Flame className="w-6 h-6 text-ember ember-flicker" />
-            <h1 className="font-display text-3xl text-parchment">Before You Were Anyone</h1>
+            <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-ember ember-flicker shrink-0" />
+            <h1 className="font-display text-2xl sm:text-3xl text-parchment leading-tight">Before You Were Anyone</h1>
           </div>
           <p
-            className="font-body text-parchment text-lg leading-relaxed whitespace-pre-line animate-fade-in"
+            className="font-body text-parchment text-base sm:text-lg leading-relaxed whitespace-pre-line animate-fade-in"
             style={{ animationDelay: "350ms", animationDuration: "1000ms", animationFillMode: "backwards" }}
           >
             {PROLOGUE}
           </p>
           <div
-            className="animate-fade-in flex items-center justify-between gap-4 border-t border-border/70 pt-4"
+            className="animate-fade-in flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 border-t border-border/70 pt-4"
             style={{ animationDelay: "1100ms", animationFillMode: "backwards" }}
           >
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-whisper">
@@ -189,7 +188,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
             </p>
             <Button
               onClick={() => setStep("direction")}
-              className="bg-ember hover:bg-ember/90 text-background font-display group hover-scale shrink-0"
+              className="bg-ember hover:bg-ember/90 text-background font-display group hover-scale shrink-0 self-start sm:self-auto"
             >
               <span>Next</span>
               <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1 animate-pulse" />
@@ -197,14 +196,14 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
           </div>
 
           <div className="sticky bottom-4 z-10 animate-fade-in" style={{ animationDelay: "1300ms", animationFillMode: "backwards" }}>
-            <div className="flex items-center justify-between gap-3 border border-border/80 bg-card/90 px-4 py-3 shadow-[0_12px_40px_-24px_hsl(var(--foreground)/0.75)] backdrop-blur-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border border-border/80 bg-card/90 px-4 py-3 shadow-[0_12px_40px_-24px_hsl(var(--foreground)/0.75)] backdrop-blur-sm">
               <div className="min-w-0">
                 <p className="font-display text-sm text-parchment">Ready to choose your path?</p>
-                <p className="font-body text-xs text-ash">Head for the shining city or disappear into the dunes.</p>
+                <p className="font-body text-xs text-ash">Toward the First City, or away into the dunes.</p>
               </div>
               <Button
                 onClick={() => setStep("direction")}
-                className="bg-ember hover:bg-ember/90 text-background font-display group hover-scale shrink-0"
+                className="bg-ember hover:bg-ember/90 text-background font-display group hover-scale shrink-0 self-start sm:self-auto"
               >
                 <span>Choose your road</span>
                 <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1 animate-pulse" />
@@ -218,38 +217,38 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
 
   if (step === "direction") {
     return (
-      <div className="min-h-screen flex items-start md:items-center justify-center px-5 py-10 bg-background overflow-y-auto">
-        <div className="max-w-3xl w-full space-y-6 animate-in fade-in duration-1000 pb-24">
+      <div className="min-h-screen flex items-start md:items-center justify-center px-4 sm:px-5 py-8 sm:py-10 bg-background overflow-y-auto">
+        <div className="max-w-3xl w-full space-y-5 sm:space-y-6 animate-in fade-in duration-1000 pb-24">
           <div className="flex items-center gap-3">
-            <Flame className="w-6 h-6 text-ember ember-flicker" />
-            <h1 className="font-display text-3xl text-parchment">Which Way Do You Walk?</h1>
+            <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-ember ember-flicker shrink-0" />
+            <h1 className="font-display text-2xl sm:text-3xl text-parchment leading-tight">Which Way Do You Walk?</h1>
           </div>
-          <p className="font-body text-ash italic">No guide. No snake. Only the wind, and a road that runs north.</p>
+          <p className="font-body text-ash italic text-sm sm:text-base">No guide. No snake. Only the wind, and a road that runs north.</p>
 
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
             <button
               onClick={() => setDirection("north")}
-              className={`text-left p-5 border-l-2 transition-all ${
+              className={`text-left p-4 sm:p-5 border-l-2 transition-all ${
                 direction === "north"
                   ? "border-ember bg-ember/5 shadow-[0_0_20px_-8px_hsl(var(--ember))]"
                   : "border-border bg-card/30 hover:border-ember/60"
               }`}
             >
-              <div className="font-display text-xl text-parchment mb-2">North — toward the shining city</div>
+              <div className="font-display text-lg sm:text-xl text-parchment mb-2">North — toward the First City</div>
               <p className="text-sm text-ash leading-relaxed">
-                Watch-fires burn on high walls across the heat-shimmer. A cracked road runs to its gates.
-                There will be people there. Some of them may even be kind.
+                Watch-fires burn on its high walls across the heat-shimmer. A cracked road runs to its gates,
+                where the Veiled stand with cloth bound across their mouths, keeping vigil for a Speaker that no longer speaks.
               </p>
             </button>
             <button
               onClick={() => setDirection("south")}
-              className={`text-left p-5 border-l-2 transition-all ${
+              className={`text-left p-4 sm:p-5 border-l-2 transition-all ${
                 direction === "south"
                   ? "border-ember bg-ember/5 shadow-[0_0_20px_-8px_hsl(var(--ember))]"
                   : "border-border bg-card/30 hover:border-ember/60"
               }`}
             >
-              <div className="font-display text-xl text-parchment mb-2">South — deeper into the dunes</div>
+              <div className="font-display text-lg sm:text-xl text-parchment mb-2">South — deeper into the dunes</div>
               <p className="text-sm text-ash leading-relaxed">
                 No road. No bells. Only sand that goes on and on, and a wind that has begun to say
                 something just under hearing. The Shadow knows that road.
@@ -261,7 +260,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
             <Button
               onClick={() => setStep("choose")}
               disabled={!direction}
-              className="bg-ember hover:bg-ember/90 text-background font-display disabled:opacity-40"
+              className="bg-ember hover:bg-ember/90 text-background font-display disabled:opacity-40 w-full sm:w-auto"
             >
               {direction ? "Now — who are you? →" : "Choose a direction"}
             </Button>
@@ -272,13 +271,13 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   }
 
   return (
-    <div className="min-h-screen bg-background px-5 py-10">
-      <div className="max-w-5xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background px-4 sm:px-5 py-8 sm:py-10">
+      <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8">
         <div className="flex items-center gap-3">
-          <Sparkles className="w-5 h-5 text-ember ember-flicker" />
-          <h1 className="font-display text-3xl text-parchment">The Reflection Waits</h1>
+          <Sparkles className="w-5 h-5 text-ember ember-flicker shrink-0" />
+          <h1 className="font-display text-2xl sm:text-3xl text-parchment leading-tight">The Reflection Waits</h1>
         </div>
-        <p className="font-body text-ash italic">Choose your blood, then fit the missing words. The pool will paint the rest.</p>
+        <p className="font-body text-ash italic text-sm sm:text-base">Choose your blood, then fit the missing words. The pool will paint the rest.</p>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {races.map((r) => {
@@ -366,7 +365,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
                 </div>
 
                 <div className="flex justify-end">
-                  <Button onClick={submit} disabled={busy} className="bg-ember hover:bg-ember/90 text-background font-display">
+                  <Button onClick={submit} disabled={busy} className="bg-ember hover:bg-ember/90 text-background font-display w-full sm:w-auto">
                     {busy ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />the pool stirs…</>) : "Become →"}
                   </Button>
                 </div>
