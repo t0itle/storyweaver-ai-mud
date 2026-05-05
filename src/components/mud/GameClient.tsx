@@ -157,16 +157,16 @@ export default function GameClient({ session }: { session: Session }) {
     return () => { cancelled = true; };
   }, [profile?.current_room, room?.slug]);
 
-  // Auto-open Hall of Choice when the player enters it (only if not yet sworn)
+  // Auto-open Hall of the Seven when player enters it (only if not yet sworn)
   useEffect(() => {
-    if (profile?.current_room === "hall-of-choice" && !profile.aether) setHallOpen(true);
+    if (profile?.current_room === "hall-of-the-seven" && !profile.aether) setHallOpen(true);
   }, [profile?.current_room, profile?.aether]);
 
-  // The Shadow whispers in the deep, unspoken places (dunes, oasis).
+  // The Shadow whispers in unspoken places (the wilderness around the First City).
   useEffect(() => {
     if (!profile) return;
     const slug = profile.current_room;
-    const wild = slug === "dunes-edge" || slug === "deep-dunes" || slug === "ash-road";
+    const wild = slug === "crescent-shore" || slug === "red-haze-road" || slug === "sand-bloom-hollow";
     if (!wild) return;
     const tick = async () => {
       try {
@@ -441,8 +441,8 @@ export default function GameClient({ session }: { session: Session }) {
         if (error || data?.error) throw new Error(data?.error ?? error?.message);
       } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
     } else if (c === "align" || c === "kneel") {
-      if (profile.current_room !== "hall-of-choice") {
-        setMessages((m) => [...m, localSys("There is no basin here. Seek the Hall of Choice in the city.")]);
+      if (profile.current_room !== "hall-of-the-seven") {
+        setMessages((m) => [...m, localSys("There is no basin here. Seek the Hall of the Seven in the First City.")]);
       } else {
         setHallOpen(true);
       }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Backpack, Sparkles, X, Sword, Shield, Gem } from "lucide-react";
+import { Backpack, Sparkles, X, Sword, Shield, Gem, HardHat, Shirt, Footprints, Circle } from "lucide-react";
 
 export interface InvItem {
   id: string;
@@ -21,7 +21,11 @@ export interface KnownRune {
   runes: { key: string; name: string; glyph: string; kind: string; description: string; max_charges: number; rarity: string; };
 }
 
-const SLOT_ICON: Record<string, any> = { weapon: Sword, armor: Shield, focus: Gem };
+const EQUIP_SLOTS = ["head","neck","body","legs","feet","main_hand","off_hand","ring","focus"];
+const SLOT_ICON: Record<string, any> = {
+  main_hand: Sword, off_hand: Shield, body: Shirt, head: HardHat, feet: Footprints,
+  neck: Circle, ring: Circle, legs: Shirt, focus: Gem,
+};
 
 export function InventoryPanel({
   items, onClose, onChanged, totalWeight, maxWeight,
@@ -73,7 +77,7 @@ export function InventoryPanel({
           <Section title="In Your Pack">
             {carried.length === 0 ? <Empty text="Empty." /> : carried.map(it => {
               const actions: { label: string; run: () => void }[] = [];
-              if (["weapon","armor","focus"].includes(it.items.slot)) actions.push({ label: "equip", run: () => act("equip", { player_item_id: it.id, slot: it.items.slot }) });
+              if (EQUIP_SLOTS.includes(it.items.slot)) actions.push({ label: "equip", run: () => act("equip", { player_item_id: it.id, slot: it.items.slot }) });
               if (it.items.slot === "consumable") actions.push({ label: it.items.heal_amount > 0 ? `use (+${it.items.heal_amount} hp)` : "use", run: () => act("use", { player_item_id: it.id }) });
               actions.push({ label: "drop", run: () => act("drop", { player_item_id: it.id }) });
               return <ItemRow key={it.id} it={it} busy={busyId === it.id} actions={actions} />;
