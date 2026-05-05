@@ -23,6 +23,11 @@ interface Message {
   kind: string; content: string; created_at: string;
   user_id: string | null; npc_id: string | null;
 }
+interface LoreEntry {
+  slug: string; title: string; summary: string | null;
+  content: string; keywords: string[]; source_url: string;
+}
+interface Discovery { lore_slug: string; source: string; discovered_at: string; }
 
 const HELP = [
   ["look", "describe the room"],
@@ -30,6 +35,8 @@ const HELP = [
   ["say <text>", "speak aloud (other players hear)"],
   ["emote <text>", "perform an action: *bows*"],
   ["ask <npc> <text>", "speak to an AI NPC"],
+  ["examine <thing>", "study something — may reveal lore"],
+  ["lore", "open your codex of discoveries"],
   ["who", "list players in this room"],
   ["help", "show this list"],
 ];
