@@ -217,18 +217,18 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
 
   if (step === "direction") {
     return (
-      <div className="min-h-screen flex items-start md:items-center justify-center px-5 py-10 bg-background overflow-y-auto">
-        <div className="max-w-3xl w-full space-y-6 animate-in fade-in duration-1000 pb-24">
+      <div className="min-h-screen flex items-start md:items-center justify-center px-4 sm:px-5 py-8 sm:py-10 bg-background overflow-y-auto">
+        <div className="max-w-3xl w-full space-y-5 sm:space-y-6 animate-in fade-in duration-1000 pb-24">
           <div className="flex items-center gap-3">
-            <Flame className="w-6 h-6 text-ember ember-flicker" />
-            <h1 className="font-display text-3xl text-parchment">Which Way Do You Walk?</h1>
+            <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-ember ember-flicker shrink-0" />
+            <h1 className="font-display text-2xl sm:text-3xl text-parchment leading-tight">Which Way Do You Walk?</h1>
           </div>
-          <p className="font-body text-ash italic">No guide. No snake. Only the wind, and a road that runs north.</p>
+          <p className="font-body text-ash italic text-sm sm:text-base">No guide. No snake. Only the wind, and a road that runs north.</p>
 
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
             <button
               onClick={() => setDirection("north")}
-              className={`text-left p-5 border-l-2 transition-all ${
+              className={`text-left p-4 sm:p-5 border-l-2 transition-all ${
                 direction === "north"
                   ? "border-ember bg-ember/5 shadow-[0_0_20px_-8px_hsl(var(--ember))]"
                   : "border-border bg-card/30 hover:border-ember/60"
@@ -242,13 +242,13 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
             </button>
             <button
               onClick={() => setDirection("south")}
-              className={`text-left p-5 border-l-2 transition-all ${
+              className={`text-left p-4 sm:p-5 border-l-2 transition-all ${
                 direction === "south"
                   ? "border-ember bg-ember/5 shadow-[0_0_20px_-8px_hsl(var(--ember))]"
                   : "border-border bg-card/30 hover:border-ember/60"
               }`}
             >
-              <div className="font-display text-xl text-parchment mb-2">South — deeper into the dunes</div>
+              <div className="font-display text-lg sm:text-xl text-parchment mb-2">South — deeper into the dunes</div>
               <p className="text-sm text-ash leading-relaxed">
                 No road. No bells. Only sand that goes on and on, and a wind that has begun to say
                 something just under hearing. The Shadow knows that road.
@@ -260,7 +260,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
             <Button
               onClick={() => setStep("choose")}
               disabled={!direction}
-              className="bg-ember hover:bg-ember/90 text-background font-display disabled:opacity-40"
+              className="bg-ember hover:bg-ember/90 text-background font-display disabled:opacity-40 w-full sm:w-auto"
             >
               {direction ? "Now — who are you? →" : "Choose a direction"}
             </Button>
