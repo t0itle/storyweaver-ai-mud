@@ -536,6 +536,21 @@ export default function GameClient({ session }: { session: Session }) {
       } else {
         setHallOpen(true);
       }
+    } else if (INTERACT_VERBS.has(c)) {
+      // Natural-world interactions: read, open, touch, smell, listen, taste, push, pull,
+      // light, sit, kneel, pray, feel, break, smash, climb, dig, search, drink, eat, knock, …
+      const targetText = args.replace(/^(the|a|an)\s+/i, "").trim();
+      setThinking(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("interact", {
+          body: { verb: c, target: targetText, room: profile.current_room, player_name: profile.username },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        // Post as an emote-like ambient line so others in the room can witness it.
+        await post("emote", `${c}s ${targetText || "the surroundings"} — ${data.content}`);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "the world does not respond");
+      } finally { setThinking(false); }
     } else {
       // default = say
       await post("say", text);
