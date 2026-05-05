@@ -80,16 +80,21 @@ Style: Frank Frazetta meets Greg Rutkowski, atmospheric, cinematic, painterly br
     // Apply HP mod
     const baseMaxHp = 20;
     const newMax = Math.max(8, baseMaxHp + (race.hp_mod ?? 0));
+    const username = String(user.user_metadata?.username ?? user.email?.split("@")[0] ?? "wanderer").trim().slice(0, 32) || "wanderer";
 
-    const { error: updErr } = await admin.from("profiles").update({
+    const { error: updErr } = await admin.from("profiles").upsert({
+      id: user.id,
+      username,
       race: race.key,
       char_description: description.trim().slice(0, 600),
       portrait_url: pub.publicUrl,
       created: true,
       max_hp: newMax,
       hp: newMax,
-      current_room: startRoom, // honor the player's chosen road
-    }).eq("id", user.id);
+      current_room: startRoom,
+    }, {
+      onConflict: "id",
+    });
     if (updErr) throw updErr;
 
     return json({ portrait_url: pub.publicUrl });
