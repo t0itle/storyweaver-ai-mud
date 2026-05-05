@@ -36,7 +36,8 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   const [chosen, setChosen] = useState<Race | null>(null);
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState<"prologue" | "choose">("prologue");
+  const [step, setStep] = useState<"intro" | "prologue" | "choose">("intro");
+  const [beat, setBeat] = useState(0);
 
   useEffect(() => {
     supabase.from("races").select("*").order("sort_order")
