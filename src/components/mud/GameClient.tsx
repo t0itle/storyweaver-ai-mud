@@ -26,8 +26,9 @@ interface Room {
   slug: string; name: string; description: string;
   ambience: string | null;
   exits: Record<string, string>;
+  kind?: string; label?: string;
 }
-interface Npc { id: string; room: string; name: string; title: string | null; greeting: string | null; }
+interface Npc { id: string; room: string; name: string; title: string | null; greeting: string | null; current_activity?: string | null; }
 interface Message {
   id: string; room: string; author_name: string;
   kind: string; content: string; created_at: string;
@@ -162,6 +163,22 @@ export default function GameClient({ session }: { session: Session }) {
       setNpcs((n ?? []) as Npc[]);
       setRoomEvents((ev ?? []) as any);
       setMessages(((m ?? []) as Message[]).reverse());
+
+      // If no living NPCs are here and the place isn't a hand-built solo space, top it up.
+      if ((!n || n.length === 0) && r && (r as any).kind !== "loft") {
+        supabase.functions.invoke("populate-npcs", { body: { room: slug } })
+          .then(({ data }) => {
+            if (data?.added > 0) {
+              // refetch npcs after a short beat so they appear
+              setTimeout(async () => {
+                const { data: n2 } = await supabase.from("npcs").select("*").eq("room", slug)
+                  .or(`dead_until.is.null,dead_until.lte.${new Date().toISOString()}`);
+                setNpcs((n2 ?? []) as Npc[]);
+              }, 400);
+            }
+          })
+          .catch(() => { /* silent */ });
+      }
     })();
   }, [profile?.current_room]);
 
@@ -802,6 +819,7 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
 }) {
   return (
     <div className="border-l-2 border-ember/60 pl-4 py-1 mb-4">
+      <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-ash mb-1">{room.label ?? "Place"}</div>
       <h2 className="font-display text-2xl text-ember mb-2">{room.name}</h2>
       <div className="mb-3 aspect-[16/9] bg-card/50 border border-border overflow-hidden relative">
         {sceneUrl ? (
@@ -821,9 +839,15 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
       <p className="text-parchment whitespace-pre-line">{room.description}</p>
       {room.ambience && <p className="text-ash italic mt-2">{room.ambience}</p>}
       {npcs.length > 0 && (
-        <p className="text-whisper italic mt-2">
-          {npcs.map((n) => `${n.name}${n.title ? `, ${n.title}` : ""}`).join("; ")} {npcs.length === 1 ? "is" : "are"} here.
-        </p>
+        <div className="text-whisper italic mt-2 space-y-0.5">
+          {npcs.map((n) => (
+            <p key={n.id}>
+              <span className="text-parchment">{n.name}</span>
+              {n.title ? <span>, {n.title}</span> : null}
+              {n.current_activity ? <span className="text-ash"> — {n.current_activity}</span> : null}
+            </p>
+          ))}
+        </div>
       )}
       {events.length > 0 && (
         <div className="mt-3 border-l-2 border-shadow/60 pl-3 py-1 bg-shadow/5">
@@ -851,6 +875,9 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
   }
   if (m.kind === "emote") {
     return <div className="text-moss italic">* {m.author_name} {m.content}</div>;
+  }
+  if (m.kind === "ambient") {
+    return <div className="text-whisper italic text-sm">{m.content}</div>;
   }
   if (m.kind === "shadow") {
     return (
@@ -886,9 +913,9 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
 }
 
 function formatRoom(room: Room, npcs: Npc[], events: { kind: string; actor_name: string; target_name: string | null; details: any }[] = []) {
-  const lines = [room.name.toUpperCase(), "", room.description];
+  const lines = [`${(room.label ?? "Place").toUpperCase()} — ${room.name.toUpperCase()}`, "", room.description];
   if (room.ambience) lines.push("", room.ambience);
-  if (npcs.length) lines.push("", "Here: " + npcs.map(n => n.name).join(", "));
+  if (npcs.length) lines.push("", "Here: " + npcs.map(n => n.current_activity ? `${n.name} (${n.current_activity})` : n.name).join(", "));
   lines.push("", "Exits: " + (Object.keys(room.exits).join(", ") || "none"));
   if (events.length) {
     lines.push("", "— what happened here —");

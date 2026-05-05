@@ -2,3 +2,6 @@ project_id = "jtynoohqgxlhtcrebuqf"
 
 [functions.sync-lore]
 verify_jwt = false
+
+[functions.world-tick]
+verify_jwt = false
