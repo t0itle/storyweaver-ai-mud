@@ -516,6 +516,9 @@ export default function GameClient({ session }: { session: Session }) {
           body: { npc_id: npc.id, room: profile.current_room, player_input: what, player_name: profile.username },
         });
         if (error) throw error;
+        if (data?.amity?.score !== undefined) {
+          setAmityByNpc((prev) => ({ ...prev, [npc.id]: data.amity.score }));
+        }
         // Auto-discover any places the NPC named, so "go to <place>" works immediately.
         const places: string[] = data?.mentioned_places ?? [];
         if (places.length) {
