@@ -49,6 +49,10 @@ export default function GameClient({ session }: { session: Session }) {
   const [presence, setPresence] = useState<{ username: string }[]>([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
+  const [lore, setLore] = useState<LoreEntry[]>([]);
+  const [discoveries, setDiscoveries] = useState<Discovery[]>([]);
+  const [codexOpen, setCodexOpen] = useState(false);
+  const [codexEntry, setCodexEntry] = useState<string | null>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
