@@ -157,6 +157,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          char_description: string | null
+          created: boolean
           created_at: string
           current_room: string
           gold: number
@@ -164,11 +166,15 @@ export type Database = {
           id: string
           level: number
           max_hp: number
+          portrait_url: string | null
+          race: string | null
           updated_at: string
           username: string
           xp: number
         }
         Insert: {
+          char_description?: string | null
+          created?: boolean
           created_at?: string
           current_room?: string
           gold?: number
@@ -176,11 +182,15 @@ export type Database = {
           id: string
           level?: number
           max_hp?: number
+          portrait_url?: string | null
+          race?: string | null
           updated_at?: string
           username: string
           xp?: number
         }
         Update: {
+          char_description?: string | null
+          created?: boolean
           created_at?: string
           current_room?: string
           gold?: number
@@ -188,9 +198,79 @@ export type Database = {
           id?: string
           level?: number
           max_hp?: number
+          portrait_url?: string | null
+          race?: string | null
           updated_at?: string
           username?: string
           xp?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_race_fkey"
+            columns: ["race"]
+            isOneToOne: false
+            referencedRelation: "races"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      races: {
+        Row: {
+          cost: string
+          flavor: string
+          gain: string
+          hp_mod: number
+          key: string
+          name: string
+          sort_order: number
+          visual_traits: string
+        }
+        Insert: {
+          cost: string
+          flavor: string
+          gain: string
+          hp_mod?: number
+          key: string
+          name: string
+          sort_order?: number
+          visual_traits: string
+        }
+        Update: {
+          cost?: string
+          flavor?: string
+          gain?: string
+          hp_mod?: number
+          key?: string
+          name?: string
+          sort_order?: number
+          visual_traits?: string
+        }
+        Relationships: []
+      }
+      room_scenes: {
+        Row: {
+          context_hash: string
+          created_at: string
+          id: string
+          image_url: string
+          prompt: string | null
+          room: string
+        }
+        Insert: {
+          context_hash: string
+          created_at?: string
+          id?: string
+          image_url: string
+          prompt?: string | null
+          room: string
+        }
+        Update: {
+          context_hash?: string
+          created_at?: string
+          id?: string
+          image_url?: string
+          prompt?: string | null
+          room?: string
         }
         Relationships: []
       }
