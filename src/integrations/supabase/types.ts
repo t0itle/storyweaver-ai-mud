@@ -507,6 +507,7 @@ export type Database = {
           level: number
           max_hp: number
           max_weight: number
+          merit: number
           portrait_url: string | null
           race: string | null
           updated_at: string
@@ -528,6 +529,7 @@ export type Database = {
           level?: number
           max_hp?: number
           max_weight?: number
+          merit?: number
           portrait_url?: string | null
           race?: string | null
           updated_at?: string
@@ -549,6 +551,7 @@ export type Database = {
           level?: number
           max_hp?: number
           max_weight?: number
+          merit?: number
           portrait_url?: string | null
           race?: string | null
           updated_at?: string
