@@ -236,10 +236,14 @@ Deno.serve(async (req) => {
         `${me.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`, final);
       // XP/gold reward on kill (only against NPCs)
       if (defeated && target.kind === "npc") {
-        const reward = 8 + SR(8); const goldReward = 3 + SR(8);
-        await admin.from("profiles").update({ xp: (profile.xp ?? 0) + reward, gold: (profile.gold ?? 0) + goldReward }).eq("id", user.id);
+        const reward = 8 + SR(8); const goldReward = 3 + SR(8); const meritReward = 1 + SR(2);
+        await admin.from("profiles").update({
+          xp: (profile.xp ?? 0) + reward,
+          gold: (profile.gold ?? 0) + goldReward,
+          merit: (profile.merit ?? 0) + meritReward,
+        }).eq("id", user.id);
         await admin.from("messages").insert({ room: profile.current_room, user_id: null, author_name: "—", kind: "system",
-          content: `✦ ${me.name} gains ${reward} xp and ${goldReward} gold.` });
+          content: `✦ ${me.name} gains ${reward} xp, ${goldReward} gold, and ${meritReward} merit.` });
       }
       await advanceTurn(combatId);
       return ok({ ok: true });
