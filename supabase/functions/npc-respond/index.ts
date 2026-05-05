@@ -41,6 +41,12 @@ Deno.serve(async (req) => {
       .map(m => `${m.kind === "emote" ? "* " : ""}${m.author_name}: ${m.content}`)
       .join("\n");
 
+    // Pull all lore for the NPC's knowledge — they may reference it naturally.
+    const { data: lore } = await supabase.from("lore_entries").select("slug,title,summary,keywords");
+    const loreBlock = (lore ?? []).map((l: any) =>
+      `- ${l.title} (${l.slug}): ${l.summary ?? ""}`
+    ).join("\n");
+
     const system = `You are roleplaying ${npc.name}${npc.title ? ", " + npc.title : ""}, an NPC in a text-based fantasy MUD set in the volcanic frontier village of Ember-Hold.
 
 PERSONA:
