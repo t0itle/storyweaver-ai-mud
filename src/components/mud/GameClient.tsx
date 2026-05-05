@@ -434,6 +434,11 @@ export default function GameClient({ session }: { session: Session }) {
       setMessages((m) => [...m, localSys(formatRoom(room, npcs, roomEvents))]);
     } else if (c === "who") {
       setMessages((m) => [...m, localSys(`Here: ${presence.map(p => p.username).join(", ") || "(only you)"}`)]);
+    } else if (c === "follow") {
+      if (!args) { setMessages((m) => [...m, localSys("Follow whom? Try: follow <npc name>")]); return; }
+      await followNpc(args.trim());
+    } else if (c === "dismiss" || c === "unfollow" || c === "partways") {
+      await dismissCompanion();
     } else if (c === "go" || c === "n" || c === "s" || c === "e" || c === "w" || c === "u" || c === "d" || c === "travel" || c === "goto") {
       const dirMap: Record<string, string> = { n: "north", s: "south", e: "east", w: "west", u: "up", d: "down" };
       let dir = dirMap[c] ?? args.toLowerCase().trim();
