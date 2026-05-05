@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      lore_entries: {
+        Row: {
+          content: string
+          created_at: string
+          keywords: string[]
+          slug: string
+          source_url: string
+          summary: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          keywords?: string[]
+          slug: string
+          source_url: string
+          summary?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          keywords?: string[]
+          slug?: string
+          source_url?: string
+          summary?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           author_name: string
@@ -86,6 +119,38 @@ export type Database = {
             columns: ["room"]
             isOneToOne: false
             referencedRelation: "rooms"
+            referencedColumns: ["slug"]
+          },
+        ]
+      }
+      player_lore_discoveries: {
+        Row: {
+          discovered_at: string
+          id: string
+          lore_slug: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          discovered_at?: string
+          id?: string
+          lore_slug: string
+          source?: string
+          user_id: string
+        }
+        Update: {
+          discovered_at?: string
+          id?: string
+          lore_slug?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_lore_discoveries_lore_slug_fkey"
+            columns: ["lore_slug"]
+            isOneToOne: false
+            referencedRelation: "lore_entries"
             referencedColumns: ["slug"]
           },
         ]
