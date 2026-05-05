@@ -74,6 +74,24 @@ Deno.serve(async (req) => {
       ? gossipRows!.map((m: any) => `- ${nameMap.get(m.user_id) ?? "another otherworlder"} (${m.emotion ?? "neutral"}, imp ${m.importance}${m.room ? `, at ${m.room}` : ""}): ${m.summary}`).join("\n")
       : "(no one else of note has crossed your path)";
 
+    // Amity: NPC's current feeling toward THIS player.
+    const { data: amityRow } = await supabase
+      .from("npc_amity").select("score").eq("npc_id", npc_id).eq("user_id", user.id).maybeSingle();
+    let currentScore = amityRow?.score ?? 0;
+
+    // Gossip-bleed: if no prior amity, seed from other NPCs' amity toward this player (20% avg).
+    if (!amityRow) {
+      const { data: peerAmity } = await supabase
+        .from("npc_amity").select("score").eq("user_id", user.id).neq("npc_id", npc_id);
+      if (peerAmity && peerAmity.length) {
+        const avg = peerAmity.reduce((s, r) => s + (r.score ?? 0), 0) / peerAmity.length;
+        currentScore = Math.round(avg * 0.2);
+      }
+    }
+    const amityWord = (s: number) =>
+      s <= -60 ? "Hostile" : s <= -20 ? "Wary" : s < 20 ? "Neutral" : s < 60 ? "Friendly" : "Devoted";
+    const amityBlock = `${amityWord(currentScore)} (${currentScore >= 0 ? "+" : ""}${currentScore})`;
+
     // Pull all lore for the NPC's knowledge — they may reference it naturally.
     const { data: lore } = await supabase.from("lore_entries").select("slug,title,summary,keywords");
     const loreBlock = (lore ?? []).map((l: any) =>
