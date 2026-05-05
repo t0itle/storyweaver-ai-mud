@@ -95,7 +95,10 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   const submit = async () => {
     if (!chosen) { toast.error("Choose a race first."); return; }
     if (!direction) { toast.error("Choose a direction first."); return; }
-    if (description.trim().length < 8) { toast.error("Describe yourself in a sentence or two."); return; }
+    if (!gender) { toast.error("Choose a gender first."); return; }
+    const filled = AD_LIB_FIELDS.filter((f) => (adlib[f.key]?.trim().length ?? 0) >= 2).length;
+    if (filled < 3) { toast.error("Fill in at least three details — the pool needs a face."); return; }
+    const description = buildDescription();
     setBusy(true);
     try {
       const { error } = await supabase.functions.invoke("create-character", {
