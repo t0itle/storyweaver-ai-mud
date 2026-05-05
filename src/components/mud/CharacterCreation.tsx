@@ -10,9 +10,22 @@ interface Race {
   gain: string; cost: string; hp_mod: number; sort_order: number;
 }
 
-const PROLOGUE = `You wake walking. You have been walking for a long time.
+const INTRO_BEATS: { text: string; cta: string }[] = [
+  {
+    text: "Long ago the gods spoke, and the world listened.\n\nThen the gods went quiet — all but One, whose mouth was stitched shut by the others before they fled. That god still whispers, beneath the sand, beneath the stone, beneath the tongue.",
+    cta: "And then —",
+  },
+  {
+    text: "The cities forgot their names. The roads forgot their travelers. The desert ate the maps.\n\nOnly Ember-Hold still burns, walls of red stone against a sky that has not rained in a hundred years. Its priests cover their mouths so they will not answer what answers them.",
+    cta: "Go on —",
+  },
+  {
+    text: "You are not from there.\n\nYou are not from anywhere you can remember.\n\nYou are walking. You have been walking for a long time. The sand is in your teeth. Something has been calling, very softly, and you have been answering with your feet.",
+    cta: "Open your eyes →",
+  },
+];
 
-Behind you the dunes have eaten the road. Ahead, a fork: walls of red stone in the north, where torches burn against the falling dark — and to the south, a fat black snake on a sun-warmed rock, watching you, as if it has been waiting.
+const PROLOGUE = `Behind you the dunes have eaten the road. Ahead, a fork: walls of red stone in the north, where torches burn against the falling dark — and to the south, a fat black snake on a sun-warmed rock, watching you, as if it has been waiting.
 
 It tilts its head toward the deep desert and slides away. You follow without knowing why, and the dunes part, and there is water — a still pool, ringed in pale flowers that do not exist anywhere else in the world.
 
@@ -23,7 +36,8 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   const [chosen, setChosen] = useState<Race | null>(null);
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState<"prologue" | "choose">("prologue");
+  const [step, setStep] = useState<"intro" | "prologue" | "choose">("intro");
+  const [beat, setBeat] = useState(0);
 
   useEffect(() => {
     supabase.from("races").select("*").order("sort_order")
@@ -46,10 +60,44 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
     } finally { setBusy(false); }
   };
 
+  if (step === "intro") {
+    const b = INTRO_BEATS[beat];
+    const last = beat === INTRO_BEATS.length - 1;
+    return (
+      <div className="min-h-screen flex items-center justify-center px-5 py-12 bg-background">
+        <div className="max-w-2xl w-full space-y-8 animate-in fade-in duration-1000" key={beat}>
+          <div className="flex items-center gap-3">
+            <Flame className="w-6 h-6 text-ember ember-flicker" />
+            <h1 className="font-display text-3xl text-parchment">
+              {beat === 0 ? "When the Gods Stopped Speaking" : beat === 1 ? "The Last Burning City" : "A Walker on the Sand"}
+            </h1>
+          </div>
+          <p className="font-body text-parchment text-lg leading-relaxed whitespace-pre-line">{b.text}</p>
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={() => (last ? setStep("prologue") : setBeat(beat + 1))}
+              className="bg-ember hover:bg-ember/90 text-background font-display"
+            >
+              {b.cta}
+            </Button>
+            <span className="font-mono text-[10px] text-ash tracking-widest">
+              {beat + 1} / {INTRO_BEATS.length}
+            </span>
+            {!last && (
+              <button onClick={() => setStep("prologue")} className="font-mono text-[10px] text-whisper hover:text-ash underline underline-offset-4 ml-auto">
+                skip the telling
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (step === "prologue") {
     return (
       <div className="min-h-screen flex items-center justify-center px-5 py-12 bg-background">
-        <div className="max-w-2xl w-full space-y-8">
+        <div className="max-w-2xl w-full space-y-8 animate-in fade-in duration-1000">
           <div className="flex items-center gap-3">
             <Flame className="w-6 h-6 text-ember ember-flicker" />
             <h1 className="font-display text-3xl text-parchment">Before You Were Anyone</h1>
