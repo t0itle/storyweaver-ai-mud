@@ -20,6 +20,7 @@ interface Profile {
   max_weight: number;
   aether: string | null;
   corruption: number;
+  merit: number;
 }
 interface Room {
   slug: string; name: string; description: string;
