@@ -451,7 +451,8 @@ export default function GameClient({ session }: { session: Session }) {
           <div>
             <div className="font-display text-lg leading-none text-parchment">{profile.username}</div>
             <div className="font-mono text-[10px] text-ash uppercase tracking-widest">
-              {profile.race ?? "wanderer"} · lvl {profile.level} · <span className="text-ember/80">EverBloom</span>
+              {profile.race ?? "wanderer"} · lvl {profile.level}
+              {profile.aether && <> · <span className="text-ember/80">{profile.aether}</span></>}
             </div>
           </div>
         </div>
@@ -459,6 +460,19 @@ export default function GameClient({ session }: { session: Session }) {
           <span className="text-ember">♥ {profile.hp}/{profile.max_hp}</span>
           <span className="text-accent">✦ {profile.xp} xp</span>
           <span className="text-parchment">⚜ {profile.gold}g</span>
+          <button
+            onClick={() => setHallOpen(true)}
+            title={`Shadow corruption: ${profile.corruption}/100`}
+            className="flex items-center gap-1.5"
+          >
+            <span className="text-ash">◐</span>
+            <span className="w-16 h-1.5 bg-border relative overflow-hidden">
+              <span
+                className="absolute inset-y-0 left-0 bg-gradient-to-r from-whisper to-ember"
+                style={{ width: `${Math.min(100, profile.corruption ?? 0)}%` }}
+              />
+            </span>
+          </button>
           <button onClick={() => setInvOpen(true)} className="flex items-center gap-1 text-whisper hover:text-ember transition-colors" title="Inventory">
             <Backpack className="w-4 h-4" />
             <span>{inventory.length}</span>
