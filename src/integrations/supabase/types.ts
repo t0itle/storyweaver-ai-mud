@@ -14,6 +14,235 @@ export type Database = {
   }
   public: {
     Tables: {
+      combat_actions: {
+        Row: {
+          action: string
+          actor_id: string | null
+          actor_name: string
+          combat_id: string
+          created_at: string
+          damage: number
+          id: string
+          target_name: string | null
+          text: string
+          turn_number: number
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          actor_name: string
+          combat_id: string
+          created_at?: string
+          damage?: number
+          id?: string
+          target_name?: string | null
+          text: string
+          turn_number: number
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          actor_name?: string
+          combat_id?: string
+          created_at?: string
+          damage?: number
+          id?: string
+          target_name?: string | null
+          text?: string
+          turn_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combat_actions_combat_id_fkey"
+            columns: ["combat_id"]
+            isOneToOne: false
+            referencedRelation: "combats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      combatants: {
+        Row: {
+          combat_id: string
+          defeated: boolean
+          defending: boolean
+          hp: number
+          id: string
+          initiative: number
+          kind: string
+          max_hp: number
+          name: string
+          npc_id: string | null
+          side: string
+          turn_order: number
+          user_id: string | null
+        }
+        Insert: {
+          combat_id: string
+          defeated?: boolean
+          defending?: boolean
+          hp: number
+          id?: string
+          initiative?: number
+          kind: string
+          max_hp: number
+          name: string
+          npc_id?: string | null
+          side: string
+          turn_order?: number
+          user_id?: string | null
+        }
+        Update: {
+          combat_id?: string
+          defeated?: boolean
+          defending?: boolean
+          hp?: number
+          id?: string
+          initiative?: number
+          kind?: string
+          max_hp?: number
+          name?: string
+          npc_id?: string | null
+          side?: string
+          turn_order?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "combatants_combat_id_fkey"
+            columns: ["combat_id"]
+            isOneToOne: false
+            referencedRelation: "combats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      combats: {
+        Row: {
+          current_combatant_id: string | null
+          ended_at: string | null
+          id: string
+          log: Json
+          room: string
+          started_at: string
+          status: string
+          turn_number: number
+          winner_side: string | null
+        }
+        Insert: {
+          current_combatant_id?: string | null
+          ended_at?: string | null
+          id?: string
+          log?: Json
+          room: string
+          started_at?: string
+          status?: string
+          turn_number?: number
+          winner_side?: string | null
+        }
+        Update: {
+          current_combatant_id?: string | null
+          ended_at?: string | null
+          id?: string
+          log?: Json
+          room?: string
+          started_at?: string
+          status?: string
+          turn_number?: number
+          winner_side?: string | null
+        }
+        Relationships: []
+      }
+      item_runes: {
+        Row: {
+          charges: number
+          id: string
+          max_charges: number
+          player_item_id: string
+          rune_key: string
+          woven_at: string
+        }
+        Insert: {
+          charges?: number
+          id?: string
+          max_charges?: number
+          player_item_id: string
+          rune_key: string
+          woven_at?: string
+        }
+        Update: {
+          charges?: number
+          id?: string
+          max_charges?: number
+          player_item_id?: string
+          rune_key?: string
+          woven_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "item_runes_player_item_id_fkey"
+            columns: ["player_item_id"]
+            isOneToOne: false
+            referencedRelation: "player_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "item_runes_rune_key_fkey"
+            columns: ["rune_key"]
+            isOneToOne: false
+            referencedRelation: "runes"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      items: {
+        Row: {
+          base_armor: number
+          base_damage: number
+          capacity_weight: number
+          description: string
+          heal_amount: number
+          key: string
+          max_stack: number
+          name: string
+          rune_slots: number
+          slot: string
+          stackable: boolean
+          value: number
+          weight: number
+        }
+        Insert: {
+          base_armor?: number
+          base_damage?: number
+          capacity_weight?: number
+          description?: string
+          heal_amount?: number
+          key: string
+          max_stack?: number
+          name: string
+          rune_slots?: number
+          slot?: string
+          stackable?: boolean
+          value?: number
+          weight?: number
+        }
+        Update: {
+          base_armor?: number
+          base_damage?: number
+          capacity_weight?: number
+          description?: string
+          heal_amount?: number
+          key?: string
+          max_stack?: number
+          name?: string
+          rune_slots?: number
+          slot?: string
+          stackable?: boolean
+          value?: number
+          weight?: number
+        }
+        Relationships: []
+      }
       lore_entries: {
         Row: {
           content: string
@@ -123,6 +352,51 @@ export type Database = {
           },
         ]
       }
+      player_items: {
+        Row: {
+          container_id: string | null
+          created_at: string
+          equipped_slot: string | null
+          id: string
+          item_key: string
+          quantity: number
+          user_id: string
+        }
+        Insert: {
+          container_id?: string | null
+          created_at?: string
+          equipped_slot?: string | null
+          id?: string
+          item_key: string
+          quantity?: number
+          user_id: string
+        }
+        Update: {
+          container_id?: string | null
+          created_at?: string
+          equipped_slot?: string | null
+          id?: string
+          item_key?: string
+          quantity?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_items_container_id_fkey"
+            columns: ["container_id"]
+            isOneToOne: false
+            referencedRelation: "player_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_items_item_key_fkey"
+            columns: ["item_key"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       player_lore_discoveries: {
         Row: {
           discovered_at: string
@@ -155,6 +429,38 @@ export type Database = {
           },
         ]
       }
+      player_runes: {
+        Row: {
+          id: string
+          learned_at: string
+          rune_key: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          learned_at?: string
+          rune_key: string
+          source?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          learned_at?: string
+          rune_key?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_runes_rune_key_fkey"
+            columns: ["rune_key"]
+            isOneToOne: false
+            referencedRelation: "runes"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           char_description: string | null
@@ -164,8 +470,10 @@ export type Database = {
           gold: number
           hp: number
           id: string
+          in_combat_id: string | null
           level: number
           max_hp: number
+          max_weight: number
           portrait_url: string | null
           race: string | null
           updated_at: string
@@ -180,8 +488,10 @@ export type Database = {
           gold?: number
           hp?: number
           id: string
+          in_combat_id?: string | null
           level?: number
           max_hp?: number
+          max_weight?: number
           portrait_url?: string | null
           race?: string | null
           updated_at?: string
@@ -196,8 +506,10 @@ export type Database = {
           gold?: number
           hp?: number
           id?: string
+          in_combat_id?: string | null
           level?: number
           max_hp?: number
+          max_weight?: number
           portrait_url?: string | null
           race?: string | null
           updated_at?: string
@@ -295,6 +607,45 @@ export type Database = {
           exits?: Json
           name?: string
           slug?: string
+        }
+        Relationships: []
+      }
+      runes: {
+        Row: {
+          description: string
+          effect: Json
+          glyph: string
+          key: string
+          kind: string
+          lore_slug: string | null
+          max_charges: number
+          name: string
+          rarity: string
+          teacher_npc: string | null
+        }
+        Insert: {
+          description?: string
+          effect?: Json
+          glyph?: string
+          key: string
+          kind?: string
+          lore_slug?: string | null
+          max_charges?: number
+          name: string
+          rarity?: string
+          teacher_npc?: string | null
+        }
+        Update: {
+          description?: string
+          effect?: Json
+          glyph?: string
+          key?: string
+          kind?: string
+          lore_slug?: string | null
+          max_charges?: number
+          name?: string
+          rarity?: string
+          teacher_npc?: string | null
         }
         Relationships: []
       }
