@@ -365,7 +365,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
                 </div>
 
                 <div className="flex justify-end">
-                  <Button onClick={submit} disabled={busy} className="bg-ember hover:bg-ember/90 text-background font-display">
+                  <Button onClick={submit} disabled={busy} className="bg-ember hover:bg-ember/90 text-background font-display w-full sm:w-auto">
                     {busy ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />the pool stirs…</>) : "Become →"}
                   </Button>
                 </div>
