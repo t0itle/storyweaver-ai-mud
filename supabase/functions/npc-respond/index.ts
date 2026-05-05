@@ -119,7 +119,16 @@ Do not mention this tag in your prose. Do not number it. Just append it on its o
     }
 
     const data = await res.json();
-    const content = data.choices?.[0]?.message?.content?.trim() ?? "...";
+    const rawContent = data.choices?.[0]?.message?.content?.trim() ?? "...";
+
+    // Strip and parse hidden <<PLACES>>[...]<<END>> tag
+    let mentionedPlaces: string[] = [];
+    const placesMatch = rawContent.match(/<<PLACES>>\s*(\[[\s\S]*?\])\s*<<END>>/);
+    let content = rawContent;
+    if (placesMatch) {
+      try { mentionedPlaces = JSON.parse(placesMatch[1]); } catch { mentionedPlaces = []; }
+      content = rawContent.replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*$/, "").trim();
+    }
 
     // Insert NPC message (user_id null is allowed by RLS)
     await supabase.from("messages").insert({
