@@ -548,7 +548,20 @@ export default function GameClient({ session }: { session: Session }) {
     } else if (INTERACT_VERBS.has(c)) {
       // Natural-world interactions: read, open, touch, smell, listen, taste, push, pull,
       // light, sit, kneel, pray, feel, break, smash, climb, dig, search, drink, eat, knock, …
-      const targetText = args.replace(/^(the|a|an)\s+/i, "").trim();
+      let targetText = args.replace(/^(the|a|an)\s+/i, "").trim();
+      // "it" / empty → auto-pick a sensible inventory item for the verb.
+      if (!targetText || targetText === "it") {
+        const readableHints = ["scroll","book","tome","letter","note","map","sign","tablet","page","journal","codex"];
+        const drinkHints = ["water","wine","ale","potion","draught","tonic","cup","flask","skin","brew"];
+        const eatHints = ["bread","fruit","meat","ration","fig","date","cheese","root","berry"];
+        const pickFor = (hints: string[]) =>
+          inventory.find(i => hints.some(h => i.items.name.toLowerCase().includes(h) || i.item_key.includes(h)));
+        const guess =
+          c === "read" ? pickFor(readableHints) :
+          c === "drink" || c === "sip" ? pickFor(drinkHints) :
+          c === "eat" ? pickFor(eatHints) : null;
+        if (guess) targetText = guess.items.name;
+      }
       setThinking(true);
       try {
         const { data, error } = await supabase.functions.invoke("interact", {
