@@ -267,11 +267,11 @@ export default function GameClient({ session }: { session: Session }) {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.${slug}` },
         (p) => {
           const msg = p.new as Message & { addressed_to?: string | null };
-          // Filter: own messages, ambient/world (no user_id, no addressed_to), or NPC replies addressed to me.
-          const mine = msg.user_id === profile.id;
-          const ambient = !msg.user_id && !msg.addressed_to;
-          const toMe = msg.addressed_to === profile.id;
-          if (mine || ambient || toMe) setMessages((prev) => [...prev, msg]);
+          // Show: anything not addressed to a specific player, OR addressed to me.
+          // Hides only NPC replies meant for someone else.
+          if (!msg.addressed_to || msg.addressed_to === profile.id) {
+            setMessages((prev) => [...prev, msg]);
+          }
         })
       .on("presence", { event: "sync" }, () => {
         const state = ch.presenceState() as Record<string, { username: string }[]>;
