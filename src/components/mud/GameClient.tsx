@@ -162,7 +162,9 @@ export default function GameClient({ session }: { session: Session }) {
         supabase.from("rooms").select("*").eq("slug", slug).maybeSingle(),
         supabase.from("npcs").select("*").eq("room", slug)
           .or(`dead_until.is.null,dead_until.lte.${nowIso}`),
-        supabase.from("messages").select("*").eq("room", slug).order("created_at", { ascending: false }).limit(40),
+        supabase.from("messages").select("*").eq("room", slug)
+          .or(`user_id.eq.${profile.id},and(user_id.is.null,addressed_to.is.null),addressed_to.eq.${profile.id}`)
+          .order("created_at", { ascending: false }).limit(40),
         supabase.from("world_events").select("kind,actor_name,target_name,details,created_at")
           .eq("room", slug)
           .or(`decay_at.is.null,decay_at.gte.${nowIso}`)
