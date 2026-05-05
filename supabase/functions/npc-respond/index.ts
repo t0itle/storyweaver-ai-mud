@@ -203,9 +203,20 @@ Do not mention these tags in your prose.`;
       } catch { /* ignore */ }
     }
 
+    // Strip and parse hidden <<AMITY>>{...}<<END>> tag
+    const amityMatch = rawContent.match(/<<AMITY>>\s*(\{[\s\S]*?\})\s*<<END>>/);
+    let amityDelta = 0;
+    if (amityMatch) {
+      try {
+        const parsed = JSON.parse(amityMatch[1]);
+        amityDelta = Math.max(-10, Math.min(10, Number(parsed?.delta) || 0));
+      } catch { /* ignore */ }
+    }
+
     content = rawContent
       .replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<MEMORY>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<AMITY>>[\s\S]*?<<END>>\s*/g, "")
       .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
