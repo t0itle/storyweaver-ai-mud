@@ -145,8 +145,22 @@ Do not mention these tags in your prose.`;
     let content = rawContent;
     if (placesMatch) {
       try { mentionedPlaces = JSON.parse(placesMatch[1]); } catch { mentionedPlaces = []; }
-      content = rawContent.replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*$/, "").trim();
     }
+
+    // Strip and parse hidden <<MEMORY>>{...}<<END>> tag
+    const memoryMatch = rawContent.match(/<<MEMORY>>\s*(null|\{[\s\S]*?\})\s*<<END>>/);
+    let memoryToStore: { summary: string; emotion?: string; importance?: number } | null = null;
+    if (memoryMatch && memoryMatch[1] !== "null") {
+      try {
+        const parsed = JSON.parse(memoryMatch[1]);
+        if (parsed?.summary) memoryToStore = parsed;
+      } catch { /* ignore */ }
+    }
+
+    content = rawContent
+      .replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<MEMORY>>[\s\S]*?<<END>>\s*/g, "")
+      .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
     await supabase.from("messages").insert({
