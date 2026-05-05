@@ -183,6 +183,28 @@ export default function GameClient({ session }: { session: Session }) {
     return () => clearInterval(t);
   }, [profile?.current_room, profile?.id]);
 
+  // Listen for shadow choices made via inline buttons
+  useEffect(() => {
+    const handler = async (ev: Event) => {
+      const kind = (ev as CustomEvent<string>).detail;
+      try {
+        const { data } = await supabase.functions.invoke("shadow-tempt", { body: { kind } });
+        if (data?.ok) {
+          setMessages((m) => [...m, {
+            id: crypto.randomUUID(), room: profile?.current_room ?? "", author_name: "—",
+            kind: "local", content: kind === "submit"
+              ? `you let it in. (corruption ${data.corruption}/100)`
+              : `you push it back. (corruption ${data.corruption}/100)`,
+            created_at: new Date().toISOString(), user_id: null, npc_id: null,
+          }]);
+          reloadProfile();
+        }
+      } catch { /* */ }
+    };
+    window.addEventListener("shadow-act", handler);
+    return () => window.removeEventListener("shadow-act", handler);
+  }, [profile?.current_room]);
+
   // Realtime: messages in current room + presence
   useEffect(() => {
     if (!profile) return;
