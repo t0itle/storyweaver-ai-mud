@@ -163,6 +163,22 @@ export default function GameClient({ session }: { session: Session }) {
       setNpcs((n ?? []) as Npc[]);
       setRoomEvents((ev ?? []) as any);
       setMessages(((m ?? []) as Message[]).reverse());
+
+      // If no living NPCs are here and the place isn't a hand-built solo space, top it up.
+      if ((!n || n.length === 0) && r && (r as any).kind !== "loft") {
+        supabase.functions.invoke("populate-npcs", { body: { room: slug } })
+          .then(({ data }) => {
+            if (data?.added > 0) {
+              // refetch npcs after a short beat so they appear
+              setTimeout(async () => {
+                const { data: n2 } = await supabase.from("npcs").select("*").eq("room", slug)
+                  .or(`dead_until.is.null,dead_until.lte.${new Date().toISOString()}`);
+                setNpcs((n2 ?? []) as Npc[]);
+              }, 400);
+            }
+          })
+          .catch(() => { /* silent */ });
+      }
     })();
   }, [profile?.current_room]);
 
