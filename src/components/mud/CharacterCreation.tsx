@@ -33,14 +33,59 @@ But first — before the road, before the city, before the Shadow learns the sha
 
 type Direction = "north" | "south";
 
+type Gender = "woman" | "man" | "neither" | "other";
+
+const GENDER_OPTIONS: { key: Gender; label: string; pronoun: string }[] = [
+  { key: "woman", label: "Woman", pronoun: "she/her" },
+  { key: "man", label: "Man", pronoun: "he/him" },
+  { key: "neither", label: "Neither", pronoun: "they/them" },
+  { key: "other", label: "Something else", pronoun: "your own" },
+];
+
+interface AdLibField {
+  key: string;
+  label: string;
+  prompt: string;
+  placeholder: string;
+  template: (v: string) => string;
+}
+
+const AD_LIB_FIELDS: AdLibField[] = [
+  { key: "build", label: "build", prompt: "Your build is", placeholder: "e.g. lean and rope-thin",
+    template: (v) => `${v.trim()} of build` },
+  { key: "hair", label: "hair", prompt: "Your hair is", placeholder: "e.g. sun-bleached and braided",
+    template: (v) => `with ${v.trim()} hair` },
+  { key: "eyes", label: "eyes", prompt: "Your eyes are", placeholder: "e.g. the colour of cold tea",
+    template: (v) => `eyes ${v.trim()}` },
+  { key: "mark", label: "a mark", prompt: "You bear", placeholder: "e.g. a crescent scar across one cheek",
+    template: (v) => `bearing ${v.trim()}` },
+  { key: "carries", label: "carry", prompt: "You carry", placeholder: "e.g. a bone flute and a half-empty waterskin",
+    template: (v) => `carrying ${v.trim()}` },
+  { key: "hides", label: "hide", prompt: "You hide", placeholder: "e.g. a name you will not say aloud",
+    template: (v) => `hiding ${v.trim()}` },
+];
+
 export default function CharacterCreation({ session, onCreated }: { session: Session; onCreated: () => void }) {
   const [races, setRaces] = useState<Race[]>([]);
   const [chosen, setChosen] = useState<Race | null>(null);
-  const [description, setDescription] = useState("");
+  const [gender, setGender] = useState<Gender | null>(null);
+  const [customGender, setCustomGender] = useState("");
+  const [adlib, setAdlib] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<"intro" | "prologue" | "direction" | "choose">("intro");
   const [beat, setBeat] = useState(0);
   const [direction, setDirection] = useState<Direction | null>(null);
+
+  const buildDescription = (): string => {
+    if (!chosen || !gender) return "";
+    const genderWord = gender === "other"
+      ? (customGender.trim() || "person")
+      : gender === "neither" ? "person" : gender;
+    const parts = AD_LIB_FIELDS
+      .map((f) => (adlib[f.key]?.trim() ? f.template(adlib[f.key]) : null))
+      .filter(Boolean) as string[];
+    return `A ${genderWord} of ${chosen.name} blood, ${parts.join(", ")}.`;
+  };
 
   useEffect(() => {
     supabase.from("races").select("*").order("sort_order")
