@@ -395,6 +395,13 @@ export default function GameClient({ session }: { session: Session }) {
     if (profile.companion_npc_id) {
       setMessages((m) => [...m, localSys(`Dismiss your current companion first.`)]); return;
     }
+    // Amity gate: NPC must be at least Friendly (+20) to travel with you.
+    const { data: amity } = await supabase.from("npc_amity")
+      .select("score").eq("npc_id", npc.id).eq("user_id", profile.id).maybeSingle();
+    if ((amity?.score ?? 0) < 20) {
+      setMessages((m) => [...m, localSys(`*${npc.name} regards you, but does not yet trust you enough to travel at your side.*`)]);
+      return;
+    }
     await supabase.from("profiles").update({ companion_npc_id: npc.id }).eq("id", profile.id);
     setProfile({ ...profile, companion_npc_id: npc.id });
     await supabase.from("messages").insert({
