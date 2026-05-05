@@ -56,6 +56,8 @@ export default function GameClient({ session }: { session: Session }) {
   const [discoveries, setDiscoveries] = useState<Discovery[]>([]);
   const [codexOpen, setCodexOpen] = useState(false);
   const [codexEntry, setCodexEntry] = useState<string | null>(null);
+  const [sceneUrl, setSceneUrl] = useState<string | null>(null);
+  const [sceneLoading, setSceneLoading] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -69,6 +71,7 @@ export default function GameClient({ session }: { session: Session }) {
   useEffect(() => {
     if (!profile) return;
     const slug = profile.current_room;
+    setSceneUrl(null);
     (async () => {
       const [{ data: r }, { data: n }, { data: m }] = await Promise.all([
         supabase.from("rooms").select("*").eq("slug", slug).maybeSingle(),
@@ -80,6 +83,22 @@ export default function GameClient({ session }: { session: Session }) {
       setMessages(((m ?? []) as Message[]).reverse());
     })();
   }, [profile?.current_room]);
+
+  // Generate / fetch scene image when room changes
+  useEffect(() => {
+    if (!profile || !room) return;
+    const slug = profile.current_room;
+    let cancelled = false;
+    setSceneLoading(true);
+    supabase.functions.invoke("scene-image", { body: { room: slug } })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) console.warn("scene", error);
+        else if (data?.image_url) setSceneUrl(data.image_url);
+      })
+      .finally(() => { if (!cancelled) setSceneLoading(false); });
+    return () => { cancelled = true; };
+  }, [profile?.current_room, room?.slug]);
 
   // Realtime: messages in current room + presence
   useEffect(() => {
