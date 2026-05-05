@@ -31,13 +31,16 @@ There is no guide. No snake. No oasis waiting to name you. Only the wind, and th
 
 But first — before the road, before the city, before the Shadow learns the shape of you — the heat shimmer above the sand catches your reflection. It is asking who you mean to be.`;
 
+type Direction = "north" | "south";
+
 export default function CharacterCreation({ session, onCreated }: { session: Session; onCreated: () => void }) {
   const [races, setRaces] = useState<Race[]>([]);
   const [chosen, setChosen] = useState<Race | null>(null);
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState<"intro" | "prologue" | "choose">("intro");
+  const [step, setStep] = useState<"intro" | "prologue" | "direction" | "choose">("intro");
   const [beat, setBeat] = useState(0);
+  const [direction, setDirection] = useState<Direction | null>(null);
 
   useEffect(() => {
     supabase.from("races").select("*").order("sort_order")
@@ -46,14 +49,15 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
 
   const submit = async () => {
     if (!chosen) { toast.error("Choose a race first."); return; }
+    if (!direction) { toast.error("Choose a direction first."); return; }
     if (description.trim().length < 8) { toast.error("Describe yourself in a sentence or two."); return; }
     setBusy(true);
     try {
       const { error } = await supabase.functions.invoke("create-character", {
-        body: { race_key: chosen.key, description },
+        body: { race_key: chosen.key, description, direction },
       });
       if (error) throw error;
-      toast.success("The pool stills. You have a face.");
+      toast.success(direction === "north" ? "You set your face toward the city." : "You walk into the silence.");
       onCreated();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "The reflection wavers and fades.");
