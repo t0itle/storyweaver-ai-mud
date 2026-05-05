@@ -48,6 +48,7 @@ const HELP = [
   ["emote <text>", "perform an action: *bows*"],
   ["ask <npc> <text>", "speak to an AI NPC"],
   ["examine <thing>", "study — may reveal lore"],
+  ["read / open / touch / smell / listen …", "interact with the world"],
   ["inventory / i", "what you carry"],
   ["equip / use / drop <item>", "manage gear"],
   ["runes", "runes you know"],
