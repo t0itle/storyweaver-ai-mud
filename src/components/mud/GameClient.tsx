@@ -132,14 +132,19 @@ export default function GameClient({ session }: { session: Session }) {
     setSceneUrl(null);
     (async () => {
       const nowIso = new Date().toISOString();
-      const [{ data: r }, { data: n }, { data: m }] = await Promise.all([
+      const [{ data: r }, { data: n }, { data: m }, { data: ev }] = await Promise.all([
         supabase.from("rooms").select("*").eq("slug", slug).maybeSingle(),
         supabase.from("npcs").select("*").eq("room", slug)
           .or(`dead_until.is.null,dead_until.lte.${nowIso}`),
         supabase.from("messages").select("*").eq("room", slug).order("created_at", { ascending: false }).limit(40),
+        supabase.from("world_events").select("kind,actor_name,target_name,details,created_at")
+          .eq("room", slug)
+          .or(`decay_at.is.null,decay_at.gte.${nowIso}`)
+          .order("created_at", { ascending: false }).limit(5),
       ]);
       if (r) setRoom(r as Room);
       setNpcs((n ?? []) as Npc[]);
+      setRoomEvents((ev ?? []) as any);
       setMessages(((m ?? []) as Message[]).reverse());
     })();
   }, [profile?.current_room]);
