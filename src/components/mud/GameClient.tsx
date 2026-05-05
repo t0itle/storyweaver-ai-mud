@@ -317,7 +317,7 @@ export default function GameClient({ session }: { session: Session }) {
     if (c === "help" || c === "?") {
       setMessages((m) => [...m, localSys(HELP.map(([k, v]) => `  ${k.padEnd(20)} — ${v}`).join("\n"))]);
     } else if (c === "look" || c === "l") {
-      setMessages((m) => [...m, localSys(formatRoom(room, npcs))]);
+      setMessages((m) => [...m, localSys(formatRoom(room, npcs, roomEvents))]);
     } else if (c === "who") {
       setMessages((m) => [...m, localSys(`Here: ${presence.map(p => p.username).join(", ") || "(only you)"}`)]);
     } else if (c === "go" || c === "n" || c === "s" || c === "e" || c === "w" || c === "u" || c === "d") {
@@ -717,8 +717,9 @@ function CodexModal({
     </div>
   );
 }
-function RoomBlock({ room, npcs, sceneUrl, sceneLoading }: {
+function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
   room: Room; npcs: Npc[]; sceneUrl: string | null; sceneLoading: boolean;
+  events: { kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[];
 }) {
   return (
     <div className="border-l-2 border-ember/60 pl-4 py-1 mb-4">
@@ -745,8 +746,23 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading }: {
           {npcs.map((n) => `${n.name}${n.title ? `, ${n.title}` : ""}`).join("; ")} {npcs.length === 1 ? "is" : "are"} here.
         </p>
       )}
+      {events.length > 0 && (
+        <div className="mt-3 border-l-2 border-shadow/60 pl-3 py-1 bg-shadow/5">
+          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-shadow/80 mb-1">— what happened here —</div>
+          {events.map((e, i) => (
+            <p key={i} className="text-whisper text-xs italic">{describeEvent(e)}</p>
+          ))}
+        </div>
+      )}
     </div>
   );
+}
+
+function describeEvent(e: { kind: string; actor_name: string; target_name: string | null; details: any }) {
+  if (e.kind === "npc_killed") {
+    return `${e.actor_name} slew ${e.target_name}${e.details?.npc_title ? `, ${e.details.npc_title}` : ""} on these stones. The mark lingers.`;
+  }
+  return `${e.actor_name} did ${e.kind}${e.target_name ? ` to ${e.target_name}` : ""} here.`;
 }
 
 function MessageLine({ m, you }: { m: Message; you: string }) {
@@ -790,7 +806,7 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
   );
 }
 
-function formatRoom(room: Room, npcs: Npc[]) {
+function formatRoom(room: Room, npcs: Npc[], events: { kind: string; actor_name: string; target_name: string | null; details: any }[] = []) {
   const lines = [room.name.toUpperCase(), "", room.description];
   if (room.ambience) lines.push("", room.ambience);
   if (npcs.length) lines.push("", "Here: " + npcs.map(n => n.name).join(", "));
