@@ -69,8 +69,49 @@ export default function GameClient({ session }: { session: Session }) {
   const [codexEntry, setCodexEntry] = useState<string | null>(null);
   const [sceneUrl, setSceneUrl] = useState<string | null>(null);
   const [sceneLoading, setSceneLoading] = useState(false);
+  const [inventory, setInventory] = useState<InvItem[]>([]);
+  const [knownRunes, setKnownRunes] = useState<KnownRune[]>([]);
+  const [invOpen, setInvOpen] = useState(false);
+  const [runesOpen, setRunesOpen] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const reloadInventory = async () => {
+    const { data } = await supabase.from("player_items")
+      .select("*, items(*), item_runes(*, runes(*))")
+      .eq("user_id", session.user.id);
+    setInventory((data ?? []) as InvItem[]);
+  };
+  const reloadRunes = async () => {
+    const { data } = await supabase.from("player_runes").select("rune_key, runes(*)").eq("user_id", session.user.id);
+    setKnownRunes((data ?? []) as KnownRune[]);
+  };
+  const reloadProfile = async () => {
+    const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
+    if (data) setProfile(data as Profile);
+  };
+
+  useEffect(() => { reloadInventory(); reloadRunes(); }, [session.user.id]);
+
+  // Profile realtime: catches in_combat_id, hp, gold updates
+  useEffect(() => {
+    const ch = supabase.channel(`profile:${session.user.id}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${session.user.id}` },
+        (p) => setProfile((prev) => prev ? { ...prev, ...(p.new as Profile) } : (p.new as Profile)))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [session.user.id]);
+
+  // Inventory + runes realtime
+  useEffect(() => {
+    const ch = supabase.channel(`inv:${session.user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "player_items", filter: `user_id=eq.${session.user.id}` }, () => reloadInventory())
+      .on("postgres_changes", { event: "*", schema: "public", table: "item_runes" }, () => reloadInventory())
+      .on("postgres_changes", { event: "*", schema: "public", table: "player_runes", filter: `user_id=eq.${session.user.id}` }, () => reloadRunes())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [session.user.id]);
+
 
   // Load profile
   useEffect(() => {
