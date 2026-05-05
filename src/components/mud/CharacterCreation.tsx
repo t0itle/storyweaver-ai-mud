@@ -350,16 +350,32 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
                 </div>
 
                 <div className="border border-dashed border-border/70 bg-card/20 p-3">
-                  <div className="font-mono text-[10px] uppercase tracking-widest text-whisper mb-1">The pool reflects</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-whisper mb-1">
+                    {isNorth ? "The well reflects" : "The rain reflects"}
+                  </div>
                   <p className="font-body text-parchment italic text-sm leading-relaxed">
                     {buildDescription() || "…the surface is still empty."}
                   </p>
                 </div>
 
-                <div className="flex justify-end">
-                  <Button onClick={submit} disabled={busy} className="bg-ember hover:bg-ember/90 text-background font-display w-full sm:w-auto">
-                    {busy ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />the pool stirs…</>) : "Become →"}
-                  </Button>
+                <div className="sticky bottom-4 z-10">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border border-ember/60 bg-card/95 px-4 py-3 shadow-[0_12px_40px_-24px_hsl(var(--ember)/0.9)] backdrop-blur-sm">
+                    <div className="min-w-0">
+                      <p className="font-display text-sm text-parchment">
+                        {isNorth ? "Ready to face the Veiled?" : "Ready to walk into the Shadow?"}
+                      </p>
+                      <p className="font-body text-xs text-ash">
+                        {buildDescription() ? "This face is who they will meet." : "Fill in at least three details first."}
+                      </p>
+                    </div>
+                    <Button
+                      onClick={submit}
+                      disabled={busy}
+                      className="bg-ember hover:bg-ember/90 active:scale-95 text-background font-display group transition-transform touch-manipulation w-full sm:w-auto shrink-0"
+                    >
+                      {busy ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />{submitWaiting}</>) : submitLabel}
+                    </Button>
+                  </div>
                 </div>
                 {busy && <p className="text-xs text-whisper italic">The water draws your face. This may take half a minute.</p>}
               </div>
