@@ -78,6 +78,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [profileLoadFailed, setProfileLoadFailed] = useState(false);
   const [room, setRoom] = useState<Room | null>(null);
   const [npcs, setNpcs] = useState<Npc[]>([]);
+  const [amityByNpc, setAmityByNpc] = useState<Record<string, number>>({});
   const [roomEvents, setRoomEvents] = useState<{ kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [presence, setPresence] = useState<{ username: string }[]>([]);
@@ -179,6 +180,16 @@ export default function GameClient({ session }: { session: Session }) {
       setNpcs((n ?? []) as Npc[]);
       setRoomEvents((ev ?? []) as any);
       setMessages(((m ?? []) as Message[]).reverse());
+
+      // Load amity scores for the NPCs in this room
+      const npcIds = (n ?? []).map((x: any) => x.id);
+      if (npcIds.length) {
+        const { data: am } = await supabase.from("npc_amity")
+          .select("npc_id,score").eq("user_id", profile.id).in("npc_id", npcIds);
+        const map: Record<string, number> = {};
+        for (const row of am ?? []) map[(row as any).npc_id] = (row as any).score;
+        setAmityByNpc(map);
+      } else { setAmityByNpc({}); }
 
       // If no living NPCs are here and the place isn't a hand-built solo space, top it up.
       if ((!n || n.length === 0) && r && (r as any).kind !== "loft") {
