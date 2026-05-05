@@ -350,6 +350,27 @@ export type Database = {
           },
         ]
       }
+      npc_amity: {
+        Row: {
+          npc_id: string
+          score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          npc_id: string
+          score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          npc_id?: string
+          score?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       npc_memories: {
         Row: {
           created_at: string

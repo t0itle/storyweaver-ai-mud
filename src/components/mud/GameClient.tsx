@@ -78,6 +78,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [profileLoadFailed, setProfileLoadFailed] = useState(false);
   const [room, setRoom] = useState<Room | null>(null);
   const [npcs, setNpcs] = useState<Npc[]>([]);
+  const [amityByNpc, setAmityByNpc] = useState<Record<string, number>>({});
   const [roomEvents, setRoomEvents] = useState<{ kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [presence, setPresence] = useState<{ username: string }[]>([]);
@@ -179,6 +180,16 @@ export default function GameClient({ session }: { session: Session }) {
       setNpcs((n ?? []) as Npc[]);
       setRoomEvents((ev ?? []) as any);
       setMessages(((m ?? []) as Message[]).reverse());
+
+      // Load amity scores for the NPCs in this room
+      const npcIds = (n ?? []).map((x: any) => x.id);
+      if (npcIds.length) {
+        const { data: am } = await supabase.from("npc_amity")
+          .select("npc_id,score").eq("user_id", profile.id).in("npc_id", npcIds);
+        const map: Record<string, number> = {};
+        for (const row of am ?? []) map[(row as any).npc_id] = (row as any).score;
+        setAmityByNpc(map);
+      } else { setAmityByNpc({}); }
 
       // If no living NPCs are here and the place isn't a hand-built solo space, top it up.
       if ((!n || n.length === 0) && r && (r as any).kind !== "loft") {
@@ -395,6 +406,13 @@ export default function GameClient({ session }: { session: Session }) {
     if (profile.companion_npc_id) {
       setMessages((m) => [...m, localSys(`Dismiss your current companion first.`)]); return;
     }
+    // Amity gate: NPC must be at least Friendly (+20) to travel with you.
+    const { data: amity } = await supabase.from("npc_amity")
+      .select("score").eq("npc_id", npc.id).eq("user_id", profile.id).maybeSingle();
+    if ((amity?.score ?? 0) < 20) {
+      setMessages((m) => [...m, localSys(`*${npc.name} regards you, but does not yet trust you enough to travel at your side.*`)]);
+      return;
+    }
     await supabase.from("profiles").update({ companion_npc_id: npc.id }).eq("id", profile.id);
     setProfile({ ...profile, companion_npc_id: npc.id });
     await supabase.from("messages").insert({
@@ -498,6 +516,9 @@ export default function GameClient({ session }: { session: Session }) {
           body: { npc_id: npc.id, room: profile.current_room, player_input: what, player_name: profile.username },
         });
         if (error) throw error;
+        if (data?.amity?.score !== undefined) {
+          setAmityByNpc((prev) => ({ ...prev, [npc.id]: data.amity.score }));
+        }
         // Auto-discover any places the NPC named, so "go to <place>" works immediately.
         const places: string[] = data?.mentioned_places ?? [];
         if (places.length) {
@@ -801,13 +822,22 @@ export default function GameClient({ session }: { session: Session }) {
           <div>
             <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Souls Here</h3>
             <div className="space-y-1">
-              {npcs.map((n) => (
-                <button key={n.id} onClick={() => { setInput(`ask ${n.name.split(" ")[0]} `); inputRef.current?.focus(); }}
-                  className="block text-left w-full font-body text-parchment hover:text-ember transition-colors">
-                  <span className="text-accent">●</span> {n.name}
-                  {n.title && <span className="text-ash italic"> — {n.title}</span>}
-                </button>
-              ))}
+              {npcs.map((n) => {
+                const score = amityByNpc[n.id];
+                const word = score === undefined ? null
+                  : score <= -60 ? "hostile" : score <= -20 ? "wary"
+                  : score < 20 ? null : score < 60 ? "friendly" : "devoted";
+                const tone = score === undefined ? "" :
+                  score <= -20 ? "text-ember" : score >= 60 ? "text-moss" : score >= 20 ? "text-accent" : "";
+                return (
+                  <button key={n.id} onClick={() => { setInput(`ask ${n.name.split(" ")[0]} `); inputRef.current?.focus(); }}
+                    className="block text-left w-full font-body text-parchment hover:text-ember transition-colors">
+                    <span className="text-accent">●</span> {n.name}
+                    {n.title && <span className="text-ash italic"> — {n.title}</span>}
+                    {word && <span className={`text-[10px] italic ml-1 ${tone}`}> ({word})</span>}
+                  </button>
+                );
+              })}
               {presence.map((p) => (
                 <div key={p.username} className="font-body text-moss">
                   <span>◆</span> {p.username}{p.username === profile.username && <span className="text-ash"> (you)</span>}

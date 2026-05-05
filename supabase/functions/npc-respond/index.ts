@@ -74,6 +74,24 @@ Deno.serve(async (req) => {
       ? gossipRows!.map((m: any) => `- ${nameMap.get(m.user_id) ?? "another otherworlder"} (${m.emotion ?? "neutral"}, imp ${m.importance}${m.room ? `, at ${m.room}` : ""}): ${m.summary}`).join("\n")
       : "(no one else of note has crossed your path)";
 
+    // Amity: NPC's current feeling toward THIS player.
+    const { data: amityRow } = await supabase
+      .from("npc_amity").select("score").eq("npc_id", npc_id).eq("user_id", user.id).maybeSingle();
+    let currentScore = amityRow?.score ?? 0;
+
+    // Gossip-bleed: if no prior amity, seed from other NPCs' amity toward this player (20% avg).
+    if (!amityRow) {
+      const { data: peerAmity } = await supabase
+        .from("npc_amity").select("score").eq("user_id", user.id).neq("npc_id", npc_id);
+      if (peerAmity && peerAmity.length) {
+        const avg = peerAmity.reduce((s, r) => s + (r.score ?? 0), 0) / peerAmity.length;
+        currentScore = Math.round(avg * 0.2);
+      }
+    }
+    const amityWord = (s: number) =>
+      s <= -60 ? "Hostile" : s <= -20 ? "Wary" : s < 20 ? "Neutral" : s < 60 ? "Friendly" : "Devoted";
+    const amityBlock = `${amityWord(currentScore)} (${currentScore >= 0 ? "+" : ""}${currentScore})`;
+
     // Pull all lore for the NPC's knowledge — they may reference it naturally.
     const { data: lore } = await supabase.from("lore_entries").select("slug,title,summary,keywords");
     const loreBlock = (lore ?? []).map((l: any) =>
@@ -126,18 +144,23 @@ ${memoryBlock}
 WHAT YOU KNOW OF OTHER OTHERWORLDERS (gossip — your own memories of other travelers, gathered from past encounters wherever they happened. Bring these up naturally if relevant: warn ${player_name} about a troublemaker, praise a kind soul, share a rumor, ask if they've crossed paths. NEVER invent names — only use the names listed here):
 ${gossipBlock}
 
+YOUR CURRENT FEELING TOWARD ${player_name}: **${amityBlock}** on a scale from -100 (Hostile) to +100 (Devoted).
+This MUST color your tone, generosity, and willingness to share secrets, give favors, or even raise a hand. Hostile = sharp, dismissive, possibly threatening; Wary = guarded; Neutral = polite stranger; Friendly = warm, helpful; Devoted = loyal, loving, will share secrets and offer aid.
+
 RULES:
-- Stay strictly in character. Never break the fourth wall, never mention AI, models, or game mechanics.
+- Stay strictly in character. Never break the fourth wall, never mention AI, models, or game mechanics. Never speak the amity number aloud — it's an inner feeling.
 - Reply with 1-3 short paragraphs, evocative and lived-in. You may include a brief action in *asterisks*.
 - Reference world details naturally — the seven Aethers, the Veiled, the EverBloom in the deep dunes, the Ash Road, the Whispering Wastes — when it fits the conversation.
-- React to what ${player_name} just said or did. Lean on YOUR MEMORIES of them — pick up threads from past conversations, hold grudges, warm to old friends. If you've never met, treat them as a stranger.
+- React to what ${player_name} just said or did. Lean on YOUR MEMORIES and YOUR FEELING. Pick up old threads, hold grudges, warm to friends.
 - If recent events make you wary of ${player_name}'s race or kind, show it — but stay true to your persona.
 - Never invent quests that promise rewards you can't deliver — keep things grounded.
-- AFTER your in-character reply, append TWO hidden tags on their own lines, in this exact order and format:
+- AFTER your in-character reply, append THREE hidden tags on their own lines, in this exact order and format:
 <<PLACES>>["The Archive of Echoes","The Ash Road"]<<END>>
 <<MEMORY>>{"summary":"short third-person fact you want to remember about ${player_name} from THIS exchange","emotion":"warm|wary|grateful|angry|amused|curious|indifferent","importance":1}<<END>>
+<<AMITY>>{"delta":-2,"reason":"asked too many prying questions"}<<END>>
 PLACES: list any specific named travelable place you mentioned, or [].
-MEMORY: one short sentence (max ~140 chars) capturing what was significant about THIS exchange — a fact learned, a promise made, an offense given, a kindness shared. importance is 1 (small) to 5 (life-changing). If nothing worth remembering happened, write: <<MEMORY>>null<<END>>
+MEMORY: one short sentence (max ~140 chars) capturing what was significant about THIS exchange. importance is 1 (small) to 5 (life-changing). If nothing worth remembering, write <<MEMORY>>null<<END>>.
+AMITY: integer delta from -10 (deeply offended) to +10 (profoundly moved) reflecting how THIS exchange shifted your feeling toward ${player_name}. Most exchanges are -2 to +2. Use 0 if neutral. If unchanged, write <<AMITY>>{"delta":0,"reason":""}<<END>>.
 Do not mention these tags in your prose.`;
 
     const messages = [
@@ -180,9 +203,20 @@ Do not mention these tags in your prose.`;
       } catch { /* ignore */ }
     }
 
+    // Strip and parse hidden <<AMITY>>{...}<<END>> tag
+    const amityMatch = rawContent.match(/<<AMITY>>\s*(\{[\s\S]*?\})\s*<<END>>/);
+    let amityDelta = 0;
+    if (amityMatch) {
+      try {
+        const parsed = JSON.parse(amityMatch[1]);
+        amityDelta = Math.max(-10, Math.min(10, Number(parsed?.delta) || 0));
+      } catch { /* ignore */ }
+    }
+
     content = rawContent
       .replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<MEMORY>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<AMITY>>[\s\S]*?<<END>>\s*/g, "")
       .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
@@ -209,9 +243,9 @@ Do not mention these tags in your prose.`;
       await supabase.from("player_lore_discoveries").upsert(rows, { onConflict: "user_id,lore_slug", ignoreDuplicates: true });
     }
 
-    // Persist NPC's memory of this exchange (service role bypasses RLS).
+    // Persist NPC's memory and amity (service role bypasses RLS).
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     if (memoryToStore) {
-      const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
       await admin.from("npc_memories").insert({
         npc_id: npc.id,
         user_id: user.id,
@@ -221,8 +255,15 @@ Do not mention these tags in your prose.`;
         room,
       });
     }
+    const newScore = Math.max(-100, Math.min(100, currentScore + amityDelta));
+    if (amityDelta !== 0 || !amityRow) {
+      await admin.from("npc_amity").upsert(
+        { npc_id: npc.id, user_id: user.id, score: newScore, updated_at: new Date().toISOString() },
+        { onConflict: "npc_id,user_id" },
+      );
+    }
 
-    return new Response(JSON.stringify({ content, discovered, mentioned_places: mentionedPlaces }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ content, discovered, mentioned_places: mentionedPlaces, amity: { score: newScore, word: amityWord(newScore) } }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
