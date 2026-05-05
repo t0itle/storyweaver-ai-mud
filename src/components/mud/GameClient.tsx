@@ -3,7 +3,8 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { BookOpen, Flame, Loader2, LogOut, Users, X } from "lucide-react";
+import { Backpack, BookOpen, Flame, Loader2, LogOut, Sparkles, Sword, Users, X } from "lucide-react";
+import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
 
 interface Profile {
   id: string;
@@ -14,6 +15,8 @@ interface Profile {
   race: string | null;
   portrait_url: string | null;
   char_description: string | null;
+  in_combat_id: string | null;
+  max_weight: number;
 }
 interface Room {
   slug: string; name: string; description: string;
@@ -35,11 +38,19 @@ interface Discovery { lore_slug: string; source: string; discovered_at: string; 
 const HELP = [
   ["look", "describe the room"],
   ["go <dir>", "n/s/e/w/up/down"],
-  ["say <text>", "speak aloud (other players hear)"],
+  ["say <text>", "speak aloud"],
   ["emote <text>", "perform an action: *bows*"],
   ["ask <npc> <text>", "speak to an AI NPC"],
-  ["examine <thing>", "study something — may reveal lore"],
-  ["lore", "open your codex of discoveries"],
+  ["examine <thing>", "study — may reveal lore"],
+  ["inventory / i", "what you carry"],
+  ["equip / use / drop <item>", "manage gear"],
+  ["runes", "runes you know"],
+  ["learn <rune>", "from a teacher in this room"],
+  ["weave <rune> into <item>", "set a rune"],
+  ["attack <name>", "begin a fight"],
+  ["join", "enter a fight in this room"],
+  ["defend / cast <rune> / flee", "in combat"],
+  ["lore", "open your codex"],
   ["who", "list players in this room"],
   ["help", "show this list"],
 ];
@@ -58,8 +69,49 @@ export default function GameClient({ session }: { session: Session }) {
   const [codexEntry, setCodexEntry] = useState<string | null>(null);
   const [sceneUrl, setSceneUrl] = useState<string | null>(null);
   const [sceneLoading, setSceneLoading] = useState(false);
+  const [inventory, setInventory] = useState<InvItem[]>([]);
+  const [knownRunes, setKnownRunes] = useState<KnownRune[]>([]);
+  const [invOpen, setInvOpen] = useState(false);
+  const [runesOpen, setRunesOpen] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const reloadInventory = async () => {
+    const { data } = await supabase.from("player_items")
+      .select("*, items(*), item_runes(*, runes(*))")
+      .eq("user_id", session.user.id);
+    setInventory((data ?? []) as InvItem[]);
+  };
+  const reloadRunes = async () => {
+    const { data } = await supabase.from("player_runes").select("rune_key, runes(*)").eq("user_id", session.user.id);
+    setKnownRunes((data ?? []) as KnownRune[]);
+  };
+  const reloadProfile = async () => {
+    const { data } = await supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle();
+    if (data) setProfile(data as Profile);
+  };
+
+  useEffect(() => { reloadInventory(); reloadRunes(); }, [session.user.id]);
+
+  // Profile realtime: catches in_combat_id, hp, gold updates
+  useEffect(() => {
+    const ch = supabase.channel(`profile:${session.user.id}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${session.user.id}` },
+        (p) => setProfile((prev) => prev ? { ...prev, ...(p.new as Profile) } : (p.new as Profile)))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [session.user.id]);
+
+  // Inventory + runes realtime
+  useEffect(() => {
+    const ch = supabase.channel(`inv:${session.user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "player_items", filter: `user_id=eq.${session.user.id}` }, () => reloadInventory())
+      .on("postgres_changes", { event: "*", schema: "public", table: "item_runes" }, () => reloadInventory())
+      .on("postgres_changes", { event: "*", schema: "public", table: "player_runes", filter: `user_id=eq.${session.user.id}` }, () => reloadRunes())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [session.user.id]);
+
 
   // Load profile
   useEffect(() => {
@@ -257,11 +309,90 @@ export default function GameClient({ session }: { session: Session }) {
       } else {
         setMessages((m) => [...m, localSys(`You examine the ${args}, but glean nothing new.`)]);
       }
+    } else if (c === "inventory" || c === "inv" || c === "i") {
+      setInvOpen(true);
+    } else if (c === "runes" || c === "spells") {
+      setRunesOpen(true);
+    } else if (c === "equip" || c === "wield" || c === "wear" || c === "use" || c === "drop" || c === "unequip") {
+      const target = args.toLowerCase().trim();
+      if (!target) { setMessages((m) => [...m, localSys(`${c} what?`)]); return; }
+      const it = inventory.find(i => i.items.name.toLowerCase().includes(target) || i.item_key.includes(target));
+      if (!it) { setMessages((m) => [...m, localSys(`You carry no "${target}".`)]); return; }
+      const action = c === "wield" || c === "wear" ? "equip" : c;
+      try {
+        const { data, error } = await supabase.functions.invoke("inventory-action", {
+          body: { action, player_item_id: it.id, slot: it.items.slot },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        setMessages((m) => [...m, localSys(data.message)]);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "learn") {
+      if (!args) { setMessages((m) => [...m, localSys("Learn which rune?")]); return; }
+      try {
+        const { data, error } = await supabase.functions.invoke("rune-action", {
+          body: { action: "learn", rune_key: args.toLowerCase().trim() },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        setMessages((m) => [...m, localSys(data.message)]);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "weave") {
+      // syntax: weave <rune> into <item>
+      const m = args.match(/^(.+?)\s+into\s+(.+)$/i);
+      if (!m) { setMessages((mm) => [...mm, localSys("Usage: weave <rune> into <item>")]); return; }
+      const [, runeName, itemName] = m;
+      const rune = knownRunes.find(r => r.runes.name.toLowerCase().includes(runeName.toLowerCase()) || r.rune_key.includes(runeName.toLowerCase()));
+      const item = inventory.find(i => i.items.name.toLowerCase().includes(itemName.toLowerCase()));
+      if (!rune) { setMessages((mm) => [...mm, localSys(`You know no rune called "${runeName}".`)]); return; }
+      if (!item) { setMessages((mm) => [...mm, localSys(`You carry no "${itemName}".`)]); return; }
+      try {
+        const { data, error } = await supabase.functions.invoke("rune-action", {
+          body: { action: "weave", rune_key: rune.rune_key, player_item_id: item.id },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        setMessages((mm) => [...mm, localSys(data.message)]);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "attack" || c === "kill" || c === "fight") {
+      if (!args) { setMessages((m) => [...m, localSys("Attack whom?")]); return; }
+      try {
+        const { data, error } = await supabase.functions.invoke("combat-action", {
+          body: { action: "start", target_name: args.trim() },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "join" && !args) {
+      try {
+        const { data, error } = await supabase.functions.invoke("combat-action", { body: { action: "join" } });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "defend" || c === "flee") {
+      try {
+        const { data, error } = await supabase.functions.invoke("combat-action", { body: { action: c } });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "cast") {
+      const m = args.match(/^(.+?)(?:\s+at\s+(.+))?$/i);
+      if (!m) { setMessages((mm) => [...mm, localSys("Cast which rune?")]); return; }
+      const [, runeName, target] = m;
+      const rune = knownRunes.find(r => r.runes.name.toLowerCase().includes(runeName.toLowerCase()) || r.rune_key.includes(runeName.toLowerCase()));
+      if (!rune) { setMessages((mm) => [...mm, localSys(`You know no rune called "${runeName}".`)]); return; }
+      try {
+        const { data, error } = await supabase.functions.invoke("combat-action", {
+          body: { action: "cast", rune_key: rune.rune_key, target_name: target },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
     } else {
       // default = say
       await post("say", text);
     }
     setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const combatAct = async (kind: string, args: Record<string, unknown> = {}) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("combat-action", { body: { action: kind, ...args } });
+      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
   };
 
   const localSys = (content: string): Message => ({
@@ -296,6 +427,14 @@ export default function GameClient({ session }: { session: Session }) {
           <span className="text-ember">♥ {profile.hp}/{profile.max_hp}</span>
           <span className="text-accent">✦ {profile.xp} xp</span>
           <span className="text-parchment">⚜ {profile.gold}g</span>
+          <button onClick={() => setInvOpen(true)} className="flex items-center gap-1 text-whisper hover:text-ember transition-colors" title="Inventory">
+            <Backpack className="w-4 h-4" />
+            <span>{inventory.length}</span>
+          </button>
+          <button onClick={() => setRunesOpen(true)} className="flex items-center gap-1 text-whisper hover:text-ember transition-colors" title="Runes">
+            <Sparkles className="w-4 h-4" />
+            <span>{knownRunes.length}</span>
+          </button>
           <button
             onClick={() => { setCodexEntry(null); setCodexOpen(true); }}
             className="flex items-center gap-1 text-whisper hover:text-ember transition-colors"
@@ -315,6 +454,9 @@ export default function GameClient({ session }: { session: Session }) {
         <main className="flex-1 flex flex-col min-w-0">
           <div ref={logRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-6 space-y-3 font-body text-[17px] leading-relaxed">
             <RoomBlock room={room} npcs={npcs} sceneUrl={sceneUrl} sceneLoading={sceneLoading} />
+            {profile.in_combat_id && (
+              <CombatHUD combatId={profile.in_combat_id} userId={profile.id} onAct={combatAct} />
+            )}
             {messages.map((m) => <MessageLine key={m.id} m={m} you={profile.username} />)}
             {thinking && <div className="text-whisper italic typewriter">a voice gathers in the dark</div>}
           </div>
@@ -386,6 +528,23 @@ export default function GameClient({ session }: { session: Session }) {
           openSlug={codexEntry}
           setOpenSlug={setCodexEntry}
           onClose={() => setCodexOpen(false)}
+        />
+      )}
+      {invOpen && (
+        <InventoryPanel
+          items={inventory}
+          totalWeight={inventory.reduce((s, i) => s + (i.items.weight ?? 0) * i.quantity, 0)}
+          maxWeight={profile.max_weight ?? 50}
+          onClose={() => setInvOpen(false)}
+          onChanged={() => { reloadInventory(); reloadProfile(); }}
+        />
+      )}
+      {runesOpen && (
+        <RunesPanel
+          known={knownRunes}
+          items={inventory}
+          onClose={() => setRunesOpen(false)}
+          onChanged={() => { reloadRunes(); reloadInventory(); }}
         />
       )}
     </div>
