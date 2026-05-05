@@ -122,7 +122,11 @@ export default function GameClient({ session }: { session: Session }) {
   // Load profile
   useEffect(() => {
     supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle()
-      .then(({ data }) => data && setProfile(data as Profile));
+      .then(({ data, error }) => {
+        if (error) console.error("[profile load]", error);
+        if (!data) console.warn("[profile load] no profile row for", session.user.id);
+        if (data) setProfile(data as Profile);
+      });
   }, [session.user.id]);
 
   // Load room + npcs + history when room changes
@@ -476,7 +480,14 @@ export default function GameClient({ session }: { session: Session }) {
 
   const signOut = async () => { await supabase.auth.signOut(); };
 
-  if (!profile || !room) return <div className="min-h-screen flex items-center justify-center text-ash">Walking the road…</div>;
+  if (!profile) return <div className="min-h-screen flex items-center justify-center text-ash">Walking the road…</div>;
+  if (!room) return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-ash p-6 text-center">
+      <p>The road forgot its name.</p>
+      <p className="text-xs text-whisper">Could not find room "{profile.current_room}".</p>
+      <button onClick={() => window.location.reload()} className="text-ember underline underline-offset-4">Try again</button>
+    </div>
+  );
 
   return (
     <div className="min-h-screen flex flex-col">
