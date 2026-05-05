@@ -237,8 +237,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
             >
               <div className="font-display text-lg sm:text-xl text-parchment mb-2">South — deeper into the dunes →</div>
               <p className="text-sm text-ash leading-relaxed">
-                No road. No bells. Only sand that goes on and on, and a wind that has begun to say
-                something just under hearing. The Shadow knows that road.
+                No road. No bells. Only sand that goes on and on — and somewhere out there, the deep dunes where no map remembers, and a pool that blooms with flowers that exist nowhere else.
               </p>
             </button>
           </div>
@@ -253,7 +252,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   const headline = isNorth ? "At the Roadside Well" : "At the Wind-Cut Stone";
   const leadIn = isNorth
     ? "You step off the cracked road. A shallow well at the verge has caught a hand's-breadth of clear water — the first you have seen since the dunes. The watch-fires of the First City flicker in the heat-shimmer to the north. The Veiled will ask your name at the gate. Better to know it before they do."
-    : "The wind has carved a stone hollow into a basin, and last night's rain still clings inside. The dunes roll endlessly south. Out here there is no one to name you, no Veiled to vouch for you — only the Shadow that has been calling, and the face it will see when you finally turn around. Better to know it first.";
+    : "The wind has carved a stone hollow into a basin, and last night's rain still clings inside. The dunes roll endlessly south, toward places no map remembers. Out here there is no one to name you — only the wind, and the face the rain will see when you finally turn around. Better to know it first.";
   const submitLabel = isNorth ? "Walk to the Gate →" : "Step into the Dunes →";
   const submitWaiting = isNorth ? "the gate-bells are ringing…" : "the wind takes your shape…";
 
