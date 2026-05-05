@@ -10,9 +10,22 @@ interface Race {
   gain: string; cost: string; hp_mod: number; sort_order: number;
 }
 
-const PROLOGUE = `You wake walking. You have been walking for a long time.
+const INTRO_BEATS: { text: string; cta: string }[] = [
+  {
+    text: "Long ago the gods spoke, and the world listened.\n\nThen the gods went quiet — all but One, whose mouth was stitched shut by the others before they fled. That god still whispers, beneath the sand, beneath the stone, beneath the tongue.",
+    cta: "And then —",
+  },
+  {
+    text: "The cities forgot their names. The roads forgot their travelers. The desert ate the maps.\n\nOnly Ember-Hold still burns, walls of red stone against a sky that has not rained in a hundred years. Its priests cover their mouths so they will not answer what answers them.",
+    cta: "Go on —",
+  },
+  {
+    text: "You are not from there.\n\nYou are not from anywhere you can remember.\n\nYou are walking. You have been walking for a long time. The sand is in your teeth. Something has been calling, very softly, and you have been answering with your feet.",
+    cta: "Open your eyes →",
+  },
+];
 
-Behind you the dunes have eaten the road. Ahead, a fork: walls of red stone in the north, where torches burn against the falling dark — and to the south, a fat black snake on a sun-warmed rock, watching you, as if it has been waiting.
+const PROLOGUE = `Behind you the dunes have eaten the road. Ahead, a fork: walls of red stone in the north, where torches burn against the falling dark — and to the south, a fat black snake on a sun-warmed rock, watching you, as if it has been waiting.
 
 It tilts its head toward the deep desert and slides away. You follow without knowing why, and the dunes part, and there is water — a still pool, ringed in pale flowers that do not exist anywhere else in the world.
 
