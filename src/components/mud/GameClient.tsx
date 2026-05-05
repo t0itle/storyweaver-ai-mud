@@ -3,7 +3,7 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { BookOpen, Flame, LogOut, Users, X } from "lucide-react";
+import { BookOpen, Flame, Loader2, LogOut, Users, X } from "lucide-react";
 
 interface Profile {
   id: string;
@@ -11,6 +11,9 @@ interface Profile {
   current_room: string;
   hp: number; max_hp: number;
   level: number; xp: number; gold: number;
+  race: string | null;
+  portrait_url: string | null;
+  char_description: string | null;
 }
 interface Room {
   slug: string; name: string; description: string;
