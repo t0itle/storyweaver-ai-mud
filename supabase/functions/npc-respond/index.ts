@@ -41,6 +41,19 @@ Deno.serve(async (req) => {
       .map(m => `${m.kind === "emote" ? "* " : ""}${m.author_name}: ${m.content}`)
       .join("\n");
 
+    // Persistent NPC memory of THIS player, across all locations.
+    const { data: memRows } = await supabase
+      .from("npc_memories")
+      .select("summary,emotion,importance,room,created_at")
+      .eq("npc_id", npc_id)
+      .eq("user_id", user.id)
+      .order("importance", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(12);
+    const memoryBlock = (memRows ?? []).length
+      ? memRows!.map((m: any) => `- (${m.emotion ?? "neutral"}, imp ${m.importance}${m.room ? `, at ${m.room}` : ""}) ${m.summary}`).join("\n")
+      : "(you have not met this person before)";
+
     // Pull all lore for the NPC's knowledge — they may reference it naturally.
     const { data: lore } = await supabase.from("lore_entries").select("slug,title,summary,keywords");
     const loreBlock = (lore ?? []).map((l: any) =>
