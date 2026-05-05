@@ -3,7 +3,7 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Flame, LogOut, Users } from "lucide-react";
+import { BookOpen, Flame, LogOut, Users, X } from "lucide-react";
 
 interface Profile {
   id: string;
