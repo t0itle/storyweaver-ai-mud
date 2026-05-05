@@ -530,9 +530,23 @@ export default function GameClient({ session }: { session: Session }) {
           onClose={() => setCodexOpen(false)}
         />
       )}
-    </div>
-  );
-}
+      {invOpen && (
+        <InventoryPanel
+          items={inventory}
+          totalWeight={inventory.reduce((s, i) => s + (i.items.weight ?? 0) * i.quantity, 0)}
+          maxWeight={profile.max_weight ?? 50}
+          onClose={() => setInvOpen(false)}
+          onChanged={() => { reloadInventory(); reloadProfile(); }}
+        />
+      )}
+      {runesOpen && (
+        <RunesPanel
+          known={knownRunes}
+          items={inventory}
+          onClose={() => setRunesOpen(false)}
+          onChanged={() => { reloadRunes(); reloadInventory(); }}
+        />
+      )}
 
 function CodexModal({
   lore, discoveries, openSlug, setOpenSlug, onClose,
