@@ -16,7 +16,7 @@ const INTRO_BEATS: { text: string; cta: string }[] = [
     cta: "And then —",
   },
   {
-    text: "Somewhere, the Speaker was silenced. Some say its own children stitched its mouth shut, terrified of what it might unspeak. Some say it bit down on a Shadow and could not let go.\n\nNow the Aethers fade like a story half-remembered. The cities forget their names. The desert eats the maps. Only one walled town still burns against the dark — and its priests cover their own mouths, so they will not finish what the Speaker began.\n\nAnd in the deep desert, where no map remembers, a single pool blooms with flowers that exist nowhere else. The world calls it the EverBloom. The world is mostly wrong about it.",
+    text: "Somewhere, the Speaker was silenced. Some say its own children stitched its mouth shut, terrified of what it might unspeak. Some say it bit down on a Shadow and could not let go.\n\nNow the Aethers fade like a story half-remembered. The cities forget their names. The desert eats the maps. Only the First City still burns against the dark — guarded by the Veiled, priests who cover their own mouths so they will not finish what the Speaker began.\n\nAnd in the deep desert, where no map remembers, a single pool blooms with flowers that exist nowhere else. The world calls it the EverBloom. The world is mostly wrong about it.",
     cta: "Go on —",
   },
   {
