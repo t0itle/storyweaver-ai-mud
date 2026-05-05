@@ -20,6 +20,7 @@ interface Profile {
   max_weight: number;
   aether: string | null;
   corruption: number;
+  merit: number;
 }
 interface Room {
   slug: string; name: string; description: string;
@@ -267,6 +268,11 @@ export default function GameClient({ session }: { session: Session }) {
         matched.map(slug => ({ user_id: profile.id, lore_slug: slug, source })),
         { onConflict: "user_id,lore_slug", ignoreDuplicates: true },
       );
+      // Each new piece of lore earns 1 merit — fame for understanding the world.
+      const meritGain = matched.length;
+      await supabase.from("profiles")
+        .update({ merit: (profile.merit ?? 0) + meritGain })
+        .eq("id", profile.id);
     }
     return matched;
   };
@@ -488,6 +494,12 @@ export default function GameClient({ session }: { session: Session }) {
           <span className="text-ember">♥ {profile.hp}/{profile.max_hp}</span>
           <span className="text-accent">✦ {profile.xp} xp</span>
           <span className="text-parchment">⚜ {profile.gold}g</span>
+          <span
+            title={`Merit — your renown in the world: ${profile.merit ?? 0}`}
+            className="text-moss"
+          >
+            ❖ {profile.merit ?? 0} merit
+          </span>
           <button
             onClick={() => setHallOpen(true)}
             title={`Shadow corruption: ${profile.corruption}/100`}
