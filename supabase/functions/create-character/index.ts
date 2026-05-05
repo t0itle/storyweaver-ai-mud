@@ -87,7 +87,7 @@ Style: Frank Frazetta meets Greg Rutkowski, atmospheric, cinematic, painterly br
       created: true,
       max_hp: newMax,
       hp: newMax,
-      current_room: 'dunes-fork', // walk back out of the oasis with a name
+      current_room: 'dunes-edge', // step onto the sand and choose your own road
     }).eq("id", user.id);
     if (updErr) throw updErr;
 
