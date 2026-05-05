@@ -130,9 +130,11 @@ export default function GameClient({ session }: { session: Session }) {
     const slug = profile.current_room;
     setSceneUrl(null);
     (async () => {
+      const nowIso = new Date().toISOString();
       const [{ data: r }, { data: n }, { data: m }] = await Promise.all([
         supabase.from("rooms").select("*").eq("slug", slug).maybeSingle(),
-        supabase.from("npcs").select("*").eq("room", slug),
+        supabase.from("npcs").select("*").eq("room", slug)
+          .or(`dead_until.is.null,dead_until.lte.${nowIso}`),
         supabase.from("messages").select("*").eq("room", slug).order("created_at", { ascending: false }).limit(40),
       ]);
       if (r) setRoom(r as Room);
