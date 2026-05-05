@@ -104,6 +104,28 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
         body: { race_key: chosen.key, description, direction },
       });
       if (error) throw error;
+
+      let createdReady = false;
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("id, created")
+          .eq("id", session.user.id)
+          .maybeSingle();
+
+        if (profileError) throw profileError;
+        if (profile?.created) {
+          createdReady = true;
+          break;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+
+      if (!createdReady) {
+        throw new Error("Your reflection formed, but the road did not open. Try once more.");
+      }
+
       toast.success(direction === "south"
         ? "You stand up. The dunes wait."
         : "You stand up. The road waits.");
