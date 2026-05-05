@@ -317,11 +317,13 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
                       type="button"
                       onClick={() => setGender(g.key)}
                       disabled={busy}
-                      className={`p-3 border-l-2 text-left transition-all ${
-                        active ? "border-ember bg-ember/5" : "border-border bg-card/30 hover:border-ember/60"
+                      className={`p-3 border-l-4 text-left active:scale-[0.97] transition-all touch-manipulation ${
+                        active
+                          ? "border-ember bg-ember/15 ring-2 ring-ember/70"
+                          : "border-border bg-card/30 hover:border-ember/60 opacity-80 hover:opacity-100"
                       }`}
                     >
-                      <div className="font-display text-parchment text-sm">{g.label}</div>
+                      <div className={`font-display text-sm ${active ? "text-ember" : "text-parchment"}`}>{g.label} {active && "✓"}</div>
                       <div className="font-mono text-[10px] text-ash">{g.pronoun}</div>
                     </button>
                   );
