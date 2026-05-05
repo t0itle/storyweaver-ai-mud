@@ -165,7 +165,7 @@ export default function GameClient({ session }: { session: Session }) {
   useEffect(() => {
     if (!profile) return;
     const slug = profile.current_room;
-    const wild = slug === "dunes-edge" || slug === "dunes-fork" || slug === "the-oasis" || slug === "ash-road";
+    const wild = slug === "dunes-edge" || slug === "deep-dunes" || slug === "ash-road";
     if (!wild) return;
     const tick = async () => {
       try {
