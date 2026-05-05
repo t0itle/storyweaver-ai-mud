@@ -122,7 +122,11 @@ export default function GameClient({ session }: { session: Session }) {
   // Load profile
   useEffect(() => {
     supabase.from("profiles").select("*").eq("id", session.user.id).maybeSingle()
-      .then(({ data }) => data && setProfile(data as Profile));
+      .then(({ data, error }) => {
+        if (error) console.error("[profile load]", error);
+        if (!data) console.warn("[profile load] no profile row for", session.user.id);
+        if (data) setProfile(data as Profile);
+      });
   }, [session.user.id]);
 
   // Load room + npcs + history when room changes
