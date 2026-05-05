@@ -489,6 +489,12 @@ export default function GameClient({ session }: { session: Session }) {
           <span className="text-ember">♥ {profile.hp}/{profile.max_hp}</span>
           <span className="text-accent">✦ {profile.xp} xp</span>
           <span className="text-parchment">⚜ {profile.gold}g</span>
+          <span
+            title={`Merit — your renown in the world: ${profile.merit ?? 0}`}
+            className="text-moss"
+          >
+            ❖ {profile.merit ?? 0} merit
+          </span>
           <button
             onClick={() => setHallOpen(true)}
             title={`Shadow corruption: ${profile.corruption}/100`}
