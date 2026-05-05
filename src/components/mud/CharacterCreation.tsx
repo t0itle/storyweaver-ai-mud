@@ -25,11 +25,11 @@ const INTRO_BEATS: { text: string; cta: string }[] = [
   },
 ];
 
-const PROLOGUE = `Behind you the dunes have eaten the road. Ahead, a fork: walls of red stone in the north, where torches burn against the falling dark — and to the south, a fat black snake on a sun-warmed rock, watching you, as if it has been waiting.
+const PROLOGUE = `You crest a dune and the world opens — flat sand to every horizon, a single thread of cracked road unrolling east. Behind you, your footprints have already begun to vanish.
 
-It tilts its head toward the deep desert and slides away. You follow without knowing why, and the dunes part, and there is water — a still pool, ringed in pale flowers that do not exist anywhere else in the world.
+There is no guide. No snake. No oasis waiting to name you. Only the wind, and the silence the Speaker left behind, and the choice of which way to put one foot in front of the other.
 
-You kneel. The pool reflects you. The reflection waits. It is asking who you mean to be.`;
+But first — before the road, before the city, before the Shadow learns the shape of you — the heat shimmer above the sand catches your reflection. It is asking who you mean to be.`;
 
 export default function CharacterCreation({ session, onCreated }: { session: Session; onCreated: () => void }) {
   const [races, setRaces] = useState<Race[]>([]);
