@@ -42,6 +42,7 @@ interface Discovery { lore_slug: string; source: string; discovered_at: string; 
 const HELP = [
   ["look", "describe the room"],
   ["go <dir>", "n/s/e/w/up/down"],
+  ["go to <place>", "fast-travel to a known or rumored place"],
   ["say <text>", "speak aloud"],
   ["emote <text>", "perform an action: *bows*"],
   ["ask <npc> <text>", "speak to an AI NPC"],
