@@ -179,9 +179,9 @@ export default function GameClient({ session }: { session: Session }) {
         }
       } catch { /* silence is also a whisper */ }
     };
-    const t = setTimeout(tick, 25_000 + Math.random() * 25_000);
-    return () => clearTimeout(t);
-  }, [profile?.current_room, messages.length]);
+    const t = setInterval(tick, 45_000);
+    return () => clearInterval(t);
+  }, [profile?.current_room, profile?.id]);
 
   // Realtime: messages in current room + presence
   useEffect(() => {
