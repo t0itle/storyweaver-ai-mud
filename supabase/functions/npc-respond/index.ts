@@ -41,6 +41,12 @@ Deno.serve(async (req) => {
       .map(m => `${m.kind === "emote" ? "* " : ""}${m.author_name}: ${m.content}`)
       .join("\n");
 
+    // Pull all lore for the NPC's knowledge — they may reference it naturally.
+    const { data: lore } = await supabase.from("lore_entries").select("slug,title,summary,keywords");
+    const loreBlock = (lore ?? []).map((l: any) =>
+      `- ${l.title} (${l.slug}): ${l.summary ?? ""}`
+    ).join("\n");
+
     const system = `You are roleplaying ${npc.name}${npc.title ? ", " + npc.title : ""}, an NPC in a text-based fantasy MUD set in the volcanic frontier village of Ember-Hold.
 
 PERSONA:
@@ -48,6 +54,9 @@ ${npc.persona}
 
 CURRENT LOCATION: ${roomRow?.name ?? room}
 ${roomRow?.description ?? ""}
+
+WORLD LORE YOU MAY KNOW (reference naturally if relevant — never list, never lecture):
+${loreBlock || "(none)"}
 
 RULES:
 - Stay strictly in character. Never break the fourth wall, never mention AI, models, or game mechanics.
@@ -88,7 +97,20 @@ RULES:
       user_id: null,
     });
 
-    return new Response(JSON.stringify({ content }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // Lore discovery: scan NPC reply for keywords; unlock matching entries for this player.
+    const lower = content.toLowerCase();
+    const discovered: string[] = [];
+    for (const l of (lore ?? []) as Array<{ slug: string; title: string; keywords: string[] }>) {
+      const kws = [l.slug, ...(l.keywords ?? [])].map(k => k.toLowerCase());
+      if (kws.some(k => k && lower.includes(k))) discovered.push(l.slug);
+    }
+    if (discovered.length) {
+      const rows = discovered.map(slug => ({ user_id: user.id, lore_slug: slug, source: `npc:${npc.name}` }));
+      // ignore duplicates via unique constraint
+      await supabase.from("player_lore_discoveries").upsert(rows, { onConflict: "user_id,lore_slug", ignoreDuplicates: true });
+    }
+
+    return new Response(JSON.stringify({ content, discovered }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
