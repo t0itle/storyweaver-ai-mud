@@ -243,9 +243,9 @@ Do not mention these tags in your prose.`;
       await supabase.from("player_lore_discoveries").upsert(rows, { onConflict: "user_id,lore_slug", ignoreDuplicates: true });
     }
 
-    // Persist NPC's memory of this exchange (service role bypasses RLS).
+    // Persist NPC's memory and amity (service role bypasses RLS).
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     if (memoryToStore) {
-      const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
       await admin.from("npc_memories").insert({
         npc_id: npc.id,
         user_id: user.id,
@@ -255,8 +255,15 @@ Do not mention these tags in your prose.`;
         room,
       });
     }
+    const newScore = Math.max(-100, Math.min(100, currentScore + amityDelta));
+    if (amityDelta !== 0 || !amityRow) {
+      await admin.from("npc_amity").upsert(
+        { npc_id: npc.id, user_id: user.id, score: newScore, updated_at: new Date().toISOString() },
+        { onConflict: "npc_id,user_id" },
+      );
+    }
 
-    return new Response(JSON.stringify({ content, discovered, mentioned_places: mentionedPlaces }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ content, discovered, mentioned_places: mentionedPlaces, amity: { score: newScore, word: amityWord(newScore) } }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
