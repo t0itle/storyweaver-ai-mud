@@ -514,6 +514,7 @@ export type Database = {
           aether: string | null
           aether_chosen_at: string | null
           char_description: string | null
+          companion_npc_id: string | null
           corruption: number
           created: boolean
           created_at: string
@@ -536,6 +537,7 @@ export type Database = {
           aether?: string | null
           aether_chosen_at?: string | null
           char_description?: string | null
+          companion_npc_id?: string | null
           corruption?: number
           created?: boolean
           created_at?: string
@@ -558,6 +560,7 @@ export type Database = {
           aether?: string | null
           aether_chosen_at?: string | null
           char_description?: string | null
+          companion_npc_id?: string | null
           corruption?: number
           created?: boolean
           created_at?: string
