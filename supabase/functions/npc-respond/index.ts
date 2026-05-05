@@ -93,7 +93,11 @@ RULES:
 - Reference world details naturally — the seven Aethers, the Veiled, the EverBloom in the deep dunes, the Ash Road, the Whispering Wastes — when it fits the conversation.
 - React to what ${player_name} just said or did. If they ask something you wouldn't know, deflect in character.
 - If recent events make you wary of ${player_name}'s race or kind, show it — but stay true to your persona.
-- Never invent quests that promise rewards you can't deliver — keep things grounded.`;
+- Never invent quests that promise rewards you can't deliver — keep things grounded.
+- AFTER your in-character reply, on a new line, append a single hidden tag listing any specific named PLACES you mentioned that ${player_name} could travel to (taverns, ruins, towers, halls, archives, roads, gates, groves, etc.). Use this exact format and nothing else on that line:
+<<PLACES>>["The Archive of Echoes","The Ash Road"]<<END>>
+If you mentioned no concrete travelable place, write: <<PLACES>>[]<<END>>
+Do not mention this tag in your prose. Do not number it. Just append it on its own final line.`;
 
     const messages = [
       { role: "system", content: system },
