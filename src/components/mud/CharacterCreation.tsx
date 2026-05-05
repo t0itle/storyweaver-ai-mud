@@ -96,8 +96,8 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
 
   if (step === "prologue") {
     return (
-      <div className="min-h-screen flex items-center justify-center px-5 py-12 bg-background">
-        <div className="max-w-2xl w-full space-y-8 animate-in fade-in duration-1000">
+     <div className="min-h-screen flex items-start md:items-center justify-center px-5 py-10 bg-background overflow-y-auto">
+        <div className="max-w-2xl w-full space-y-6 animate-in fade-in duration-1000 pb-24">
           <div className="flex items-center gap-3">
             <Flame className="w-6 h-6 text-ember ember-flicker" />
             <h1 className="font-display text-3xl text-parchment">Before You Were Anyone</h1>
