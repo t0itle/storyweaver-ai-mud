@@ -33,14 +33,59 @@ But first — before the road, before the city, before the Shadow learns the sha
 
 type Direction = "north" | "south";
 
+type Gender = "woman" | "man" | "neither" | "other";
+
+const GENDER_OPTIONS: { key: Gender; label: string; pronoun: string }[] = [
+  { key: "woman", label: "Woman", pronoun: "she/her" },
+  { key: "man", label: "Man", pronoun: "he/him" },
+  { key: "neither", label: "Neither", pronoun: "they/them" },
+  { key: "other", label: "Something else", pronoun: "your own" },
+];
+
+interface AdLibField {
+  key: string;
+  label: string;
+  prompt: string;
+  placeholder: string;
+  template: (v: string) => string;
+}
+
+const AD_LIB_FIELDS: AdLibField[] = [
+  { key: "build", label: "build", prompt: "Your build is", placeholder: "e.g. lean and rope-thin",
+    template: (v) => `${v.trim()} of build` },
+  { key: "hair", label: "hair", prompt: "Your hair is", placeholder: "e.g. sun-bleached and braided",
+    template: (v) => `with ${v.trim()} hair` },
+  { key: "eyes", label: "eyes", prompt: "Your eyes are", placeholder: "e.g. the colour of cold tea",
+    template: (v) => `eyes ${v.trim()}` },
+  { key: "mark", label: "a mark", prompt: "You bear", placeholder: "e.g. a crescent scar across one cheek",
+    template: (v) => `bearing ${v.trim()}` },
+  { key: "carries", label: "carry", prompt: "You carry", placeholder: "e.g. a bone flute and a half-empty waterskin",
+    template: (v) => `carrying ${v.trim()}` },
+  { key: "hides", label: "hide", prompt: "You hide", placeholder: "e.g. a name you will not say aloud",
+    template: (v) => `hiding ${v.trim()}` },
+];
+
 export default function CharacterCreation({ session, onCreated }: { session: Session; onCreated: () => void }) {
   const [races, setRaces] = useState<Race[]>([]);
   const [chosen, setChosen] = useState<Race | null>(null);
-  const [description, setDescription] = useState("");
+  const [gender, setGender] = useState<Gender | null>(null);
+  const [customGender, setCustomGender] = useState("");
+  const [adlib, setAdlib] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<"intro" | "prologue" | "direction" | "choose">("intro");
   const [beat, setBeat] = useState(0);
   const [direction, setDirection] = useState<Direction | null>(null);
+
+  const buildDescription = (): string => {
+    if (!chosen || !gender) return "";
+    const genderWord = gender === "other"
+      ? (customGender.trim() || "person")
+      : gender === "neither" ? "person" : gender;
+    const parts = AD_LIB_FIELDS
+      .map((f) => (adlib[f.key]?.trim() ? f.template(adlib[f.key]) : null))
+      .filter(Boolean) as string[];
+    return `A ${genderWord} of ${chosen.name} blood, ${parts.join(", ")}.`;
+  };
 
   useEffect(() => {
     supabase.from("races").select("*").order("sort_order")
@@ -50,7 +95,10 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   const submit = async () => {
     if (!chosen) { toast.error("Choose a race first."); return; }
     if (!direction) { toast.error("Choose a direction first."); return; }
-    if (description.trim().length < 8) { toast.error("Describe yourself in a sentence or two."); return; }
+    if (!gender) { toast.error("Choose a gender first."); return; }
+    const filled = AD_LIB_FIELDS.filter((f) => (adlib[f.key]?.trim().length ?? 0) >= 2).length;
+    if (filled < 3) { toast.error("Fill in at least three details — the pool needs a face."); return; }
+    const description = buildDescription();
     setBusy(true);
     try {
       const { error } = await supabase.functions.invoke("create-character", {
@@ -230,7 +278,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
           <Sparkles className="w-5 h-5 text-ember ember-flicker" />
           <h1 className="font-display text-3xl text-parchment">The Reflection Waits</h1>
         </div>
-        <p className="font-body text-ash italic">Choose your blood. Then describe the face you wish to wear.</p>
+        <p className="font-body text-ash italic">Choose your blood, then fit the missing words. The pool will paint the rest.</p>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {races.map((r) => {
@@ -251,26 +299,80 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
         </div>
 
         {chosen && (
-          <div className="space-y-3 border-t border-border pt-6">
-            <label className="font-mono text-[11px] uppercase tracking-widest text-ash">
-              Describe yourself — face, scars, posture, what you carry, what you hide. The pool listens.
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={600}
-              rows={4}
-              disabled={busy}
-              placeholder={`A ${chosen.name.toLowerCase()} with…`}
-              className="w-full bg-card/40 border border-border focus:border-ember outline-none p-3 font-body text-parchment placeholder:text-ash/50 resize-none"
-            />
-            <div className="flex justify-between items-center">
-              <span className="font-mono text-[10px] text-ash">{description.length}/600</span>
-              <Button onClick={submit} disabled={busy} className="bg-ember hover:bg-ember/90 text-background font-display">
-                {busy ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />the pool stirs…</>) : "Become →"}
-              </Button>
+          <div className="space-y-6 border-t border-border pt-6 animate-fade-in">
+            <div className="space-y-3">
+              <label className="font-mono text-[11px] uppercase tracking-widest text-ash">
+                The reflection asks — what are you?
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {GENDER_OPTIONS.map((g) => {
+                  const active = gender === g.key;
+                  return (
+                    <button
+                      key={g.key}
+                      type="button"
+                      onClick={() => setGender(g.key)}
+                      disabled={busy}
+                      className={`p-3 border-l-2 text-left transition-all ${
+                        active ? "border-ember bg-ember/5" : "border-border bg-card/30 hover:border-ember/60"
+                      }`}
+                    >
+                      <div className="font-display text-parchment text-sm">{g.label}</div>
+                      <div className="font-mono text-[10px] text-ash">{g.pronoun}</div>
+                    </button>
+                  );
+                })}
+              </div>
+              {gender === "other" && (
+                <input
+                  type="text"
+                  value={customGender}
+                  onChange={(e) => setCustomGender(e.target.value.slice(0, 40))}
+                  disabled={busy}
+                  placeholder="name what you are…"
+                  className="w-full bg-card/40 border border-border focus:border-ember outline-none p-2 font-body text-parchment placeholder:text-ash/50 text-sm"
+                />
+              )}
             </div>
-            {busy && <p className="text-xs text-whisper italic">The water draws your face. This may take half a minute.</p>}
+
+            {gender && (
+              <div className="space-y-4 animate-fade-in">
+                <label className="font-mono text-[11px] uppercase tracking-widest text-ash block">
+                  Fit the words into the gaps
+                </label>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {AD_LIB_FIELDS.map((f) => (
+                    <label key={f.key} className="block space-y-1">
+                      <span className="font-body text-sm text-ash">
+                        {f.prompt} <span className="text-ember">___</span>
+                      </span>
+                      <input
+                        type="text"
+                        value={adlib[f.key] ?? ""}
+                        onChange={(e) => setAdlib({ ...adlib, [f.key]: e.target.value.slice(0, 90) })}
+                        disabled={busy}
+                        placeholder={f.placeholder}
+                        className="w-full bg-card/40 border border-border focus:border-ember outline-none p-2 font-body text-parchment placeholder:text-ash/40 text-sm"
+                      />
+                    </label>
+                  ))}
+                </div>
+
+                <div className="border border-dashed border-border/70 bg-card/20 p-3">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-whisper mb-1">The pool reflects</div>
+                  <p className="font-body text-parchment italic text-sm leading-relaxed">
+                    {buildDescription() || "…the surface is still empty."}
+                  </p>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button onClick={submit} disabled={busy} className="bg-ember hover:bg-ember/90 text-background font-display">
+                    {busy ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />the pool stirs…</>) : "Become →"}
+                  </Button>
+                </div>
+                {busy && <p className="text-xs text-whisper italic">The water draws your face. This may take half a minute.</p>}
+              </div>
+            )}
           </div>
         )}
       </div>
