@@ -450,10 +450,27 @@ function CodexModal({
     </div>
   );
 }
-function RoomBlock({ room, npcs }: { room: Room; npcs: Npc[] }) {
+function RoomBlock({ room, npcs, sceneUrl, sceneLoading }: {
+  room: Room; npcs: Npc[]; sceneUrl: string | null; sceneLoading: boolean;
+}) {
   return (
     <div className="border-l-2 border-ember/60 pl-4 py-1 mb-4">
       <h2 className="font-display text-2xl text-ember mb-2">{room.name}</h2>
+      <div className="mb-3 aspect-[16/9] bg-card/50 border border-border overflow-hidden relative">
+        {sceneUrl ? (
+          <img src={sceneUrl} alt={room.name} className="w-full h-full object-cover animate-in fade-in duration-700" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            {sceneLoading ? (
+              <div className="flex items-center gap-2 text-whisper text-xs font-mono italic">
+                <Loader2 className="w-3 h-3 animate-spin" /> the world is being painted…
+              </div>
+            ) : (
+              <span className="text-ash text-xs italic">…</span>
+            )}
+          </div>
+        )}
+      </div>
       <p className="text-parchment whitespace-pre-line">{room.description}</p>
       {room.ambience && <p className="text-ash italic mt-2">{room.ambience}</p>}
       {npcs.length > 0 && (
