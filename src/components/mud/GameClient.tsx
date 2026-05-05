@@ -593,6 +593,13 @@ export default function GameClient({ session }: { session: Session }) {
           onChanged={() => { reloadRunes(); reloadInventory(); }}
         />
       )}
+      {hallOpen && (
+        <HallOfChoice
+          currentAether={profile.aether}
+          onClose={() => setHallOpen(false)}
+          onAligned={reloadProfile}
+        />
+      )}
     </div>
   );
 }
