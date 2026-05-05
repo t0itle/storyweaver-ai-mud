@@ -271,13 +271,13 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   }
 
   return (
-    <div className="min-h-screen bg-background px-5 py-10">
-      <div className="max-w-5xl mx-auto space-y-8">
+    <div className="min-h-screen bg-background px-4 sm:px-5 py-8 sm:py-10">
+      <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8">
         <div className="flex items-center gap-3">
-          <Sparkles className="w-5 h-5 text-ember ember-flicker" />
-          <h1 className="font-display text-3xl text-parchment">The Reflection Waits</h1>
+          <Sparkles className="w-5 h-5 text-ember ember-flicker shrink-0" />
+          <h1 className="font-display text-2xl sm:text-3xl text-parchment leading-tight">The Reflection Waits</h1>
         </div>
-        <p className="font-body text-ash italic">Choose your blood, then fit the missing words. The pool will paint the rest.</p>
+        <p className="font-body text-ash italic text-sm sm:text-base">Choose your blood, then fit the missing words. The pool will paint the rest.</p>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {races.map((r) => {
