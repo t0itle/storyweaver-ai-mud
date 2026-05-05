@@ -121,15 +121,26 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   if (step === "prologue") {
     return (
      <div className="min-h-screen flex items-start md:items-center justify-center px-5 py-10 bg-background overflow-y-auto">
-        <div className="max-w-2xl w-full space-y-6 animate-in fade-in duration-1000 pb-24">
-          <div className="flex items-center gap-3">
+        <div className="max-w-2xl w-full space-y-6 pb-24">
+          <div className="flex items-center gap-3 animate-fade-in" style={{ animationDelay: "100ms", animationFillMode: "backwards" }}>
             <Flame className="w-6 h-6 text-ember ember-flicker" />
             <h1 className="font-display text-3xl text-parchment">Before You Were Anyone</h1>
           </div>
-          <p className="font-body text-parchment text-lg leading-relaxed whitespace-pre-line">{PROLOGUE}</p>
-          <Button onClick={() => setStep("direction")} className="bg-ember hover:bg-ember/90 text-background font-display">
-            Choose your road →
-          </Button>
+          <p
+            className="font-body text-parchment text-lg leading-relaxed whitespace-pre-line animate-fade-in"
+            style={{ animationDelay: "350ms", animationDuration: "1000ms", animationFillMode: "backwards" }}
+          >
+            {PROLOGUE}
+          </p>
+          <div className="animate-fade-in" style={{ animationDelay: "1300ms", animationFillMode: "backwards" }}>
+            <Button
+              onClick={() => setStep("direction")}
+              className="bg-ember hover:bg-ember/90 text-background font-display group hover-scale"
+            >
+              <span>Choose your road</span>
+              <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1 animate-pulse" />
+            </Button>
+          </div>
         </div>
       </div>
     );
