@@ -117,22 +117,22 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
     const last = beat === INTRO_BEATS.length - 1;
     const advance = () => (last ? setStep("prologue") : setBeat(beat + 1));
     return (
-      <div className="min-h-screen flex items-center justify-center px-5 py-12 bg-background">
-        <div className="max-w-2xl w-full space-y-8 animate-fade-in" key={beat}>
+      <div className="min-h-screen flex items-center justify-center px-4 sm:px-5 py-8 sm:py-12 bg-background">
+        <div className="max-w-2xl w-full space-y-6 sm:space-y-8 animate-fade-in" key={beat}>
           <div className="flex items-center gap-3 animate-fade-in" style={{ animationDelay: "100ms", animationFillMode: "backwards" }}>
-            <Flame className="w-6 h-6 text-ember ember-flicker" />
-            <h1 className="font-display text-3xl text-parchment">
+            <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-ember ember-flicker shrink-0" />
+            <h1 className="font-display text-2xl sm:text-3xl text-parchment leading-tight">
               {beat === 0 ? "When the Gods Stopped Speaking" : beat === 1 ? "The Last Burning City" : "A Walker on the Sand"}
             </h1>
           </div>
           <p
-            className="font-body text-parchment text-lg leading-relaxed whitespace-pre-line animate-fade-in"
+            className="font-body text-parchment text-base sm:text-lg leading-relaxed whitespace-pre-line animate-fade-in"
             style={{ animationDelay: "350ms", animationDuration: "900ms", animationFillMode: "backwards" }}
           >
             {b.text}
           </p>
           <div
-            className="flex items-center gap-4 animate-fade-in"
+            className="flex flex-wrap items-center gap-3 sm:gap-4 animate-fade-in"
             style={{ animationDelay: "1100ms", animationFillMode: "backwards" }}
           >
             <Button
@@ -155,7 +155,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
             {!last && (
               <button
                 onClick={() => setStep("prologue")}
-                className="font-mono text-[10px] text-whisper hover:text-ash underline underline-offset-4 ml-auto transition-colors"
+                className="font-mono text-[10px] text-whisper hover:text-ash underline underline-offset-4 sm:ml-auto transition-colors"
               >
                 skip the telling
               </button>
@@ -165,8 +165,6 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
       </div>
     );
   }
-
-  if (step === "prologue") {
     return (
      <div className="min-h-screen flex items-start md:items-center justify-center px-5 py-10 bg-background overflow-y-auto">
         <div className="max-w-2xl w-full space-y-6 pb-32">
