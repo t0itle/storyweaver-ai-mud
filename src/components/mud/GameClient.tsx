@@ -427,6 +427,14 @@ export default function GameClient({ session }: { session: Session }) {
           <span className="text-ember">♥ {profile.hp}/{profile.max_hp}</span>
           <span className="text-accent">✦ {profile.xp} xp</span>
           <span className="text-parchment">⚜ {profile.gold}g</span>
+          <button onClick={() => setInvOpen(true)} className="flex items-center gap-1 text-whisper hover:text-ember transition-colors" title="Inventory">
+            <Backpack className="w-4 h-4" />
+            <span>{inventory.length}</span>
+          </button>
+          <button onClick={() => setRunesOpen(true)} className="flex items-center gap-1 text-whisper hover:text-ember transition-colors" title="Runes">
+            <Sparkles className="w-4 h-4" />
+            <span>{knownRunes.length}</span>
+          </button>
           <button
             onClick={() => { setCodexEntry(null); setCodexOpen(true); }}
             className="flex items-center gap-1 text-whisper hover:text-ember transition-colors"
