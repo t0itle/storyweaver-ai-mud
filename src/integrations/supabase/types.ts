@@ -349,30 +349,42 @@ export type Database = {
       }
       npcs: {
         Row: {
+          current_activity: string | null
           dead_until: string | null
           greeting: string | null
+          home_room: string | null
           id: string
+          last_tick_at: string | null
           name: string
           persona: string
           room: string
+          schedule: Json
           title: string | null
         }
         Insert: {
+          current_activity?: string | null
           dead_until?: string | null
           greeting?: string | null
+          home_room?: string | null
           id?: string
+          last_tick_at?: string | null
           name: string
           persona: string
           room: string
+          schedule?: Json
           title?: string | null
         }
         Update: {
+          current_activity?: string | null
           dead_until?: string | null
           greeting?: string | null
+          home_room?: string | null
           id?: string
+          last_tick_at?: string | null
           name?: string
           persona?: string
           room?: string
+          schedule?: Json
           title?: string | null
         }
         Relationships: [
@@ -643,6 +655,8 @@ export type Database = {
           ambience: string | null
           description: string
           exits: Json
+          kind: string
+          label: string
           name: string
           slug: string
         }
@@ -650,6 +664,8 @@ export type Database = {
           ambience?: string | null
           description: string
           exits?: Json
+          kind?: string
+          label?: string
           name: string
           slug: string
         }
@@ -657,6 +673,8 @@ export type Database = {
           ambience?: string | null
           description?: string
           exits?: Json
+          kind?: string
+          label?: string
           name?: string
           slug?: string
         }
