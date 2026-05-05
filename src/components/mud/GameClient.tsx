@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Backpack, BookOpen, Flame, Loader2, LogOut, Sparkles, Sword, Users, X } from "lucide-react";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
+import HallOfChoice from "./HallOfChoice";
 
 interface Profile {
   id: string;
@@ -17,6 +18,8 @@ interface Profile {
   char_description: string | null;
   in_combat_id: string | null;
   max_weight: number;
+  aether: string | null;
+  corruption: number;
 }
 interface Room {
   slug: string; name: string; description: string;
@@ -73,6 +76,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [knownRunes, setKnownRunes] = useState<KnownRune[]>([]);
   const [invOpen, setInvOpen] = useState(false);
   const [runesOpen, setRunesOpen] = useState(false);
+  const [hallOpen, setHallOpen] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
