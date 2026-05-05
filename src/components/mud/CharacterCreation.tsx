@@ -272,22 +272,34 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
           </p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {races.map((r) => {
-            const active = chosen?.key === r.key;
-            return (
-              <button key={r.key} onClick={() => setChosen(r)} disabled={busy}
-                className={`text-left p-4 border-l-2 transition-all ${
-                  active ? "border-ember bg-ember/5 shadow-[0_0_20px_-8px_hsl(var(--ember))]"
-                         : "border-border bg-card/30 hover:border-ember/60"
-                }`}>
-                <div className="font-display text-xl text-parchment mb-1">{r.name}</div>
-                <p className="text-sm text-ash italic mb-3">{r.flavor}</p>
-                <p className="text-xs text-moss"><span className="text-ash uppercase tracking-wider mr-1">gain</span> {r.gain}</p>
-                <p className="text-xs text-ember mt-1"><span className="text-ash uppercase tracking-wider mr-1">cost</span> {r.cost}</p>
-              </button>
-            );
-          })}
+        <div>
+          <div className="font-mono text-[11px] uppercase tracking-widest text-ash mb-2">
+            Choose your blood {chosen && <span className="text-ember normal-case tracking-normal">— {chosen.name} chosen ✓</span>}
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {races.map((r) => {
+              const active = chosen?.key === r.key;
+              return (
+                <button key={r.key} onClick={() => setChosen(r)} disabled={busy}
+                  aria-pressed={active}
+                  className={`relative text-left p-4 border-l-4 active:scale-[0.98] transition-all touch-manipulation ${
+                    active
+                      ? "border-ember bg-ember/15 ring-2 ring-ember/70 shadow-[0_0_28px_-6px_hsl(var(--ember))]"
+                      : "border-border bg-card/30 hover:border-ember/60 opacity-80 hover:opacity-100"
+                  }`}>
+                  {active && (
+                    <span className="absolute top-2 right-2 font-mono text-[10px] uppercase tracking-widest text-ember bg-background/80 px-1.5 py-0.5 border border-ember/60">
+                      ✓ chosen
+                    </span>
+                  )}
+                  <div className={`font-display text-xl mb-1 ${active ? "text-ember" : "text-parchment"}`}>{r.name}</div>
+                  <p className="text-sm text-ash italic mb-3">{r.flavor}</p>
+                  <p className="text-xs text-moss"><span className="text-ash uppercase tracking-wider mr-1">gain</span> {r.gain}</p>
+                  <p className="text-xs text-ember mt-1"><span className="text-ash uppercase tracking-wider mr-1">cost</span> {r.cost}</p>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {chosen && (
