@@ -103,6 +103,47 @@ export default function GameClient({ session }: { session: Session }) {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, room]);
 
+  // Load lore catalog + player's discoveries; subscribe to new discoveries
+  useEffect(() => {
+    if (!profile) return;
+    supabase.from("lore_entries").select("*").then(({ data }) => setLore((data ?? []) as LoreEntry[]));
+    const loadDisc = () => supabase.from("player_lore_discoveries").select("lore_slug,source,discovered_at")
+      .eq("user_id", profile.id).then(({ data }) => setDiscoveries((data ?? []) as Discovery[]));
+    loadDisc();
+    const ch = supabase.channel(`disc:${profile.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "player_lore_discoveries", filter: `user_id=eq.${profile.id}` },
+        (p) => {
+          const row = p.new as Discovery;
+          setDiscoveries((prev) => prev.some(d => d.lore_slug === row.lore_slug) ? prev : [...prev, row]);
+          // surface a poetic notice
+          setMessages((m) => [...m, {
+            id: crypto.randomUUID(), room: profile.current_room, author_name: "—",
+            kind: "local", created_at: new Date().toISOString(), user_id: null, npc_id: null,
+            content: `✦ Knowledge stirs within you. A new entry has been added to your codex. (type "lore" to read)`,
+          }]);
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [profile?.id]);
+
+  const discoveredSlugs = new Set(discoveries.map(d => d.lore_slug));
+
+  const tryDiscover = async (text: string, source: string) => {
+    if (!profile) return [] as string[];
+    const lower = text.toLowerCase();
+    const matched = lore.filter(l => {
+      const kws = [l.slug, ...(l.keywords ?? [])].map(k => k.toLowerCase());
+      return kws.some(k => k && lower.includes(k));
+    }).map(l => l.slug).filter(s => !discoveredSlugs.has(s));
+    if (matched.length) {
+      await supabase.from("player_lore_discoveries").upsert(
+        matched.map(slug => ({ user_id: profile.id, lore_slug: slug, source })),
+        { onConflict: "user_id,lore_slug", ignoreDuplicates: true },
+      );
+    }
+    return matched;
+  };
+
   const post = async (kind: string, content: string, author?: string) => {
     if (!profile) return;
     await supabase.from("messages").insert({
