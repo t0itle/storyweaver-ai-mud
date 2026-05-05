@@ -101,10 +101,12 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
     setBusy(true);
     try {
       const { error } = await supabase.functions.invoke("create-character", {
-        body: { race_key: chosen.key, description },
+        body: { race_key: chosen.key, description, direction },
       });
       if (error) throw error;
-      toast.success("You wake on the Crescent Shore.");
+      toast.success(direction === "south"
+        ? "You stand up. The dunes wait."
+        : "You stand up. The road waits.");
       onCreated();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "The reflection wavers and fades.");
