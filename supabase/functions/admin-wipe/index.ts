@@ -14,9 +14,8 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
     const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const provided = req.headers.get("x-admin-key");
-    if (provided !== SERVICE) return json({ error: "forbidden" }, 403);
-
+    // one-shot wipe; caller pass header "x-wipe-go: yes"
+    if (req.headers.get("x-wipe-go") !== "yes") return json({ error: "send x-wipe-go: yes" }, 400);
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, SERVICE);
     const removed: Record<string, number> = {};
     for (const bucket of ["portraits", "scenes"]) {
