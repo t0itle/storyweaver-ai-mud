@@ -441,8 +441,8 @@ export default function GameClient({ session }: { session: Session }) {
         if (error || data?.error) throw new Error(data?.error ?? error?.message);
       } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
     } else if (c === "align" || c === "kneel") {
-      if (profile.current_room !== "hall-of-choice") {
-        setMessages((m) => [...m, localSys("There is no basin here. Seek the Hall of Choice in the city.")]);
+      if (profile.current_room !== "hall-of-the-seven") {
+        setMessages((m) => [...m, localSys("There is no basin here. Seek the Hall of the Seven in the First City.")]);
       } else {
         setHallOpen(true);
       }

@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     ]);
     if (!profile) return json({ error: "No profile." }, 400);
     if (!aether)  return json({ error: "No such Aether." }, 400);
-    if (profile.current_room !== "hall-of-choice")
+    if (profile.current_room !== "hall-of-the-seven")
       return json({ error: "You can only align yourself in the Hall of Choice." }, 400);
     if (profile.aether)
       return json({ error: `You are already sworn to ${profile.aether}. The Speaker keeps oaths.` }, 400);
@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
     if (error) throw error;
 
     await admin.from("messages").insert({
-      room: "hall-of-choice",
+      room: "hall-of-the-seven",
       user_id: null,
       author_name: "—",
       kind: "system",
