@@ -35,8 +35,19 @@ Deno.serve(async (req) => {
 
     if (action === "learn") {
       if (!body.rune_key) throw new Error("rune_key required");
-      const { data: rune } = await admin.from("runes").select("*").eq("key", body.rune_key).maybeSingle();
-      if (!rune) throw new Error("That rune is not known to the world.");
+      const raw = body.rune_key.toLowerCase().trim();
+      const normalized = raw.replace(/\s+/g, "-");
+      // Try by key (exact, then normalized), then by case-insensitive name match.
+      let { data: rune } = await admin.from("runes").select("*").eq("key", normalized).maybeSingle();
+      if (!rune) {
+        const { data: byName } = await admin.from("runes").select("*").ilike("name", raw).maybeSingle();
+        rune = byName ?? null;
+      }
+      if (!rune) {
+        const { data: all } = await admin.from("runes").select("key,name");
+        const known = (all ?? []).map(r => r.name).join(", ");
+        throw new Error(`No such rune. Known runes: ${known}.`);
+      }
 
       const { data: profile } = await admin.from("profiles").select("current_room,gold,username").eq("id", user.id).maybeSingle();
       if (!profile) throw new Error("Profile missing");
