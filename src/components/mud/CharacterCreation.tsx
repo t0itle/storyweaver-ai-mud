@@ -121,7 +121,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   if (step === "prologue") {
     return (
      <div className="min-h-screen flex items-start md:items-center justify-center px-5 py-10 bg-background overflow-y-auto">
-        <div className="max-w-2xl w-full space-y-6 pb-24">
+        <div className="max-w-2xl w-full space-y-6 pb-32">
           <div className="flex items-center gap-3 animate-fade-in" style={{ animationDelay: "100ms", animationFillMode: "backwards" }}>
             <Flame className="w-6 h-6 text-ember ember-flicker" />
             <h1 className="font-display text-3xl text-parchment">Before You Were Anyone</h1>
@@ -132,14 +132,36 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
           >
             {PROLOGUE}
           </p>
-          <div className="animate-fade-in" style={{ animationDelay: "1300ms", animationFillMode: "backwards" }}>
+          <div
+            className="animate-fade-in flex items-center justify-between gap-4 border-t border-border/70 pt-4"
+            style={{ animationDelay: "1100ms", animationFillMode: "backwards" }}
+          >
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-whisper">
+              The road waits ahead
+            </p>
             <Button
               onClick={() => setStep("direction")}
-              className="bg-ember hover:bg-ember/90 text-background font-display group hover-scale"
+              className="bg-ember hover:bg-ember/90 text-background font-display group hover-scale shrink-0"
             >
-              <span>Choose your road</span>
+              <span>Next</span>
               <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1 animate-pulse" />
             </Button>
+          </div>
+
+          <div className="sticky bottom-4 z-10 animate-fade-in" style={{ animationDelay: "1300ms", animationFillMode: "backwards" }}>
+            <div className="flex items-center justify-between gap-3 border border-border/80 bg-card/90 px-4 py-3 shadow-[0_12px_40px_-24px_hsl(var(--foreground)/0.75)] backdrop-blur-sm">
+              <div className="min-w-0">
+                <p className="font-display text-sm text-parchment">Ready to choose your path?</p>
+                <p className="font-body text-xs text-ash">Head for the shining city or disappear into the dunes.</p>
+              </div>
+              <Button
+                onClick={() => setStep("direction")}
+                className="bg-ember hover:bg-ember/90 text-background font-display group hover-scale shrink-0"
+              >
+                <span>Choose your road</span>
+                <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1 animate-pulse" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
