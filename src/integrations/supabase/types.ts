@@ -308,6 +308,7 @@ export type Database = {
       }
       messages: {
         Row: {
+          addressed_to: string | null
           author_name: string
           content: string
           created_at: string
@@ -318,6 +319,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          addressed_to?: string | null
           author_name: string
           content: string
           created_at?: string
@@ -328,6 +330,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          addressed_to?: string | null
           author_name?: string
           content?: string
           created_at?: string
