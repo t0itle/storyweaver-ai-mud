@@ -67,28 +67,48 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   if (step === "intro") {
     const b = INTRO_BEATS[beat];
     const last = beat === INTRO_BEATS.length - 1;
+    const advance = () => (last ? setStep("prologue") : setBeat(beat + 1));
     return (
       <div className="min-h-screen flex items-center justify-center px-5 py-12 bg-background">
-        <div className="max-w-2xl w-full space-y-8 animate-in fade-in duration-1000" key={beat}>
-          <div className="flex items-center gap-3">
+        <div className="max-w-2xl w-full space-y-8 animate-fade-in" key={beat}>
+          <div className="flex items-center gap-3 animate-fade-in" style={{ animationDelay: "100ms", animationFillMode: "backwards" }}>
             <Flame className="w-6 h-6 text-ember ember-flicker" />
             <h1 className="font-display text-3xl text-parchment">
               {beat === 0 ? "When the Gods Stopped Speaking" : beat === 1 ? "The Last Burning City" : "A Walker on the Sand"}
             </h1>
           </div>
-          <p className="font-body text-parchment text-lg leading-relaxed whitespace-pre-line">{b.text}</p>
-          <div className="flex items-center gap-4">
+          <p
+            className="font-body text-parchment text-lg leading-relaxed whitespace-pre-line animate-fade-in"
+            style={{ animationDelay: "350ms", animationDuration: "900ms", animationFillMode: "backwards" }}
+          >
+            {b.text}
+          </p>
+          <div
+            className="flex items-center gap-4 animate-fade-in"
+            style={{ animationDelay: "1100ms", animationFillMode: "backwards" }}
+          >
             <Button
-              onClick={() => (last ? setStep("prologue") : setBeat(beat + 1))}
-              className="bg-ember hover:bg-ember/90 text-background font-display"
+              onClick={advance}
+              className="bg-ember hover:bg-ember/90 text-background font-display group hover-scale"
             >
-              {b.cta}
+              <span>{b.cta}</span>
+              <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1 animate-pulse" />
             </Button>
-            <span className="font-mono text-[10px] text-ash tracking-widest">
-              {beat + 1} / {INTRO_BEATS.length}
-            </span>
+            <div className="flex items-center gap-1.5">
+              {INTRO_BEATS.map((_, i) => (
+                <span
+                  key={i}
+                  className={`h-1 rounded-full transition-all duration-500 ${
+                    i === beat ? "w-6 bg-ember" : i < beat ? "w-3 bg-ember/40" : "w-3 bg-ash/20"
+                  }`}
+                />
+              ))}
+            </div>
             {!last && (
-              <button onClick={() => setStep("prologue")} className="font-mono text-[10px] text-whisper hover:text-ash underline underline-offset-4 ml-auto">
+              <button
+                onClick={() => setStep("prologue")}
+                className="font-mono text-[10px] text-whisper hover:text-ash underline underline-offset-4 ml-auto transition-colors"
+              >
                 skip the telling
               </button>
             )}
