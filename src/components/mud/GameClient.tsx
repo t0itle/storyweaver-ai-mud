@@ -454,6 +454,9 @@ export default function GameClient({ session }: { session: Session }) {
         <main className="flex-1 flex flex-col min-w-0">
           <div ref={logRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-6 space-y-3 font-body text-[17px] leading-relaxed">
             <RoomBlock room={room} npcs={npcs} sceneUrl={sceneUrl} sceneLoading={sceneLoading} />
+            {profile.in_combat_id && (
+              <CombatHUD combatId={profile.in_combat_id} userId={profile.id} onAct={combatAct} />
+            )}
             {messages.map((m) => <MessageLine key={m.id} m={m} you={profile.username} />)}
             {thinking && <div className="text-whisper italic typewriter">a voice gathers in the dark</div>}
           </div>
