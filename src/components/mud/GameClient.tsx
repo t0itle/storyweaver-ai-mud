@@ -26,8 +26,9 @@ interface Room {
   slug: string; name: string; description: string;
   ambience: string | null;
   exits: Record<string, string>;
+  kind?: string; label?: string;
 }
-interface Npc { id: string; room: string; name: string; title: string | null; greeting: string | null; }
+interface Npc { id: string; room: string; name: string; title: string | null; greeting: string | null; current_activity?: string | null; }
 interface Message {
   id: string; room: string; author_name: string;
   kind: string; content: string; created_at: string;
