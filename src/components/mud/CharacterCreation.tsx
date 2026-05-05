@@ -235,10 +235,10 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
                   : "border-border bg-card/30 hover:border-ember/60"
               }`}
             >
-              <div className="font-display text-xl text-parchment mb-2">North — toward the shining city</div>
+              <div className="font-display text-lg sm:text-xl text-parchment mb-2">North — toward the First City</div>
               <p className="text-sm text-ash leading-relaxed">
-                Watch-fires burn on high walls across the heat-shimmer. A cracked road runs to its gates.
-                There will be people there. Some of them may even be kind.
+                Watch-fires burn on its high walls across the heat-shimmer. A cracked road runs to its gates,
+                where the Veiled stand with cloth bound across their mouths, keeping vigil for a Speaker that no longer speaks.
               </p>
             </button>
             <button
