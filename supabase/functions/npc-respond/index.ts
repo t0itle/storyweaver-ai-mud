@@ -138,6 +138,7 @@ Do not mention this tag in your prose. Do not number it. Just append it on its o
       kind: "npc",
       content,
       user_id: null,
+      addressed_to: user.id,
     });
 
     // Lore discovery: scan NPC reply for keywords; unlock matching entries for this player.

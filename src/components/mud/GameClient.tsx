@@ -162,7 +162,9 @@ export default function GameClient({ session }: { session: Session }) {
         supabase.from("rooms").select("*").eq("slug", slug).maybeSingle(),
         supabase.from("npcs").select("*").eq("room", slug)
           .or(`dead_until.is.null,dead_until.lte.${nowIso}`),
-        supabase.from("messages").select("*").eq("room", slug).order("created_at", { ascending: false }).limit(40),
+        supabase.from("messages").select("*").eq("room", slug)
+          .or(`user_id.eq.${profile.id},and(user_id.is.null,addressed_to.is.null),addressed_to.eq.${profile.id}`)
+          .order("created_at", { ascending: false }).limit(40),
         supabase.from("world_events").select("kind,actor_name,target_name,details,created_at")
           .eq("room", slug)
           .or(`decay_at.is.null,decay_at.gte.${nowIso}`)
@@ -263,7 +265,14 @@ export default function GameClient({ session }: { session: Session }) {
 
     const ch = supabase.channel(`room:${slug}`, { config: { presence: { key: profile.id } } })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.${slug}` },
-        (p) => setMessages((prev) => [...prev, p.new as Message]))
+        (p) => {
+          const msg = p.new as Message & { addressed_to?: string | null };
+          // Filter: own messages, ambient/world (no user_id, no addressed_to), or NPC replies addressed to me.
+          const mine = msg.user_id === profile.id;
+          const ambient = !msg.user_id && !msg.addressed_to;
+          const toMe = msg.addressed_to === profile.id;
+          if (mine || ambient || toMe) setMessages((prev) => [...prev, msg]);
+        })
       .on("presence", { event: "sync" }, () => {
         const state = ch.presenceState() as Record<string, { username: string }[]>;
         const users = Object.values(state).flat();
