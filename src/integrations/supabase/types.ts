@@ -349,6 +349,7 @@ export type Database = {
       }
       npcs: {
         Row: {
+          dead_until: string | null
           greeting: string | null
           id: string
           name: string
@@ -357,6 +358,7 @@ export type Database = {
           title: string | null
         }
         Insert: {
+          dead_until?: string | null
           greeting?: string | null
           id?: string
           name: string
@@ -365,6 +367,7 @@ export type Database = {
           title?: string | null
         }
         Update: {
+          dead_until?: string | null
           greeting?: string | null
           id?: string
           name?: string
@@ -695,6 +698,48 @@ export type Database = {
           name?: string
           rarity?: string
           teacher_npc?: string | null
+        }
+        Relationships: []
+      }
+      world_events: {
+        Row: {
+          actor_id: string | null
+          actor_name: string
+          created_at: string
+          decay_at: string | null
+          details: Json
+          id: string
+          kind: string
+          room: string
+          target_id: string | null
+          target_kind: string | null
+          target_name: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_name: string
+          created_at?: string
+          decay_at?: string | null
+          details?: Json
+          id?: string
+          kind: string
+          room: string
+          target_id?: string | null
+          target_kind?: string | null
+          target_name?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          actor_name?: string
+          created_at?: string
+          decay_at?: string | null
+          details?: Json
+          id?: string
+          kind?: string
+          room?: string
+          target_id?: string | null
+          target_kind?: string | null
+          target_name?: string | null
         }
         Relationships: []
       }

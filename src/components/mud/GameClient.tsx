@@ -63,6 +63,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
   const [npcs, setNpcs] = useState<Npc[]>([]);
+  const [roomEvents, setRoomEvents] = useState<{ kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [presence, setPresence] = useState<{ username: string }[]>([]);
   const [input, setInput] = useState("");
@@ -130,13 +131,20 @@ export default function GameClient({ session }: { session: Session }) {
     const slug = profile.current_room;
     setSceneUrl(null);
     (async () => {
-      const [{ data: r }, { data: n }, { data: m }] = await Promise.all([
+      const nowIso = new Date().toISOString();
+      const [{ data: r }, { data: n }, { data: m }, { data: ev }] = await Promise.all([
         supabase.from("rooms").select("*").eq("slug", slug).maybeSingle(),
-        supabase.from("npcs").select("*").eq("room", slug),
+        supabase.from("npcs").select("*").eq("room", slug)
+          .or(`dead_until.is.null,dead_until.lte.${nowIso}`),
         supabase.from("messages").select("*").eq("room", slug).order("created_at", { ascending: false }).limit(40),
+        supabase.from("world_events").select("kind,actor_name,target_name,details,created_at")
+          .eq("room", slug)
+          .or(`decay_at.is.null,decay_at.gte.${nowIso}`)
+          .order("created_at", { ascending: false }).limit(5),
       ]);
       if (r) setRoom(r as Room);
       setNpcs((n ?? []) as Npc[]);
+      setRoomEvents((ev ?? []) as any);
       setMessages(((m ?? []) as Message[]).reverse());
     })();
   }, [profile?.current_room]);
@@ -309,7 +317,7 @@ export default function GameClient({ session }: { session: Session }) {
     if (c === "help" || c === "?") {
       setMessages((m) => [...m, localSys(HELP.map(([k, v]) => `  ${k.padEnd(20)} — ${v}`).join("\n"))]);
     } else if (c === "look" || c === "l") {
-      setMessages((m) => [...m, localSys(formatRoom(room, npcs))]);
+      setMessages((m) => [...m, localSys(formatRoom(room, npcs, roomEvents))]);
     } else if (c === "who") {
       setMessages((m) => [...m, localSys(`Here: ${presence.map(p => p.username).join(", ") || "(only you)"}`)]);
     } else if (c === "go" || c === "n" || c === "s" || c === "e" || c === "w" || c === "u" || c === "d") {
@@ -539,7 +547,7 @@ export default function GameClient({ session }: { session: Session }) {
         {/* Main log */}
         <main className="flex-1 flex flex-col min-w-0">
           <div ref={logRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-6 space-y-3 font-body text-[17px] leading-relaxed">
-            <RoomBlock room={room} npcs={npcs} sceneUrl={sceneUrl} sceneLoading={sceneLoading} />
+            <RoomBlock room={room} npcs={npcs} sceneUrl={sceneUrl} sceneLoading={sceneLoading} events={roomEvents} />
             {profile.in_combat_id && (
               <CombatHUD combatId={profile.in_combat_id} userId={profile.id} onAct={combatAct} />
             )}
@@ -709,8 +717,9 @@ function CodexModal({
     </div>
   );
 }
-function RoomBlock({ room, npcs, sceneUrl, sceneLoading }: {
+function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
   room: Room; npcs: Npc[]; sceneUrl: string | null; sceneLoading: boolean;
+  events: { kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[];
 }) {
   return (
     <div className="border-l-2 border-ember/60 pl-4 py-1 mb-4">
@@ -737,8 +746,23 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading }: {
           {npcs.map((n) => `${n.name}${n.title ? `, ${n.title}` : ""}`).join("; ")} {npcs.length === 1 ? "is" : "are"} here.
         </p>
       )}
+      {events.length > 0 && (
+        <div className="mt-3 border-l-2 border-shadow/60 pl-3 py-1 bg-shadow/5">
+          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-shadow/80 mb-1">— what happened here —</div>
+          {events.map((e, i) => (
+            <p key={i} className="text-whisper text-xs italic">{describeEvent(e)}</p>
+          ))}
+        </div>
+      )}
     </div>
   );
+}
+
+function describeEvent(e: { kind: string; actor_name: string; target_name: string | null; details: any }) {
+  if (e.kind === "npc_killed") {
+    return `${e.actor_name} slew ${e.target_name}${e.details?.npc_title ? `, ${e.details.npc_title}` : ""} on these stones. The mark lingers.`;
+  }
+  return `${e.actor_name} did ${e.kind}${e.target_name ? ` to ${e.target_name}` : ""} here.`;
 }
 
 function MessageLine({ m, you }: { m: Message; you: string }) {
@@ -782,10 +806,17 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
   );
 }
 
-function formatRoom(room: Room, npcs: Npc[]) {
+function formatRoom(room: Room, npcs: Npc[], events: { kind: string; actor_name: string; target_name: string | null; details: any }[] = []) {
   const lines = [room.name.toUpperCase(), "", room.description];
   if (room.ambience) lines.push("", room.ambience);
   if (npcs.length) lines.push("", "Here: " + npcs.map(n => n.name).join(", "));
   lines.push("", "Exits: " + (Object.keys(room.exits).join(", ") || "none"));
+  if (events.length) {
+    lines.push("", "— what happened here —");
+    for (const e of events) {
+      if (e.kind === "npc_killed") lines.push(`  ${e.actor_name} slew ${e.target_name}${e.details?.npc_title ? `, ${e.details.npc_title}` : ""}.`);
+      else lines.push(`  ${e.actor_name} ${e.kind}${e.target_name ? ` ${e.target_name}` : ""}.`);
+    }
+  }
   return lines.join("\n");
 }

@@ -244,6 +244,30 @@ Deno.serve(async (req) => {
         }).eq("id", user.id);
         await admin.from("messages").insert({ room: profile.current_room, user_id: null, author_name: "—", kind: "system",
           content: `✦ ${me.name} gains ${reward} xp, ${goldReward} gold, and ${meritReward} merit.` });
+
+        // === Adaptive storytelling: persist NPC death as a world event ===
+        const { data: npcRow } = await admin.from("npcs").select("id,name,title,room").eq("id", target.npc_id).maybeSingle();
+        if (npcRow) {
+          // NPC stays dead for 3 days, tension decays after 14 days
+          const deadUntil = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+          const decayAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+          await admin.from("npcs").update({ dead_until: deadUntil }).eq("id", npcRow.id);
+          await admin.from("world_events").insert({
+            room: profile.current_room,
+            kind: "npc_killed",
+            actor_id: user.id,
+            actor_name: me.name,
+            target_kind: "npc",
+            target_id: npcRow.id,
+            target_name: npcRow.name,
+            details: { npc_title: npcRow.title ?? null, actor_race: profile.race ?? null, actor_aether: profile.aether ?? null },
+            decay_at: decayAt,
+          });
+          await admin.from("messages").insert({
+            room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+            content: `✶ A blood-mark settles on the stones. ${npcRow.name}'s name will be remembered — and so will ${me.name}'s.`,
+          });
+        }
       }
       await advanceTurn(combatId);
       return ok({ ok: true });
