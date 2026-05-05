@@ -547,6 +547,9 @@ export default function GameClient({ session }: { session: Session }) {
           onChanged={() => { reloadRunes(); reloadInventory(); }}
         />
       )}
+    </div>
+  );
+}
 
 function CodexModal({
   lore, discoveries, openSlug, setOpenSlug, onClose,
