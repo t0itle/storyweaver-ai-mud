@@ -104,7 +104,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
           </div>
           <p className="font-body text-parchment text-lg leading-relaxed whitespace-pre-line">{PROLOGUE}</p>
           <Button onClick={() => setStep("choose")} className="bg-ember hover:bg-ember/90 text-background font-display">
-            Look into the water →
+            Look into the heat shimmer →
           </Button>
         </div>
       </div>
