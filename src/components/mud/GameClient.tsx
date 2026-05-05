@@ -860,6 +860,9 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
   if (m.kind === "emote") {
     return <div className="text-moss italic">* {m.author_name} {m.content}</div>;
   }
+  if (m.kind === "ambient") {
+    return <div className="text-whisper italic text-sm">{m.content}</div>;
+  }
   if (m.kind === "shadow") {
     return (
       <div className="border-l-2 border-whisper/40 pl-3 my-1">
