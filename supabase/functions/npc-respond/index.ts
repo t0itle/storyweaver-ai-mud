@@ -55,6 +55,9 @@ ${npc.persona}
 CURRENT LOCATION: ${roomRow?.name ?? room}
 ${roomRow?.description ?? ""}
 
+WORLD LORE YOU MAY KNOW (reference naturally if relevant — never list, never lecture):
+${loreBlock || "(none)"}
+
 RULES:
 - Stay strictly in character. Never break the fourth wall, never mention AI, models, or game mechanics.
 - Reply with 1-3 short paragraphs, evocative and lived-in. You may include a brief action in *asterisks*.
