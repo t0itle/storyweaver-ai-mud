@@ -107,9 +107,64 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
             <h1 className="font-display text-3xl text-parchment">Before You Were Anyone</h1>
           </div>
           <p className="font-body text-parchment text-lg leading-relaxed whitespace-pre-line">{PROLOGUE}</p>
-          <Button onClick={() => setStep("choose")} className="bg-ember hover:bg-ember/90 text-background font-display">
-            Look into the heat shimmer →
+          <Button onClick={() => setStep("direction")} className="bg-ember hover:bg-ember/90 text-background font-display">
+            Choose your road →
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "direction") {
+    return (
+      <div className="min-h-screen flex items-start md:items-center justify-center px-5 py-10 bg-background overflow-y-auto">
+        <div className="max-w-3xl w-full space-y-6 animate-in fade-in duration-1000 pb-24">
+          <div className="flex items-center gap-3">
+            <Flame className="w-6 h-6 text-ember ember-flicker" />
+            <h1 className="font-display text-3xl text-parchment">Which Way Do You Walk?</h1>
+          </div>
+          <p className="font-body text-ash italic">No guide. No snake. Only the wind, and a road that runs north.</p>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            <button
+              onClick={() => setDirection("north")}
+              className={`text-left p-5 border-l-2 transition-all ${
+                direction === "north"
+                  ? "border-ember bg-ember/5 shadow-[0_0_20px_-8px_hsl(var(--ember))]"
+                  : "border-border bg-card/30 hover:border-ember/60"
+              }`}
+            >
+              <div className="font-display text-xl text-parchment mb-2">North — toward the shining city</div>
+              <p className="text-sm text-ash leading-relaxed">
+                Watch-fires burn on high walls across the heat-shimmer. A cracked road runs to its gates.
+                There will be people there. Some of them may even be kind.
+              </p>
+            </button>
+            <button
+              onClick={() => setDirection("south")}
+              className={`text-left p-5 border-l-2 transition-all ${
+                direction === "south"
+                  ? "border-ember bg-ember/5 shadow-[0_0_20px_-8px_hsl(var(--ember))]"
+                  : "border-border bg-card/30 hover:border-ember/60"
+              }`}
+            >
+              <div className="font-display text-xl text-parchment mb-2">South — deeper into the dunes</div>
+              <p className="text-sm text-ash leading-relaxed">
+                No road. No bells. Only sand that goes on and on, and a wind that has begun to say
+                something just under hearing. The Shadow knows that road.
+              </p>
+            </button>
+          </div>
+
+          <div className="flex justify-end">
+            <Button
+              onClick={() => setStep("choose")}
+              disabled={!direction}
+              className="bg-ember hover:bg-ember/90 text-background font-display disabled:opacity-40"
+            >
+              {direction ? "Now — who are you? →" : "Choose a direction"}
+            </Button>
+          </div>
         </div>
       </div>
     );
