@@ -130,22 +130,19 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
           >
             {b.text}
           </p>
-          <div
-            className="flex flex-wrap items-center gap-3 sm:gap-4 animate-fade-in"
-            style={{ animationDelay: "1100ms", animationFillMode: "backwards" }}
-          >
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
             <Button
               onClick={advance}
-              className="bg-ember hover:bg-ember/90 text-background font-display group hover-scale"
+              className="bg-ember hover:bg-ember/90 active:scale-95 text-background font-display group transition-transform touch-manipulation"
             >
               <span>{b.cta}</span>
-              <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1 animate-pulse" />
+              <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" />
             </Button>
             <div className="flex items-center gap-1.5">
               {INTRO_BEATS.map((_, i) => (
                 <span
                   key={i}
-                  className={`h-1 rounded-full transition-all duration-500 ${
+                  className={`h-1 rounded-full transition-all duration-300 ${
                     i === beat ? "w-6 bg-ember" : i < beat ? "w-3 bg-ember/40" : "w-3 bg-ash/20"
                   }`}
                 />
@@ -154,7 +151,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
             {!last && (
               <button
                 onClick={() => setStep("prologue")}
-                className="font-mono text-[10px] text-whisper hover:text-ash underline underline-offset-4 sm:ml-auto transition-colors"
+                className="font-mono text-[10px] text-whisper hover:text-ash underline underline-offset-4 sm:ml-auto transition-colors touch-manipulation"
               >
                 skip the telling
               </button>
@@ -178,23 +175,20 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
           >
             {PROLOGUE}
           </p>
-          <div
-            className="animate-fade-in flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 border-t border-border/70 pt-4"
-            style={{ animationDelay: "1100ms", animationFillMode: "backwards" }}
-          >
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 border-t border-border/70 pt-4">
             <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-whisper">
               The road waits ahead
             </p>
             <Button
               onClick={() => setStep("direction")}
-              className="bg-ember hover:bg-ember/90 text-background font-display group hover-scale shrink-0 self-start sm:self-auto"
+              className="bg-ember hover:bg-ember/90 active:scale-95 text-background font-display group shrink-0 self-start sm:self-auto transition-transform touch-manipulation"
             >
               <span>Next</span>
-              <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1 animate-pulse" />
+              <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" />
             </Button>
           </div>
 
-          <div className="sticky bottom-4 z-10 animate-fade-in" style={{ animationDelay: "1300ms", animationFillMode: "backwards" }}>
+          <div className="sticky bottom-4 z-10">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border border-border/80 bg-card/90 px-4 py-3 shadow-[0_12px_40px_-24px_hsl(var(--foreground)/0.75)] backdrop-blur-sm">
               <div className="min-w-0">
                 <p className="font-display text-sm text-parchment">Ready to choose your path?</p>
@@ -202,10 +196,10 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
               </div>
               <Button
                 onClick={() => setStep("direction")}
-                className="bg-ember hover:bg-ember/90 text-background font-display group hover-scale shrink-0 self-start sm:self-auto"
+                className="bg-ember hover:bg-ember/90 active:scale-95 text-background font-display group shrink-0 self-start sm:self-auto transition-transform touch-manipulation"
               >
                 <span>Choose your road</span>
-                <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1 animate-pulse" />
+                <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" />
               </Button>
             </div>
           </div>
