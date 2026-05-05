@@ -350,6 +350,39 @@ export type Database = {
           },
         ]
       }
+      npc_memories: {
+        Row: {
+          created_at: string
+          emotion: string | null
+          id: string
+          importance: number
+          npc_id: string
+          room: string | null
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emotion?: string | null
+          id?: string
+          importance?: number
+          npc_id: string
+          room?: string | null
+          summary: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emotion?: string | null
+          id?: string
+          importance?: number
+          npc_id?: string
+          room?: string | null
+          summary?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       npcs: {
         Row: {
           current_activity: string | null

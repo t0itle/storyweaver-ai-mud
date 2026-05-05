@@ -41,6 +41,19 @@ Deno.serve(async (req) => {
       .map(m => `${m.kind === "emote" ? "* " : ""}${m.author_name}: ${m.content}`)
       .join("\n");
 
+    // Persistent NPC memory of THIS player, across all locations.
+    const { data: memRows } = await supabase
+      .from("npc_memories")
+      .select("summary,emotion,importance,room,created_at")
+      .eq("npc_id", npc_id)
+      .eq("user_id", user.id)
+      .order("importance", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(12);
+    const memoryBlock = (memRows ?? []).length
+      ? memRows!.map((m: any) => `- (${m.emotion ?? "neutral"}, imp ${m.importance}${m.room ? `, at ${m.room}` : ""}) ${m.summary}`).join("\n")
+      : "(you have not met this person before)";
+
     // Pull all lore for the NPC's knowledge — they may reference it naturally.
     const { data: lore } = await supabase.from("lore_entries").select("slug,title,summary,keywords");
     const loreBlock = (lore ?? []).map((l: any) =>
@@ -87,17 +100,22 @@ ${localBlock}
 WIDER RUMORS (you may have heard whispers of these — only mention if directly relevant):
 ${globalBlock}
 
+WHAT YOU REMEMBER ABOUT ${player_name} (your private memories of them, carried with you across all locations — this is the truth of your relationship, not the room):
+${memoryBlock}
+
 RULES:
 - Stay strictly in character. Never break the fourth wall, never mention AI, models, or game mechanics.
 - Reply with 1-3 short paragraphs, evocative and lived-in. You may include a brief action in *asterisks*.
 - Reference world details naturally — the seven Aethers, the Veiled, the EverBloom in the deep dunes, the Ash Road, the Whispering Wastes — when it fits the conversation.
-- React to what ${player_name} just said or did. If they ask something you wouldn't know, deflect in character.
+- React to what ${player_name} just said or did. Lean on YOUR MEMORIES of them — pick up threads from past conversations, hold grudges, warm to old friends. If you've never met, treat them as a stranger.
 - If recent events make you wary of ${player_name}'s race or kind, show it — but stay true to your persona.
 - Never invent quests that promise rewards you can't deliver — keep things grounded.
-- AFTER your in-character reply, on a new line, append a single hidden tag listing any specific named PLACES you mentioned that ${player_name} could travel to (taverns, ruins, towers, halls, archives, roads, gates, groves, etc.). Use this exact format and nothing else on that line:
+- AFTER your in-character reply, append TWO hidden tags on their own lines, in this exact order and format:
 <<PLACES>>["The Archive of Echoes","The Ash Road"]<<END>>
-If you mentioned no concrete travelable place, write: <<PLACES>>[]<<END>>
-Do not mention this tag in your prose. Do not number it. Just append it on its own final line.`;
+<<MEMORY>>{"summary":"short third-person fact you want to remember about ${player_name} from THIS exchange","emotion":"warm|wary|grateful|angry|amused|curious|indifferent","importance":1}<<END>>
+PLACES: list any specific named travelable place you mentioned, or [].
+MEMORY: one short sentence (max ~140 chars) capturing what was significant about THIS exchange — a fact learned, a promise made, an offense given, a kindness shared. importance is 1 (small) to 5 (life-changing). If nothing worth remembering happened, write: <<MEMORY>>null<<END>>
+Do not mention these tags in your prose.`;
 
     const messages = [
       { role: "system", content: system },
@@ -127,8 +145,22 @@ Do not mention this tag in your prose. Do not number it. Just append it on its o
     let content = rawContent;
     if (placesMatch) {
       try { mentionedPlaces = JSON.parse(placesMatch[1]); } catch { mentionedPlaces = []; }
-      content = rawContent.replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*$/, "").trim();
     }
+
+    // Strip and parse hidden <<MEMORY>>{...}<<END>> tag
+    const memoryMatch = rawContent.match(/<<MEMORY>>\s*(null|\{[\s\S]*?\})\s*<<END>>/);
+    let memoryToStore: { summary: string; emotion?: string; importance?: number } | null = null;
+    if (memoryMatch && memoryMatch[1] !== "null") {
+      try {
+        const parsed = JSON.parse(memoryMatch[1]);
+        if (parsed?.summary) memoryToStore = parsed;
+      } catch { /* ignore */ }
+    }
+
+    content = rawContent
+      .replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<MEMORY>>[\s\S]*?<<END>>\s*/g, "")
+      .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
     await supabase.from("messages").insert({
@@ -152,6 +184,19 @@ Do not mention this tag in your prose. Do not number it. Just append it on its o
       const rows = discovered.map(slug => ({ user_id: user.id, lore_slug: slug, source: `npc:${npc.name}` }));
       // ignore duplicates via unique constraint
       await supabase.from("player_lore_discoveries").upsert(rows, { onConflict: "user_id,lore_slug", ignoreDuplicates: true });
+    }
+
+    // Persist NPC's memory of this exchange (service role bypasses RLS).
+    if (memoryToStore) {
+      const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      await admin.from("npc_memories").insert({
+        npc_id: npc.id,
+        user_id: user.id,
+        summary: String(memoryToStore.summary).slice(0, 280),
+        emotion: memoryToStore.emotion ? String(memoryToStore.emotion).slice(0, 32) : null,
+        importance: Math.max(1, Math.min(5, Number(memoryToStore.importance) || 1)),
+        room,
+      });
     }
 
     return new Response(JSON.stringify({ content, discovered, mentioned_places: mentionedPlaces }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
