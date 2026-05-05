@@ -822,13 +822,22 @@ export default function GameClient({ session }: { session: Session }) {
           <div>
             <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Souls Here</h3>
             <div className="space-y-1">
-              {npcs.map((n) => (
-                <button key={n.id} onClick={() => { setInput(`ask ${n.name.split(" ")[0]} `); inputRef.current?.focus(); }}
-                  className="block text-left w-full font-body text-parchment hover:text-ember transition-colors">
-                  <span className="text-accent">●</span> {n.name}
-                  {n.title && <span className="text-ash italic"> — {n.title}</span>}
-                </button>
-              ))}
+              {npcs.map((n) => {
+                const score = amityByNpc[n.id];
+                const word = score === undefined ? null
+                  : score <= -60 ? "hostile" : score <= -20 ? "wary"
+                  : score < 20 ? null : score < 60 ? "friendly" : "devoted";
+                const tone = score === undefined ? "" :
+                  score <= -20 ? "text-ember" : score >= 60 ? "text-moss" : score >= 20 ? "text-accent" : "";
+                return (
+                  <button key={n.id} onClick={() => { setInput(`ask ${n.name.split(" ")[0]} `); inputRef.current?.focus(); }}
+                    className="block text-left w-full font-body text-parchment hover:text-ember transition-colors">
+                    <span className="text-accent">●</span> {n.name}
+                    {n.title && <span className="text-ash italic"> — {n.title}</span>}
+                    {word && <span className={`text-[10px] italic ml-1 ${tone}`}> ({word})</span>}
+                  </button>
+                );
+              })}
               {presence.map((p) => (
                 <div key={p.username} className="font-body text-moss">
                   <span>◆</span> {p.username}{p.username === profile.username && <span className="text-ash"> (you)</span>}
