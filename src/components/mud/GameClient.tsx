@@ -390,10 +390,28 @@ export default function GameClient({ session }: { session: Session }) {
       await post("say", `${what}  →  ${npc.name}`);
       setThinking(true);
       try {
-        const { error } = await supabase.functions.invoke("npc-respond", {
+        const { data, error } = await supabase.functions.invoke("npc-respond", {
           body: { npc_id: npc.id, room: profile.current_room, player_input: what, player_name: profile.username },
         });
         if (error) throw error;
+        // Auto-discover any places the NPC named, so "go to <place>" works immediately.
+        const places: string[] = data?.mentioned_places ?? [];
+        if (places.length) {
+          (async () => {
+            const learned: string[] = [];
+            for (const p of places.slice(0, 4)) {
+              try {
+                const { data: d } = await supabase.functions.invoke("discover-location", {
+                  body: { name: p, hint: what, from_room: profile.current_room },
+                });
+                if (d?.created && d?.name) learned.push(d.name);
+              } catch { /* ignore */ }
+            }
+            if (learned.length) {
+              setMessages((mm) => [...mm, localSys(`✦ New places stir on the map: ${learned.join(", ")}. (try "go to ${learned[0]}")`)]);
+            }
+          })();
+        }
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
       } finally { setThinking(false); }
