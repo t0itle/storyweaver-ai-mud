@@ -220,28 +220,20 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
 
           <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
             <button
-              onClick={() => setDirection("north")}
-              className={`text-left p-4 sm:p-5 border-l-2 transition-all ${
-                direction === "north"
-                  ? "border-ember bg-ember/5 shadow-[0_0_20px_-8px_hsl(var(--ember))]"
-                  : "border-border bg-card/30 hover:border-ember/60"
-              }`}
+              onClick={() => { setDirection("north"); setStep("choose"); }}
+              className="text-left p-4 sm:p-5 border-l-2 border-border bg-card/30 hover:border-ember/60 active:scale-[0.98] active:bg-ember/10 transition-all touch-manipulation"
             >
-              <div className="font-display text-lg sm:text-xl text-parchment mb-2">North — toward the First City</div>
+              <div className="font-display text-lg sm:text-xl text-parchment mb-2">North — toward the First City →</div>
               <p className="text-sm text-ash leading-relaxed">
                 Watch-fires burn on its high walls across the heat-shimmer. A cracked road runs to its gates,
                 where the Veiled stand with cloth bound across their mouths, keeping vigil for a Speaker that no longer speaks.
               </p>
             </button>
             <button
-              onClick={() => setDirection("south")}
-              className={`text-left p-4 sm:p-5 border-l-2 transition-all ${
-                direction === "south"
-                  ? "border-ember bg-ember/5 shadow-[0_0_20px_-8px_hsl(var(--ember))]"
-                  : "border-border bg-card/30 hover:border-ember/60"
-              }`}
+              onClick={() => { setDirection("south"); setStep("choose"); }}
+              className="text-left p-4 sm:p-5 border-l-2 border-border bg-card/30 hover:border-ember/60 active:scale-[0.98] active:bg-ember/10 transition-all touch-manipulation"
             >
-              <div className="font-display text-lg sm:text-xl text-parchment mb-2">South — deeper into the dunes</div>
+              <div className="font-display text-lg sm:text-xl text-parchment mb-2">South — deeper into the dunes →</div>
               <p className="text-sm text-ash leading-relaxed">
                 No road. No bells. Only sand that goes on and on, and a wind that has begun to say
                 something just under hearing. The Shadow knows that road.
@@ -249,15 +241,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
             </button>
           </div>
 
-          <div className="flex justify-end">
-            <Button
-              onClick={() => setStep("choose")}
-              disabled={!direction}
-              className="bg-ember hover:bg-ember/90 text-background font-display disabled:opacity-40 w-full sm:w-auto"
-            >
-              {direction ? "Now — who are you? →" : "Choose a direction"}
-            </Button>
-          </div>
+          <p className="font-mono text-[10px] text-whisper text-center">tap a road to walk it</p>
         </div>
       </div>
     );
