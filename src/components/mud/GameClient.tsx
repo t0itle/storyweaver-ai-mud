@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Backpack, BookOpen, Flame, Loader2, LogOut, Sparkles, Sword, Users, X } from "lucide-react";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
+import HallOfChoice from "./HallOfChoice";
 
 interface Profile {
   id: string;
@@ -17,6 +18,8 @@ interface Profile {
   char_description: string | null;
   in_combat_id: string | null;
   max_weight: number;
+  aether: string | null;
+  corruption: number;
 }
 interface Room {
   slug: string; name: string; description: string;
@@ -73,6 +76,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [knownRunes, setKnownRunes] = useState<KnownRune[]>([]);
   const [invOpen, setInvOpen] = useState(false);
   const [runesOpen, setRunesOpen] = useState(false);
+  const [hallOpen, setHallOpen] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -151,6 +155,55 @@ export default function GameClient({ session }: { session: Session }) {
       .finally(() => { if (!cancelled) setSceneLoading(false); });
     return () => { cancelled = true; };
   }, [profile?.current_room, room?.slug]);
+
+  // Auto-open Hall of Choice when the player enters it (only if not yet sworn)
+  useEffect(() => {
+    if (profile?.current_room === "hall-of-choice" && !profile.aether) setHallOpen(true);
+  }, [profile?.current_room, profile?.aether]);
+
+  // The Shadow whispers in the deep, unspoken places (dunes, oasis).
+  useEffect(() => {
+    if (!profile) return;
+    const slug = profile.current_room;
+    const wild = slug === "dunes-edge" || slug === "dunes-fork" || slug === "the-oasis" || slug === "ash-road";
+    if (!wild) return;
+    const tick = async () => {
+      try {
+        const { data } = await supabase.functions.invoke("shadow-tempt", { body: { kind: "whisper" } });
+        if (data?.whisper) {
+          setMessages((m) => [...m, {
+            id: crypto.randomUUID(), room: slug, author_name: "the Shadow",
+            kind: "shadow", content: data.whisper, created_at: new Date().toISOString(),
+            user_id: null, npc_id: null,
+          }]);
+        }
+      } catch { /* silence is also a whisper */ }
+    };
+    const t = setInterval(tick, 45_000);
+    return () => clearInterval(t);
+  }, [profile?.current_room, profile?.id]);
+
+  // Listen for shadow choices made via inline buttons
+  useEffect(() => {
+    const handler = async (ev: Event) => {
+      const kind = (ev as CustomEvent<string>).detail;
+      try {
+        const { data } = await supabase.functions.invoke("shadow-tempt", { body: { kind } });
+        if (data?.ok) {
+          setMessages((m) => [...m, {
+            id: crypto.randomUUID(), room: profile?.current_room ?? "", author_name: "—",
+            kind: "local", content: kind === "submit"
+              ? `you let it in. (corruption ${data.corruption}/100)`
+              : `you push it back. (corruption ${data.corruption}/100)`,
+            created_at: new Date().toISOString(), user_id: null, npc_id: null,
+          }]);
+          reloadProfile();
+        }
+      } catch { /* */ }
+    };
+    window.addEventListener("shadow-act", handler);
+    return () => window.removeEventListener("shadow-act", handler);
+  }, [profile?.current_room]);
 
   // Realtime: messages in current room + presence
   useEffect(() => {
@@ -381,6 +434,12 @@ export default function GameClient({ session }: { session: Session }) {
         });
         if (error || data?.error) throw new Error(data?.error ?? error?.message);
       } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "align" || c === "kneel") {
+      if (profile.current_room !== "hall-of-choice") {
+        setMessages((m) => [...m, localSys("There is no basin here. Seek the Hall of Choice in the city.")]);
+      } else {
+        setHallOpen(true);
+      }
     } else {
       // default = say
       await post("say", text);
@@ -420,7 +479,8 @@ export default function GameClient({ session }: { session: Session }) {
           <div>
             <div className="font-display text-lg leading-none text-parchment">{profile.username}</div>
             <div className="font-mono text-[10px] text-ash uppercase tracking-widest">
-              {profile.race ?? "wanderer"} · lvl {profile.level} · <span className="text-ember/80">EverBloom</span>
+              {profile.race ?? "wanderer"} · lvl {profile.level}
+              {profile.aether && <> · <span className="text-ember/80">{profile.aether}</span></>}
             </div>
           </div>
         </div>
@@ -428,6 +488,19 @@ export default function GameClient({ session }: { session: Session }) {
           <span className="text-ember">♥ {profile.hp}/{profile.max_hp}</span>
           <span className="text-accent">✦ {profile.xp} xp</span>
           <span className="text-parchment">⚜ {profile.gold}g</span>
+          <button
+            onClick={() => setHallOpen(true)}
+            title={`Shadow corruption: ${profile.corruption}/100`}
+            className="flex items-center gap-1.5"
+          >
+            <span className="text-ash">◐</span>
+            <span className="w-16 h-1.5 bg-border relative overflow-hidden">
+              <span
+                className="absolute inset-y-0 left-0 bg-gradient-to-r from-whisper to-ember"
+                style={{ width: `${Math.min(100, profile.corruption ?? 0)}%` }}
+              />
+            </span>
+          </button>
           <button onClick={() => setInvOpen(true)} className="flex items-center gap-1 text-whisper hover:text-ember transition-colors" title="Inventory">
             <Backpack className="w-4 h-4" />
             <span>{inventory.length}</span>
@@ -548,6 +621,13 @@ export default function GameClient({ session }: { session: Session }) {
           onChanged={() => { reloadRunes(); reloadInventory(); }}
         />
       )}
+      {hallOpen && (
+        <HallOfChoice
+          currentAether={profile.aether}
+          onClose={() => setHallOpen(false)}
+          onAligned={reloadProfile}
+        />
+      )}
     </div>
   );
 }
@@ -656,6 +736,20 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
   }
   if (m.kind === "emote") {
     return <div className="text-moss italic">* {m.author_name} {m.content}</div>;
+  }
+  if (m.kind === "shadow") {
+    return (
+      <div className="border-l-2 border-whisper/40 pl-3 my-1">
+        <div className="font-mono text-[10px] text-ash uppercase tracking-[0.3em]">— a whisper from the unspoken —</div>
+        <p className="text-whisper italic lowercase tracking-wide">{m.content}</p>
+        <div className="mt-1 flex gap-2 font-mono text-[10px]">
+          <button onClick={() => window.dispatchEvent(new CustomEvent("shadow-act", { detail: "submit" }))}
+            className="text-ember/80 hover:text-ember underline underline-offset-2">listen</button>
+          <button onClick={() => window.dispatchEvent(new CustomEvent("shadow-act", { detail: "resist" }))}
+            className="text-moss hover:text-parchment underline underline-offset-2">speak against it</button>
+        </div>
+      </div>
+    );
   }
   if (m.kind === "npc") {
     return (

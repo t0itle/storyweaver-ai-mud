@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      aethers: {
+        Row: {
+          domain: string
+          gift: string
+          glyph: string
+          key: string
+          name: string
+          sort_order: number
+          vow: string
+        }
+        Insert: {
+          domain: string
+          gift: string
+          glyph?: string
+          key: string
+          name: string
+          sort_order?: number
+          vow: string
+        }
+        Update: {
+          domain?: string
+          gift?: string
+          glyph?: string
+          key?: string
+          name?: string
+          sort_order?: number
+          vow?: string
+        }
+        Relationships: []
+      }
       combat_actions: {
         Row: {
           action: string
@@ -463,7 +493,10 @@ export type Database = {
       }
       profiles: {
         Row: {
+          aether: string | null
+          aether_chosen_at: string | null
           char_description: string | null
+          corruption: number
           created: boolean
           created_at: string
           current_room: string
@@ -481,7 +514,10 @@ export type Database = {
           xp: number
         }
         Insert: {
+          aether?: string | null
+          aether_chosen_at?: string | null
           char_description?: string | null
+          corruption?: number
           created?: boolean
           created_at?: string
           current_room?: string
@@ -499,7 +535,10 @@ export type Database = {
           xp?: number
         }
         Update: {
+          aether?: string | null
+          aether_chosen_at?: string | null
           char_description?: string | null
+          corruption?: number
           created?: boolean
           created_at?: string
           current_room?: string
@@ -517,6 +556,13 @@ export type Database = {
           xp?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_aether_fkey"
+            columns: ["aether"]
+            isOneToOne: false
+            referencedRelation: "aethers"
+            referencedColumns: ["key"]
+          },
           {
             foreignKeyName: "profiles_race_fkey"
             columns: ["race"]
