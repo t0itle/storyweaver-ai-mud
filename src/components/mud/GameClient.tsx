@@ -309,11 +309,90 @@ export default function GameClient({ session }: { session: Session }) {
       } else {
         setMessages((m) => [...m, localSys(`You examine the ${args}, but glean nothing new.`)]);
       }
+    } else if (c === "inventory" || c === "inv" || c === "i") {
+      setInvOpen(true);
+    } else if (c === "runes" || c === "spells") {
+      setRunesOpen(true);
+    } else if (c === "equip" || c === "wield" || c === "wear" || c === "use" || c === "drop" || c === "unequip") {
+      const target = args.toLowerCase().trim();
+      if (!target) { setMessages((m) => [...m, localSys(`${c} what?`)]); return; }
+      const it = inventory.find(i => i.items.name.toLowerCase().includes(target) || i.item_key.includes(target));
+      if (!it) { setMessages((m) => [...m, localSys(`You carry no "${target}".`)]); return; }
+      const action = c === "wield" || c === "wear" ? "equip" : c;
+      try {
+        const { data, error } = await supabase.functions.invoke("inventory-action", {
+          body: { action, player_item_id: it.id, slot: it.items.slot },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        setMessages((m) => [...m, localSys(data.message)]);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "learn") {
+      if (!args) { setMessages((m) => [...m, localSys("Learn which rune?")]); return; }
+      try {
+        const { data, error } = await supabase.functions.invoke("rune-action", {
+          body: { action: "learn", rune_key: args.toLowerCase().trim() },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        setMessages((m) => [...m, localSys(data.message)]);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "weave") {
+      // syntax: weave <rune> into <item>
+      const m = args.match(/^(.+?)\s+into\s+(.+)$/i);
+      if (!m) { setMessages((mm) => [...mm, localSys("Usage: weave <rune> into <item>")]); return; }
+      const [, runeName, itemName] = m;
+      const rune = knownRunes.find(r => r.runes.name.toLowerCase().includes(runeName.toLowerCase()) || r.rune_key.includes(runeName.toLowerCase()));
+      const item = inventory.find(i => i.items.name.toLowerCase().includes(itemName.toLowerCase()));
+      if (!rune) { setMessages((mm) => [...mm, localSys(`You know no rune called "${runeName}".`)]); return; }
+      if (!item) { setMessages((mm) => [...mm, localSys(`You carry no "${itemName}".`)]); return; }
+      try {
+        const { data, error } = await supabase.functions.invoke("rune-action", {
+          body: { action: "weave", rune_key: rune.rune_key, player_item_id: item.id },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        setMessages((mm) => [...mm, localSys(data.message)]);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "attack" || c === "kill" || c === "fight") {
+      if (!args) { setMessages((m) => [...m, localSys("Attack whom?")]); return; }
+      try {
+        const { data, error } = await supabase.functions.invoke("combat-action", {
+          body: { action: "start", target_name: args.trim() },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "join" && !args) {
+      try {
+        const { data, error } = await supabase.functions.invoke("combat-action", { body: { action: "join" } });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "defend" || c === "flee") {
+      try {
+        const { data, error } = await supabase.functions.invoke("combat-action", { body: { action: c } });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "cast") {
+      const m = args.match(/^(.+?)(?:\s+at\s+(.+))?$/i);
+      if (!m) { setMessages((mm) => [...mm, localSys("Cast which rune?")]); return; }
+      const [, runeName, target] = m;
+      const rune = knownRunes.find(r => r.runes.name.toLowerCase().includes(runeName.toLowerCase()) || r.rune_key.includes(runeName.toLowerCase()));
+      if (!rune) { setMessages((mm) => [...mm, localSys(`You know no rune called "${runeName}".`)]); return; }
+      try {
+        const { data, error } = await supabase.functions.invoke("combat-action", {
+          body: { action: "cast", rune_key: rune.rune_key, target_name: target },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
     } else {
       // default = say
       await post("say", text);
     }
     setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const combatAct = async (kind: string, args: Record<string, unknown> = {}) => {
+    try {
+      const { data, error } = await supabase.functions.invoke("combat-action", { body: { action: kind, ...args } });
+      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
   };
 
   const localSys = (content: string): Message => ({
