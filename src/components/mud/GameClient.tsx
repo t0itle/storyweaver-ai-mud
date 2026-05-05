@@ -715,8 +715,10 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
         <div className="font-mono text-[10px] text-ash uppercase tracking-[0.3em]">— a whisper from the unspoken —</div>
         <p className="text-whisper italic lowercase tracking-wide">{m.content}</p>
         <div className="mt-1 flex gap-2 font-mono text-[10px]">
-          <button data-shadow="submit" className="text-ember/80 hover:text-ember underline underline-offset-2">listen</button>
-          <button data-shadow="resist" className="text-moss hover:text-parchment underline underline-offset-2">speak against it</button>
+          <button onClick={() => window.dispatchEvent(new CustomEvent("shadow-act", { detail: "submit" }))}
+            className="text-ember/80 hover:text-ember underline underline-offset-2">listen</button>
+          <button onClick={() => window.dispatchEvent(new CustomEvent("shadow-act", { detail: "resist" }))}
+            className="text-moss hover:text-parchment underline underline-offset-2">speak against it</button>
         </div>
       </div>
     );
