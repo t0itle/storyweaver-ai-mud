@@ -69,8 +69,11 @@ Style: Frank Frazetta meets Greg Rutkowski, brooding fantasy, painterly brushwor
     });
     if (aiRes.status === 429) return json({ error: "Too busy" }, 429);
     if (aiRes.status === 402) return json({ error: "AI credits exhausted" }, 402);
-    if (!aiRes.ok) { console.error(await aiRes.text()); return json({ error: "scene gen failed" }, 500); }
-    const aiData = await aiRes.json();
+    if (!aiRes.ok) { console.error("scene-image AI", aiRes.status, await aiRes.text()); return json({ error: "scene gen failed" }, 500); }
+    const rawText = await aiRes.text();
+    let aiData: any;
+    try { aiData = JSON.parse(rawText); }
+    catch { console.error("non-JSON AI body:", rawText.slice(0, 300)); return json({ error: "scene gen returned non-JSON" }, 500); }
     const dataUrl: string | undefined = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
     if (!dataUrl?.startsWith("data:image/")) return json({ error: "no image" }, 500);
 
