@@ -61,6 +61,14 @@ const HELP = [
   ["help", "show this list"],
 ];
 
+const INTERACT_VERBS = new Set([
+  "read","open","close","touch","feel","smell","sniff","listen","taste","lick",
+  "push","pull","press","turn","twist","light","extinguish","sit","stand","kneel","pray",
+  "break","smash","cut","tear","burn","wash","drink","eat","sip","knock","wave",
+  "climb","dig","search","kiss","hug","bow","salute","pick","wear","remove","throw",
+  "shake","rub","scratch","poke","hold","lift","carry","drop","place","write","sing","whistle","dance","sleep","rest","meditate",
+]);
+
 export default function GameClient({ session }: { session: Session }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoadFailed, setProfileLoadFailed] = useState(false);
