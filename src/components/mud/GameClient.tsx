@@ -61,6 +61,7 @@ const HELP = [
 
 export default function GameClient({ session }: { session: Session }) {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [profileLoadFailed, setProfileLoadFailed] = useState(false);
   const [room, setRoom] = useState<Room | null>(null);
   const [npcs, setNpcs] = useState<Npc[]>([]);
   const [roomEvents, setRoomEvents] = useState<{ kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[]>([]);
@@ -128,6 +129,16 @@ export default function GameClient({ session }: { session: Session }) {
         if (data) setProfile(data as Profile);
       });
   }, [session.user.id]);
+
+  useEffect(() => {
+    if (profile) {
+      setProfileLoadFailed(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setProfileLoadFailed(true), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [profile]);
 
   // Load room + npcs + history when room changes
   useEffect(() => {
@@ -480,7 +491,14 @@ export default function GameClient({ session }: { session: Session }) {
 
   const signOut = async () => { await supabase.auth.signOut(); };
 
-  if (!profile) return <div className="min-h-screen flex items-center justify-center text-ash">Walking the road…</div>;
+  if (!profile && !profileLoadFailed) return <div className="min-h-screen flex items-center justify-center text-ash">Walking the road…</div>;
+  if (!profile) return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-ash p-6 text-center">
+      <p>Your footsteps vanished before the road could remember you.</p>
+      <p className="text-xs text-whisper max-w-xs">Your character was submitted, but your player record did not finish loading.</p>
+      <button onClick={() => window.location.reload()} className="text-ember underline underline-offset-4">Try again</button>
+    </div>
+  );
   if (!room) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-ash p-6 text-center">
       <p>The road forgot its name.</p>
