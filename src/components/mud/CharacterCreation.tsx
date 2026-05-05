@@ -247,14 +247,29 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
     );
   }
 
+  const isNorth = direction === "north";
+  const headline = isNorth ? "At the Roadside Well" : "At the Wind-Cut Stone";
+  const leadIn = isNorth
+    ? "You step off the cracked road. A shallow well at the verge has caught a hand's-breadth of clear water — the first you have seen since the dunes. The watch-fires of the First City flicker in the heat-shimmer to the north. The Veiled will ask your name at the gate. Better to know it before they do."
+    : "The wind has carved a stone hollow into a basin, and last night's rain still clings inside. The dunes roll endlessly south. Out here there is no one to name you, no Veiled to vouch for you — only the Shadow that has been calling, and the face it will see when you finally turn around. Better to know it first.";
+  const submitLabel = isNorth ? "Walk to the Gate →" : "Step into the Dunes →";
+  const submitWaiting = isNorth ? "the gate-bells are ringing…" : "the wind takes your shape…";
+
   return (
     <div className="min-h-screen bg-background px-4 sm:px-5 py-8 sm:py-10">
       <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8">
         <div className="flex items-center gap-3">
           <Sparkles className="w-5 h-5 text-ember ember-flicker shrink-0" />
-          <h1 className="font-display text-2xl sm:text-3xl text-parchment leading-tight">The Reflection Waits</h1>
+          <h1 className="font-display text-2xl sm:text-3xl text-parchment leading-tight">{headline}</h1>
         </div>
-        <p className="font-body text-ash italic text-sm sm:text-base">Choose your blood, then fit the missing words. The pool will paint the rest.</p>
+        <div className="border-l-2 border-ember/60 pl-4 py-1">
+          <p className="font-body text-parchment text-sm sm:text-base leading-relaxed">{leadIn}</p>
+          <p className="font-body text-ash italic text-sm sm:text-base mt-3">
+            {isNorth
+              ? "Kneel. Look into the water. Choose your blood, then fit the missing words — the well will paint the rest."
+              : "Kneel. Look into the rain-pool. Choose your blood, then fit the missing words — the stone will paint the rest."}
+          </p>
+        </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {races.map((r) => {
