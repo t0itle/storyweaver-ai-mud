@@ -39,8 +39,8 @@ Deno.serve(async (req) => {
     if (action === "equip") {
       const pi = await loadItem(body.player_item_id!);
       const desired = body.slot ?? pi.items.slot;
-      if (!["weapon","armor","focus","offhand"].includes(desired)) throw new Error(`Cannot equip in slot ${desired}`);
-      // unequip anything else in that slot
+      const EQUIP_SLOTS = ["head","neck","body","legs","feet","main_hand","off_hand","ring","focus"];
+      if (!EQUIP_SLOTS.includes(desired)) throw new Error(`Cannot equip in slot ${desired}`);
       await admin.from("player_items").update({ equipped_slot: null })
         .eq("user_id", user.id).eq("equipped_slot", desired);
       await admin.from("player_items").update({ equipped_slot: desired }).eq("id", pi.id);
