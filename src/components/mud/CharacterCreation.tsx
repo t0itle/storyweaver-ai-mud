@@ -3,7 +3,7 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Flame, Loader2, Sparkles } from "lucide-react";
+import { ChevronRight, Flame, Loader2, Sparkles } from "lucide-react";
 
 interface Race {
   key: string; name: string; flavor: string;
