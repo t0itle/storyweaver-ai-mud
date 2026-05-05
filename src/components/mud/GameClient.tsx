@@ -268,6 +268,11 @@ export default function GameClient({ session }: { session: Session }) {
         matched.map(slug => ({ user_id: profile.id, lore_slug: slug, source })),
         { onConflict: "user_id,lore_slug", ignoreDuplicates: true },
       );
+      // Each new piece of lore earns 1 merit — fame for understanding the world.
+      const meritGain = matched.length;
+      await supabase.from("profiles")
+        .update({ merit: (profile.merit ?? 0) + meritGain })
+        .eq("id", profile.id);
     }
     return matched;
   };
