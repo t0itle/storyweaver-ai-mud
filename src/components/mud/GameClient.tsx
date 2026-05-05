@@ -428,9 +428,6 @@ function CodexModal({
     </div>
   );
 }
-  );
-}
-
 function RoomBlock({ room, npcs }: { room: Room; npcs: Npc[] }) {
   return (
     <div className="border-l-2 border-ember/60 pl-4 py-1 mb-4">
