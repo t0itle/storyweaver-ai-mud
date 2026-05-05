@@ -48,6 +48,7 @@ const HELP = [
   ["emote <text>", "perform an action: *bows*"],
   ["ask <npc> <text>", "speak to an AI NPC"],
   ["examine <thing>", "study — may reveal lore"],
+  ["read / open / touch / smell / listen …", "interact with the world"],
   ["inventory / i", "what you carry"],
   ["equip / use / drop <item>", "manage gear"],
   ["runes", "runes you know"],
@@ -60,6 +61,14 @@ const HELP = [
   ["who", "list players in this room"],
   ["help", "show this list"],
 ];
+
+const INTERACT_VERBS = new Set([
+  "read","open","close","touch","feel","smell","sniff","listen","taste","lick",
+  "push","pull","press","turn","twist","light","extinguish","sit","stand","kneel","pray",
+  "break","smash","cut","tear","burn","wash","drink","eat","sip","knock","wave",
+  "climb","dig","search","kiss","hug","bow","salute","pick","wear","remove","throw",
+  "shake","rub","scratch","poke","hold","lift","carry","drop","place","write","sing","whistle","dance","sleep","rest","meditate",
+]);
 
 export default function GameClient({ session }: { session: Session }) {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -536,6 +545,21 @@ export default function GameClient({ session }: { session: Session }) {
       } else {
         setHallOpen(true);
       }
+    } else if (INTERACT_VERBS.has(c)) {
+      // Natural-world interactions: read, open, touch, smell, listen, taste, push, pull,
+      // light, sit, kneel, pray, feel, break, smash, climb, dig, search, drink, eat, knock, …
+      const targetText = args.replace(/^(the|a|an)\s+/i, "").trim();
+      setThinking(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("interact", {
+          body: { verb: c, target: targetText, room: profile.current_room, player_name: profile.username },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        // Post as an emote-like ambient line so others in the room can witness it.
+        await post("emote", `${c}s ${targetText || "the surroundings"} — ${data.content}`);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "the world does not respond");
+      } finally { setThinking(false); }
     } else {
       // default = say
       await post("say", text);
