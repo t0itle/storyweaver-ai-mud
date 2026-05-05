@@ -21,6 +21,7 @@ interface Profile {
   aether: string | null;
   corruption: number;
   merit: number;
+  companion_npc_id: string | null;
 }
 interface Room {
   slug: string; name: string; description: string;
@@ -59,6 +60,8 @@ const HELP = [
   ["defend / cast <rune> / flee", "in combat"],
   ["lore", "open your codex"],
   ["who", "list players in this room"],
+  ["follow <npc>", "ask an NPC to travel with you"],
+  ["dismiss", "part ways with your companion"],
   ["help", "show this list"],
 ];
 
@@ -352,10 +355,68 @@ export default function GameClient({ session }: { session: Session }) {
   const moveTo = async (slug: string) => {
     if (!profile) return;
     await post("system", `${profile.username} departs.`, "—");
+
+    // Companion follows along
+    let companionName: string | null = null;
+    if (profile.companion_npc_id) {
+      const { data: comp } = await supabase.from("npcs")
+        .select("name").eq("id", profile.companion_npc_id).maybeSingle();
+      if (comp) {
+        companionName = comp.name;
+        await supabase.from("npcs").update({ room: slug }).eq("id", profile.companion_npc_id);
+        await supabase.from("messages").insert({
+          room: profile.current_room, author_name: "—", kind: "ambient",
+          content: `*${comp.name} follows ${profile.username} out.*`, user_id: null,
+        });
+      }
+    }
+
     const { error } = await supabase.from("profiles").update({ current_room: slug }).eq("id", profile.id);
     if (error) { toast.error(error.message); return; }
     setProfile({ ...profile, current_room: slug });
-    setTimeout(() => post("system", `${profile.username} arrives.`, "—"), 300);
+    setTimeout(() => {
+      post("system", `${profile.username} arrives.`, "—");
+      if (companionName) {
+        supabase.from("messages").insert({
+          room: slug, author_name: "—", kind: "ambient",
+          content: `*${companionName} arrives alongside ${profile.username}.*`, user_id: null,
+        });
+      }
+    }, 300);
+  };
+
+  const followNpc = async (targetName: string) => {
+    if (!profile) return;
+    const npc = npcs.find((n) => n.name.toLowerCase().startsWith(targetName.toLowerCase()));
+    if (!npc) { setMessages((m) => [...m, localSys(`No one called "${targetName}" is here.`)]); return; }
+    if (profile.companion_npc_id === npc.id) {
+      setMessages((m) => [...m, localSys(`${npc.name} already walks with you.`)]); return;
+    }
+    if (profile.companion_npc_id) {
+      setMessages((m) => [...m, localSys(`Dismiss your current companion first.`)]); return;
+    }
+    await supabase.from("profiles").update({ companion_npc_id: npc.id }).eq("id", profile.id);
+    setProfile({ ...profile, companion_npc_id: npc.id });
+    await supabase.from("messages").insert({
+      room: profile.current_room, author_name: "—", kind: "ambient",
+      content: `*${npc.name} sets aside their work and falls in beside ${profile.username}.*`, user_id: null,
+    });
+  };
+
+  const dismissCompanion = async () => {
+    if (!profile?.companion_npc_id) {
+      setMessages((m) => [...m, localSys(`No one travels with you.`)]); return;
+    }
+    const { data: comp } = await supabase.from("npcs")
+      .select("name, home_room").eq("id", profile.companion_npc_id).maybeSingle();
+    await supabase.from("profiles").update({ companion_npc_id: null }).eq("id", profile.id);
+    setProfile({ ...profile, companion_npc_id: null });
+    if (comp) {
+      await supabase.from("messages").insert({
+        room: profile.current_room, author_name: "—", kind: "ambient",
+        content: `*${comp.name} nods, parting ways with ${profile.username}.*`, user_id: null,
+      });
+    }
   };
 
   const handleCommand = async (raw: string) => {
@@ -373,6 +434,11 @@ export default function GameClient({ session }: { session: Session }) {
       setMessages((m) => [...m, localSys(formatRoom(room, npcs, roomEvents))]);
     } else if (c === "who") {
       setMessages((m) => [...m, localSys(`Here: ${presence.map(p => p.username).join(", ") || "(only you)"}`)]);
+    } else if (c === "follow") {
+      if (!args) { setMessages((m) => [...m, localSys("Follow whom? Try: follow <npc name>")]); return; }
+      await followNpc(args.trim());
+    } else if (c === "dismiss" || c === "unfollow" || c === "partways") {
+      await dismissCompanion();
     } else if (c === "go" || c === "n" || c === "s" || c === "e" || c === "w" || c === "u" || c === "d" || c === "travel" || c === "goto") {
       const dirMap: Record<string, string> = { n: "north", s: "south", e: "east", w: "west", u: "up", d: "down" };
       let dir = dirMap[c] ?? args.toLowerCase().trim();

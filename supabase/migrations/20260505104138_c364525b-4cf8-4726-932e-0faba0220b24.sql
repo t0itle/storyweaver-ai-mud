@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN companion_npc_id uuid;
