@@ -410,6 +410,7 @@ export default function GameClient({ session }: { session: Session }) {
       {/* Top bar */}
       <header className="border-b border-border bg-card/60 backdrop-blur px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
+          <img src="/favicon.png" alt="EverBloom" width={28} height={28} className="w-7 h-7 hidden sm:block opacity-90" />
           {profile.portrait_url ? (
             <img src={profile.portrait_url} alt={profile.username}
               className="w-10 h-10 object-cover border border-ember/60 rounded-sm" />
@@ -419,7 +420,7 @@ export default function GameClient({ session }: { session: Session }) {
           <div>
             <div className="font-display text-lg leading-none text-parchment">{profile.username}</div>
             <div className="font-mono text-[10px] text-ash uppercase tracking-widest">
-              {profile.race ?? "wanderer"} · lvl {profile.level}
+              {profile.race ?? "wanderer"} · lvl {profile.level} · <span className="text-ember/80">EverBloom</span>
             </div>
           </div>
         </div>

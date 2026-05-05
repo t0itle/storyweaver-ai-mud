@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Flame } from "lucide-react";
+import logo from "@/assets/everbloom-logo.png";
 
 export default function Landing() {
   const [mode, setMode] = useState<"signin" | "signup">("signup");
@@ -26,7 +26,7 @@ export default function Landing() {
           },
         });
         if (error) throw error;
-        toast.success("Welcome to Ember-Hold, pilgrim.");
+        toast.success("The desert has heard a new walker.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -39,20 +39,32 @@ export default function Landing() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
+    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden">
       <div className="absolute inset-0 bg-ember-glow pointer-events-none" />
 
-      <header className="relative text-center mb-12 max-w-2xl">
-        <div className="flex justify-center mb-4">
-          <Flame className="w-12 h-12 text-ember ember-flicker" strokeWidth={1.5} />
+      <header className="relative text-center mb-10 max-w-2xl">
+        <div className="flex justify-center mb-5">
+          <img
+            src={logo}
+            alt="EverBloom sigil — a six-petalled bone-stone bloom around a still pool and an ember"
+            width={120}
+            height={120}
+            className="w-24 h-24 md:w-28 md:h-28 drop-shadow-[0_0_30px_hsl(var(--ember)/0.45)]"
+          />
         </div>
-        <h1 className="font-display text-5xl md:text-7xl text-parchment mb-4 tracking-wide">
-          Ember-Hold
+        <h1 className="font-display text-5xl md:text-7xl text-parchment mb-3 tracking-[0.18em]">
+          Ever<span className="text-ember">Bloom</span>
         </h1>
+        <p className="font-mono text-[10px] md:text-xs text-ash uppercase tracking-[0.5em] mb-5">
+          a living text world of silent gods
+        </p>
         <p className="font-body italic text-lg md:text-xl text-ash leading-relaxed">
-          A frontier village hewn from a dead volcano.<br />
-          A black tower leans on the southern horizon, closer each day.<br />
-          <span className="text-ember">You are not the first to come. You may be the last.</span>
+          The gods spoke once, and the world listened. Then they fled — all but One,
+          whose mouth was stitched shut, whose whispers still crawl beneath the sand.
+          <br /><br />
+          The maps are eaten. The cities are forgetting their names.
+          <span className="text-parchment"> But somewhere in the deep desert a pool still blooms,</span>
+          <span className="text-ember"> and it is asking who you mean to be.</span>
         </p>
       </header>
 
@@ -62,13 +74,13 @@ export default function Landing() {
             onClick={() => setMode("signup")}
             className={`flex-1 py-2 border-b transition-colors ${mode === "signup" ? "border-ember text-ember" : "border-border text-ash hover:text-parchment"}`}
           >
-            FORGE A NAME
+            BLOOM A NAME
           </button>
           <button
             onClick={() => setMode("signin")}
             className={`flex-1 py-2 border-b transition-colors ${mode === "signin" ? "border-ember text-ember" : "border-border text-ash hover:text-parchment"}`}
           >
-            RETURN
+            RETURN TO THE SAND
           </button>
         </div>
 
@@ -88,14 +100,18 @@ export default function Landing() {
             <Input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className="font-body bg-input" />
           </div>
           <Button type="submit" disabled={loading} className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-display tracking-widest">
-            {loading ? "..." : mode === "signup" ? "ENTER THE GATE" : "STEP BACK INSIDE"}
+            {loading ? "..." : mode === "signup" ? "WALK INTO THE DESERT" : "RETURN"}
           </Button>
         </form>
 
         <p className="mt-6 text-xs font-mono text-ash/70 text-center">
-          Multiplayer · AI-driven NPCs · Persistent world
+          Multiplayer · AI souls · Rune-weaving · Turn-based combat · Persistent world
         </p>
       </section>
+
+      <footer className="relative mt-10 font-mono text-[10px] text-ash/50 uppercase tracking-[0.4em]">
+        EverBloom · the bloom remembers what the gods forgot
+      </footer>
     </main>
   );
 }

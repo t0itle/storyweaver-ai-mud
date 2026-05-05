@@ -16,7 +16,7 @@ const INTRO_BEATS: { text: string; cta: string }[] = [
     cta: "And then —",
   },
   {
-    text: "The cities forgot their names. The roads forgot their travelers. The desert ate the maps.\n\nOnly Ember-Hold still burns, walls of red stone against a sky that has not rained in a hundred years. Its priests cover their mouths so they will not answer what answers them.",
+    text: "The cities forgot their names. The roads forgot their travelers. The desert ate the maps.\n\nOnly one walled town still burns against the dark — its priests cover their mouths so they will not answer what answers them. And in the deep desert, where no map remembers, a single pool blooms with flowers that exist nowhere else. The world calls it the EverBloom. The world is mostly wrong about it.",
     cta: "Go on —",
   },
   {
