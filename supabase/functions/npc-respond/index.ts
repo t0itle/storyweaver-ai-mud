@@ -143,6 +143,9 @@ ${roomRow?.description ?? ""}
 WORLD LORE YOU MAY KNOW (reference naturally if relevant — never list, never lecture):
 ${loreBlock || "(none)"}
 
+THE LESSER RUNES (Latin words common folk learn — speak the WORD aloud only when it fits the moment, e.g. teaching, warning, identifying a sigil. Naming a word in conversation passes the knowledge to ${player_name}, so do not list them; weave them in sparingly):
+${lesserBlock || "(none)"}
+
 RECENT EVENTS HERE (you remember these — react with grief, anger, suspicion, or wary welcome as fits your persona; name the actors when it serves the moment):
 ${localBlock}
 
