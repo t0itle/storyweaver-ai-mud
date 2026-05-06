@@ -897,6 +897,7 @@ export default function GameClient({ session }: { session: Session }) {
         />
       )}
       <LesserRuneTracer open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
+      <JournalModal open={journalOpen} onClose={() => setJournalOpen(false)} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
