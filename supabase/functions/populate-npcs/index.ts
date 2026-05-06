@@ -103,7 +103,7 @@ Generate exactly ${need} NPCs that BELONG here. They live here ("here" in schedu
     try { parsed = JSON.parse(aiJson.choices?.[0]?.message?.content ?? "{}"); } catch {}
 
     const bucket = timeBucket();
-    const rows = (Array.isArray(parsed.npcs) ? parsed.npcs.slice(0, maxNpcs) : [])
+    const rows = (Array.isArray(parsed.npcs) ? parsed.npcs.slice(0, need) : [])
       .filter((n: any) => n?.name && n?.persona)
       .map((n: any) => {
         const sched: Record<string, { room: string; activity: string }> = {};
