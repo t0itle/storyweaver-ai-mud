@@ -487,7 +487,61 @@ Do not mention these tags in your prose.`;
       );
     }
 
-    return new Response(JSON.stringify({ content, discovered, mentioned_places: mentionedPlaces, amity: { score: newScore, word: amityWord(newScore) } }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // ── Persist quest offer (if any, and if no existing offered/active with this NPC) ──
+    let offeredQuest: any = null;
+    const validKinds = new Set(["fetch","deliver","slay","visit","talk","favor"]);
+    const validSeverities = new Set(["trivial","minor","standard","major","legendary"]);
+    if (questOfferRaw && !activeQuest && !pendingOffer
+        && questOfferRaw.title && questOfferRaw.objective
+        && validKinds.has(questOfferRaw.kind)
+        && validSeverities.has(questOfferRaw.severity)) {
+      const r = questOfferRaw.rewards ?? {};
+      const { data: ins } = await admin.from("quests").insert({
+        user_id: user.id,
+        giver_npc_id: npc.id,
+        giver_npc_name: npc.name,
+        title: String(questOfferRaw.title).slice(0, 120),
+        description: String(questOfferRaw.description ?? "").slice(0, 800),
+        objective: String(questOfferRaw.objective).slice(0, 400),
+        kind: questOfferRaw.kind,
+        severity: questOfferRaw.severity,
+        target_kind: questOfferRaw.target_kind ?? null,
+        target_ref: questOfferRaw.target_ref ?? null,
+        reward_gold: Math.max(0, Math.min(600, Number(r.gold) || 0)),
+        reward_xp: Math.max(0, Math.min(600, Number(r.xp) || 0)),
+        reward_amity: Math.max(0, Math.min(40, Number(r.amity) || 0)),
+        reward_item_key: r.item_key ?? null,
+        reward_rune_key: r.rune_key ?? null,
+        reward_kanji_key: r.kanji_key ?? null,
+        offered_room: room,
+      }).select("*").maybeSingle();
+      offeredQuest = ins;
+    }
+
+    // ── Resolve active quest (if AI judged it) ──
+    let questResolution: any = null;
+    if (questResolveRaw && activeQuest && questResolveRaw.quest_id === activeQuest.id) {
+      if (questResolveRaw.outcome === "complete") {
+        const { completeQuest } = await import("../quest-award/index.ts");
+        questResolution = await completeQuest(admin, activeQuest.id, questResolveRaw.note ?? "");
+        questResolution.outcome = "complete";
+      } else if (questResolveRaw.outcome === "fail") {
+        await admin.from("quests").update({
+          status: "failed", completed_at: new Date().toISOString(),
+        }).eq("id", activeQuest.id);
+        await admin.from("world_events").insert({
+          kind: "quest_failed", actor_id: user.id, actor_name: player_name, room,
+          details: { title: activeQuest.title, giver: npc.name, note: questResolveRaw.note ?? "" },
+        });
+        questResolution = { outcome: "fail", title: activeQuest.title, note: questResolveRaw.note };
+      }
+    }
+
+    return new Response(JSON.stringify({
+      content, discovered, mentioned_places: mentionedPlaces,
+      amity: { score: newScore, word: amityWord(newScore) },
+      quest_offer: offeredQuest, quest_resolution: questResolution,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
