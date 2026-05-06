@@ -1145,18 +1145,7 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
     return <div className="text-whisper italic text-sm">{m.content}</div>;
   }
   if (m.kind === "shadow") {
-    return (
-      <div className="border-l-2 border-whisper/40 pl-3 my-1">
-        <div className="font-mono text-[10px] text-ash uppercase tracking-[0.3em]">— a whisper from the unspoken —</div>
-        <p className="text-whisper italic lowercase tracking-wide">{m.content}</p>
-        <div className="mt-1 flex gap-2 font-mono text-[10px]">
-          <button onClick={() => window.dispatchEvent(new CustomEvent("shadow-act", { detail: "submit" }))}
-            className="text-ember/80 hover:text-ember underline underline-offset-2">listen</button>
-          <button onClick={() => window.dispatchEvent(new CustomEvent("shadow-act", { detail: "resist" }))}
-            className="text-moss hover:text-parchment underline underline-offset-2">speak against it</button>
-        </div>
-      </div>
-    );
+    return <ShadowWhisper content={m.content} />;
   }
   if (m.kind === "npc") {
     return (
