@@ -94,6 +94,15 @@ export function CharacterSheet({
                 <div className="w-full h-full flex items-center justify-center text-ash text-xs italic">no likeness</div>
               )}
             </div>
+            <button
+              onClick={restyle}
+              disabled={restyling}
+              className="w-full font-mono text-[10px] uppercase tracking-widest text-ash hover:text-ember border border-border hover:border-ember/60 px-2 py-1.5 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+              title="Repaint your portrait to reflect what you currently wear"
+            >
+              {restyling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+              {restyling ? "repainting…" : "reflect my gear"}
+            </button>
             {profile.char_description && (
               <p className="text-xs text-whisper italic leading-snug">{profile.char_description}</p>
             )}
