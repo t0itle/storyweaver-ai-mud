@@ -873,34 +873,15 @@ export default function GameClient({ session }: { session: Session }) {
         </aside>
       </div>
 
-      {codexOpen && (
-        <CodexModal
-          lore={lore}
-          discoveries={discoveries}
-          openSlug={codexEntry}
-          setOpenSlug={setCodexEntry}
-          onClose={() => setCodexOpen(false)}
-        />
-      )}
-      {invOpen && (
-        <InventoryPanel
-          items={inventory}
-          totalWeight={inventory.reduce((s, i) => s + (i.items.weight ?? 0) * i.quantity, 0)}
-          maxWeight={profile.max_weight ?? 50}
-          onClose={() => setInvOpen(false)}
-          onChanged={() => { reloadInventory(); reloadProfile(); }}
-        />
-      )}
-      {runesOpen && (
-        <RunesPanel
-          known={knownRunes}
-          items={inventory}
-          onClose={() => setRunesOpen(false)}
-          onChanged={() => { reloadRunes(); reloadInventory(); }}
-        />
-      )}
-      <RuneHub open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
-      <JournalModal open={journalOpen} onClose={() => setJournalOpen(false)} />
+      <ChronicleModal
+        open={journalOpen || codexOpen}
+        onClose={() => { setJournalOpen(false); setCodexOpen(false); setCodexEntry(null); }}
+        lore={lore}
+        discoveries={discoveries}
+        openSlug={codexEntry}
+        setOpenSlug={(s) => { setCodexEntry(s); if (s) setChronicleTab("codex"); }}
+        initialTab={codexOpen ? "codex" : chronicleTab}
+      />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
