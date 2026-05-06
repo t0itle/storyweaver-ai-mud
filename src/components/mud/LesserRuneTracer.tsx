@@ -46,6 +46,7 @@ export function LesserRuneTracer({ open, onClose, onCast, inline }: Props) {
     const ctx = c.getContext("2d")!;
     ctx.clearRect(0, 0, SIZE, SIZE);
     if (selected && knowsSymbol(selected.key)) {
+      // Dashed template guide
       ctx.strokeStyle = "hsl(var(--muted-foreground) / 0.25)";
       ctx.lineWidth = 3; ctx.lineCap = "round"; ctx.lineJoin = "round";
       ctx.setLineDash([6, 6]);
@@ -55,6 +56,36 @@ export function LesserRuneTracer({ open, onClose, onCast, inline }: Props) {
         if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       });
       ctx.stroke(); ctx.setLineDash([]);
+
+      // Start point (green) — where to put your finger first
+      const sx = selected.template[0][0] * SIZE, sy = selected.template[0][1] * SIZE;
+      ctx.fillStyle = "hsl(var(--primary))";
+      ctx.beginPath(); ctx.arc(sx, sy, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "hsl(var(--background))";
+      ctx.font = "bold 10px system-ui";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("1", sx, sy);
+
+      // Direction arrow on first segment
+      if (selected.template.length > 1) {
+        const p2 = selected.template[1];
+        const ex = p2[0] * SIZE, ey = p2[1] * SIZE;
+        const ang = Math.atan2(ey - sy, ex - sx);
+        const ah = 10;
+        const mx = sx + (ex - sx) * 0.7, my = sy + (ey - sy) * 0.7;
+        ctx.strokeStyle = "hsl(var(--primary) / 0.6)";
+        ctx.lineWidth = 2; ctx.beginPath();
+        ctx.moveTo(mx, my);
+        ctx.lineTo(mx - ah * Math.cos(ang - Math.PI / 6), my - ah * Math.sin(ang - Math.PI / 6));
+        ctx.moveTo(mx, my);
+        ctx.lineTo(mx - ah * Math.cos(ang + Math.PI / 6), my - ah * Math.sin(ang + Math.PI / 6));
+        ctx.stroke();
+      }
+
+      // End point (faint dot)
+      const last = selected.template[selected.template.length - 1];
+      ctx.fillStyle = "hsl(var(--muted-foreground) / 0.5)";
+      ctx.beginPath(); ctx.arc(last[0] * SIZE, last[1] * SIZE, 4, 0, Math.PI * 2); ctx.fill();
     }
     if (stroke.length > 1) {
       ctx.strokeStyle = liveScore !== null && liveScore < 0.35
@@ -75,14 +106,30 @@ export function LesserRuneTracer({ open, onClose, onCast, inline }: Props) {
     e.currentTarget.setPointerCapture(e.pointerId);
     setDrawing(true); setLiveScore(null); setStroke([getPt(e)]);
   };
-  const onMove = (e: React.PointerEvent) => { if (drawing) setStroke(s => [...s, getPt(e)]); };
+  const onMove = (e: React.PointerEvent) => {
+    if (!drawing) return;
+    setStroke(s => {
+      const next = [...s, getPt(e)];
+      // Live score after we have a reasonable trace
+      if (selected && next.length > 8 && next.length % 4 === 0) {
+        const n: Pt[] = next.map(p => [p[0] / SIZE, p[1] / SIZE]);
+        const fwd = scoreAgainstTemplate(n, selected.template);
+        const rev = scoreAgainstTemplate(n, [...selected.template].reverse());
+        setLiveScore(Math.max(fwd, rev));
+      }
+      return next;
+    });
+  };
   const onUp = () => {
     setDrawing(false);
     if (selected && stroke.length > 4) {
       const n: Pt[] = stroke.map(p => [p[0] / SIZE, p[1] / SIZE]);
-      setLiveScore(scoreAgainstTemplate(n, selected.template));
+      const fwd = scoreAgainstTemplate(n, selected.template);
+      const rev = scoreAgainstTemplate(n, [...selected.template].reverse());
+      setLiveScore(Math.max(fwd, rev));
     }
   };
+
 
   const cast = async () => {
     if (!selected || stroke.length < 6) return;
@@ -152,7 +199,12 @@ export function LesserRuneTracer({ open, onClose, onCast, inline }: Props) {
         </div>
       )}
 
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center gap-1">
+        {selected && knowsSymbol(selected.key) && (
+          <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            start at the green dot · follow the arrow
+          </p>
+        )}
         <canvas ref={canvasRef} width={SIZE} height={SIZE}
           className="rounded-lg border-2 border-border bg-muted/30 touch-none"
           style={{ width: SIZE, height: SIZE }}
