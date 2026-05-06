@@ -882,6 +882,24 @@ export default function GameClient({ session }: { session: Session }) {
         setOpenSlug={(s) => { setCodexEntry(s); if (s) setChronicleTab("codex"); }}
         initialTab={codexOpen ? "codex" : chronicleTab}
       />
+      {invOpen && (
+        <InventoryPanel
+          items={inventory}
+          totalWeight={inventory.reduce((s, i) => s + (i.items.weight ?? 0) * i.quantity, 0)}
+          maxWeight={profile.max_weight ?? 50}
+          onClose={() => setInvOpen(false)}
+          onChanged={() => { reloadInventory(); reloadProfile(); }}
+        />
+      )}
+      {runesOpen && (
+        <RunesPanel
+          known={knownRunes}
+          items={inventory}
+          onClose={() => setRunesOpen(false)}
+          onChanged={() => { reloadRunes(); reloadInventory(); }}
+        />
+      )}
+      <RuneHub open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
