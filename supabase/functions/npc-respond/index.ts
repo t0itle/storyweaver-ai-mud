@@ -254,7 +254,7 @@ Do not mention these tags in your prose.`;
       await admin.from("npc_memories").insert({
         npc_id: npc.id,
         user_id: user.id,
-        summary: String(memoryToStore.summary).slice(0, 280),
+        summary: String(memoryToStore.summary).slice(0, 2000),
         emotion: memoryToStore.emotion ? String(memoryToStore.emotion).slice(0, 32) : null,
         importance: Math.max(1, Math.min(5, Number(memoryToStore.importance) || 1)),
         room,
