@@ -70,7 +70,7 @@ export function CharacterSheet({
         <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr] gap-5">
           {/* Portrait */}
           <div className="space-y-2">
-            <div className="aspect-[3/4] bg-card border border-ember/40 overflow-hidden">
+            <div className="aspect-[3/4] w-40 sm:w-full mx-auto bg-card border border-ember/40 overflow-hidden">
               {profile.portrait_url ? (
                 <img src={profile.portrait_url} alt={profile.username} className="w-full h-full object-cover" />
               ) : (
