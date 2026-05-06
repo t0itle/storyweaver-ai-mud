@@ -37,11 +37,17 @@ Deno.serve(async (req) => {
       if (!body.rune_key) throw new Error("rune_key required");
       const raw = body.rune_key.toLowerCase().trim();
       const normalized = raw.replace(/\s+/g, "-");
-      // Try by key (exact, then normalized), then by case-insensitive name match.
+      const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+      const target = slug(raw);
+      // Try by exact key, normalized, name (case-insensitive), then loose slug match across all.
       let { data: rune } = await admin.from("runes").select("*").eq("key", normalized).maybeSingle();
       if (!rune) {
         const { data: byName } = await admin.from("runes").select("*").ilike("name", raw).maybeSingle();
         rune = byName ?? null;
+      }
+      if (!rune) {
+        const { data: all } = await admin.from("runes").select("*");
+        rune = (all ?? []).find(r => slug(r.key) === target || slug(r.name) === target) ?? null;
       }
       if (!rune) {
         const { data: all } = await admin.from("runes").select("key,name");
