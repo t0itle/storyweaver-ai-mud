@@ -10,6 +10,7 @@ import { CharacterSheet } from "./CharacterSheet";
 import { RuneHub } from "./RuneHub";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import HallOfChoice from "./HallOfChoice";
+import { QuestsPanel } from "./QuestsPanel";
 
 interface Profile {
   id: string;
@@ -109,6 +110,9 @@ export default function GameClient({ session }: { session: Session }) {
   const [chronicleTab, setChronicleTab] = useState<"journal" | "codex">("journal");
   const [hallOpen, setHallOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [questsOpen, setQuestsOpen] = useState(false);
+  const [activeQuestCount, setActiveQuestCount] = useState(0);
+  const [offeredQuestCount, setOfferedQuestCount] = useState(0);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
