@@ -522,8 +522,13 @@ Do not mention these tags in your prose.`;
     let questResolution: any = null;
     if (questResolveRaw && activeQuest && questResolveRaw.quest_id === activeQuest.id) {
       if (questResolveRaw.outcome === "complete") {
-        const { completeQuest } = await import("../quest-award/index.ts");
-        questResolution = await completeQuest(admin, activeQuest.id, questResolveRaw.note ?? "");
+        // Call quest-award via HTTP so reward logic stays in one place.
+        const awardRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/quest-award`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: authHeader },
+          body: JSON.stringify({ quest_id: activeQuest.id, note: questResolveRaw.note ?? "" }),
+        });
+        questResolution = await awardRes.json().catch(() => ({ ok: false }));
         questResolution.outcome = "complete";
       } else if (questResolveRaw.outcome === "fail") {
         await admin.from("quests").update({
