@@ -193,7 +193,7 @@ Deno.serve(async (req) => {
     const otherNpcs = (presentNpcs ?? []).filter((n: any) => n.id !== npc_id);
     const presentBlock = [
       `- ${player_name} (the one speaking to you)`,
-      ...otherPlayers.map((p: any) => `- ${p.username}${p.race ? ` (${p.race})` : ""}${p.faction === "chaos" ? " [marked by Chaos]" : ""}`),
+      ...otherPlayers.map((p: any) => `- ${p.username}${p.race ? ` (${p.race})` : ""}${(p.corruption ?? 0) >= 70 ? " [reeks of Chaos]" : ""}`),
       ...otherNpcs.map((n: any) => `- ${n.name}${n.title ? `, ${n.title}` : ""}`),
       ...(presentDragons ?? []).map((d: any) => `- **${d.name}, ${d.epithet}** — A DRAGON. ${d.personality}`),
     ].join("\n");
