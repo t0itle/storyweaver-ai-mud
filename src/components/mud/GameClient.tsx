@@ -1014,7 +1014,15 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
           </div>
         )}
       </div>
-      <p className="text-parchment whitespace-pre-line">{room.description}</p>
+      <p className="text-parchment whitespace-pre-line">
+        {room.description}
+        {events.length > 0 && (
+          <>
+            {" "}
+            <span className="text-whisper italic">{events.map(e => describeEvent(e)).join(" ")}</span>
+          </>
+        )}
+      </p>
       {room.ambience && <p className="text-ash italic mt-2">{room.ambience}</p>}
       {npcs.length > 0 && (
         <div className="text-whisper italic mt-2 space-y-0.5">
@@ -1024,14 +1032,6 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
               {n.title ? <span>, {n.title}</span> : null}
               {n.current_activity ? <span className="text-ash"> — {n.current_activity}</span> : null}
             </p>
-          ))}
-        </div>
-      )}
-      {events.length > 0 && (
-        <div className="mt-3 border-l-2 border-shadow/60 pl-3 py-1 bg-shadow/5">
-          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-shadow/80 mb-1">— what happened here —</div>
-          {events.map((e, i) => (
-            <p key={i} className="text-whisper text-xs italic">{describeEvent(e)}</p>
           ))}
         </div>
       )}
