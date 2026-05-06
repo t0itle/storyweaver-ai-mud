@@ -3,9 +3,9 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Backpack, BookOpen, Flame, HelpCircle, Loader2, LogOut, ScrollText, Sparkles, Sword, Users, X } from "lucide-react";
+import { Backpack, Flame, HelpCircle, Loader2, LogOut, ScrollText, Sparkles } from "lucide-react";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
-import { JournalModal } from "./JournalModal";
+import { ChronicleModal } from "./ChronicleModal";
 import { RuneHub } from "./RuneHub";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import HallOfChoice from "./HallOfChoice";
@@ -100,6 +100,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [tracerOpen, setTracerOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [journalOpen, setJournalOpen] = useState(false);
+  const [chronicleTab, setChronicleTab] = useState<"journal" | "codex">("journal");
   const [hallOpen, setHallOpen] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -215,13 +216,16 @@ export default function GameClient({ session }: { session: Session }) {
     })();
   }, [profile?.current_room]);
 
-  // Generate / fetch scene image when room changes
+  // Generate / fetch scene image when room changes (events-aware so the world reflects what's been done)
   useEffect(() => {
     if (!profile || !room) return;
     const slug = profile.current_room;
     let cancelled = false;
     setSceneLoading(true);
-    supabase.functions.invoke("scene-image", { body: { room: slug } })
+    const eventSummary = roomEvents.length
+      ? roomEvents.map(e => describeEvent(e)).join(" ")
+      : "";
+    supabase.functions.invoke("scene-image", { body: { room: slug, context_extra: eventSummary } })
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) console.warn("scene", error);
@@ -229,7 +233,7 @@ export default function GameClient({ session }: { session: Session }) {
       })
       .finally(() => { if (!cancelled) setSceneLoading(false); });
     return () => { cancelled = true; };
-  }, [profile?.current_room, room?.slug]);
+  }, [profile?.current_room, room?.slug, roomEvents.length]);
 
   // Auto-open Hall of the Seven when player enters it (only if not yet sworn)
   useEffect(() => {
@@ -548,15 +552,14 @@ export default function GameClient({ session }: { session: Session }) {
       } finally { setThinking(false); }
     } else if (c === "lore" || c === "codex") {
       if (!args) {
-        setCodexEntry(null); setCodexOpen(true);
+        setCodexEntry(null); setChronicleTab("codex"); setCodexOpen(true);
       } else {
-        // open a specific entry if discovered
         const entry = lore.find(l =>
           l.slug === args.toLowerCase() ||
           l.title.toLowerCase().includes(args.toLowerCase()),
         );
         if (entry && discoveredSlugs.has(entry.slug)) {
-          setCodexEntry(entry.slug); setCodexOpen(true);
+          setCodexEntry(entry.slug); setChronicleTab("codex"); setCodexOpen(true);
         } else {
           setMessages((m) => [...m, localSys(`You know nothing of "${args}". Yet.`)]);
         }
@@ -773,15 +776,14 @@ export default function GameClient({ session }: { session: Session }) {
           <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Weave runes (Lesser & Greater)">
             <Flame className="w-4 h-4" /><span className="hidden sm:inline">runes</span>
           </button>
-          <button onClick={() => setJournalOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Your journal">
-            <ScrollText className="w-4 h-4" /><span className="hidden sm:inline">journal</span>
-          </button>
           <button
-            onClick={() => { setCodexEntry(null); setCodexOpen(true); }}
+            onClick={() => { setCodexEntry(null); setChronicleTab("journal"); setJournalOpen(true); }}
             className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs"
-            title="Codex of discoveries"
+            title="Your chronicle (journal & codex of truths)"
           >
-            <BookOpen className="w-4 h-4" /><span>{discoveries.length}/{lore.length}</span>
+            <ScrollText className="w-4 h-4" />
+            <span className="hidden sm:inline">chronicle</span>
+            <span className="font-mono text-[10px] text-ash">{discoveries.length}/{lore.length}</span>
           </button>
           <button onClick={() => setHelpOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs ml-auto" title="Commands">
             <HelpCircle className="w-4 h-4" /><span className="hidden sm:inline">help</span>
@@ -870,15 +872,15 @@ export default function GameClient({ session }: { session: Session }) {
         </aside>
       </div>
 
-      {codexOpen && (
-        <CodexModal
-          lore={lore}
-          discoveries={discoveries}
-          openSlug={codexEntry}
-          setOpenSlug={setCodexEntry}
-          onClose={() => setCodexOpen(false)}
-        />
-      )}
+      <ChronicleModal
+        open={journalOpen || codexOpen}
+        onClose={() => { setJournalOpen(false); setCodexOpen(false); setCodexEntry(null); }}
+        lore={lore}
+        discoveries={discoveries}
+        openSlug={codexEntry}
+        setOpenSlug={(s) => { setCodexEntry(s); if (s) setChronicleTab("codex"); }}
+        initialTab={codexOpen ? "codex" : chronicleTab}
+      />
       {invOpen && (
         <InventoryPanel
           items={inventory}
@@ -897,7 +899,6 @@ export default function GameClient({ session }: { session: Session }) {
         />
       )}
       <RuneHub open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
-      <JournalModal open={journalOpen} onClose={() => setJournalOpen(false)} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -925,71 +926,6 @@ export default function GameClient({ session }: { session: Session }) {
   );
 }
 
-function CodexModal({
-  lore, discoveries, openSlug, setOpenSlug, onClose,
-}: {
-  lore: LoreEntry[]; discoveries: Discovery[];
-  openSlug: string | null; setOpenSlug: (s: string | null) => void;
-  onClose: () => void;
-}) {
-  const discMap = new Map(discoveries.map(d => [d.lore_slug, d]));
-  const sorted = [...lore].sort((a, b) => a.title.localeCompare(b.title));
-  const open = openSlug ? lore.find(l => l.slug === openSlug) : null;
-
-  return (
-    <div className="fixed inset-0 z-50 bg-background/85 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-card border border-border max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-ember" />
-            <h2 className="font-display text-xl text-parchment">Codex of {discoveries.length} {discoveries.length === 1 ? "Truth" : "Truths"}</h2>
-            <span className="font-mono text-[10px] text-ash uppercase tracking-widest">of {lore.length} known to the world</span>
-          </div>
-          <button onClick={onClose} className="text-ash hover:text-parchment"><X className="w-5 h-5" /></button>
-        </div>
-
-        {open ? (
-          <div className="overflow-y-auto px-6 py-5">
-            <button onClick={() => setOpenSlug(null)} className="font-mono text-xs text-ash hover:text-ember mb-3">← back to codex</button>
-            <h3 className="font-display text-3xl text-ember mb-1">{open.title}</h3>
-            {open.summary && <p className="text-whisper italic mb-4">{open.summary}</p>}
-            <div className="text-parchment whitespace-pre-line leading-relaxed font-body">{open.content}</div>
-            <p className="font-mono text-[10px] text-ash mt-6">
-              discovered via {discMap.get(open.slug)?.source ?? "unknown"} ·{" "}
-              <a href={open.source_url} target="_blank" rel="noreferrer" className="hover:text-ember underline">source</a>
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-y-auto px-3 py-3">
-            {sorted.length === 0 && <p className="text-ash italic p-6 text-center">The world is wide and you know almost none of it.</p>}
-            {sorted.map((l) => {
-              const known = discMap.has(l.slug);
-              return (
-                <button
-                  key={l.slug}
-                  disabled={!known}
-                  onClick={() => known && setOpenSlug(l.slug)}
-                  className={`w-full text-left px-4 py-3 border-l-2 transition-colors ${
-                    known
-                      ? "border-ember/60 hover:bg-ember/5 hover:border-ember"
-                      : "border-border opacity-50 cursor-not-allowed"
-                  }`}
-                >
-                  <div className="font-display text-lg text-parchment">
-                    {known ? l.title : "▓▓▓▓▓▓▓▓▓▓"}
-                  </div>
-                  <div className="font-body text-sm text-ash italic">
-                    {known ? l.summary : "An untold thread of the world. Seek it out."}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
   room: Room; npcs: Npc[]; sceneUrl: string | null; sceneLoading: boolean;
   events: { kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[];
@@ -1013,7 +949,15 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
           </div>
         )}
       </div>
-      <p className="text-parchment whitespace-pre-line">{room.description}</p>
+      <p className="text-parchment whitespace-pre-line">
+        {room.description}
+        {events.length > 0 && (
+          <>
+            {" "}
+            <span className="text-whisper italic">{events.map(e => describeEvent(e)).join(" ")}</span>
+          </>
+        )}
+      </p>
       {room.ambience && <p className="text-ash italic mt-2">{room.ambience}</p>}
       {npcs.length > 0 && (
         <div className="text-whisper italic mt-2 space-y-0.5">
@@ -1023,14 +967,6 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
               {n.title ? <span>, {n.title}</span> : null}
               {n.current_activity ? <span className="text-ash"> — {n.current_activity}</span> : null}
             </p>
-          ))}
-        </div>
-      )}
-      {events.length > 0 && (
-        <div className="mt-3 border-l-2 border-shadow/60 pl-3 py-1 bg-shadow/5">
-          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-shadow/80 mb-1">— what happened here —</div>
-          {events.map((e, i) => (
-            <p key={i} className="text-whisper text-xs italic">{describeEvent(e)}</p>
           ))}
         </div>
       )}
