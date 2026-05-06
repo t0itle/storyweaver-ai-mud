@@ -199,7 +199,12 @@ export function LesserRuneTracer({ open, onClose, onCast, inline }: Props) {
         </div>
       )}
 
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center gap-1">
+        {selected && knowsSymbol(selected.key) && (
+          <p className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            start at the green dot · follow the arrow
+          </p>
+        )}
         <canvas ref={canvasRef} width={SIZE} height={SIZE}
           className="rounded-lg border-2 border-border bg-muted/30 touch-none"
           style={{ width: SIZE, height: SIZE }}
