@@ -38,30 +38,54 @@ Deno.serve(async (req) => {
     const { room: roomSlug } = await req.json();
     if (!roomSlug) return new Response(JSON.stringify({ error: "room required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    // Only top up rooms that have zero living NPCs.
-    const nowIso = new Date().toISOString();
-    const { data: existing } = await admin.from("npcs").select("id")
-      .eq("room", roomSlug)
-      .or(`dead_until.is.null,dead_until.lte.${nowIso}`)
-      .limit(1);
-    if (existing && existing.length) {
-      return new Response(JSON.stringify({ added: 0, reason: "room already populated" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
     const { data: room } = await admin.from("rooms").select("*").eq("slug", roomSlug).maybeSingle();
     if (!room) return new Response(JSON.stringify({ error: "room not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    // Some places shouldn't get residents (deep wilds / ruins / caves). Roll low.
-    const sparseKinds = new Set(["wilds","ruin","cave","crypt"]);
-    const maxNpcs = sparseKinds.has(room.kind) ? 1 : 2;
+    // Density by room kind. [min, max] living NPCs we want present.
+    // Bustling places (markets, squares, taverns, capitals) feel crowded.
+    // Deep wilds, crypts, dragon lairs feel empty.
+    const DENSITY: Record<string, [number, number]> = {
+      market:   [4, 7],
+      square:   [3, 6],
+      tavern:   [3, 6],
+      capital:  [3, 5],
+      gate:     [2, 4],
+      hall:     [2, 3],
+      shore:    [2, 3],
+      road:     [1, 2],
+      desert:   [0, 2],
+      hollow:   [1, 2],
+      enclave:  [1, 3],
+      wilds:    [0, 1],
+      ruin:     [0, 1],
+      cave:     [0, 1],
+      crypt:    [0, 1],
+      lair:     [0, 0],
+      room:     [1, 2],
+    };
+    const [minN, maxN] = DENSITY[room.kind] ?? [1, 2];
+
+    // Count current living residents in this room (excluding companions / dead).
+    const nowIso = new Date().toISOString();
+    const { data: existing } = await admin.from("npcs").select("id")
+      .eq("room", roomSlug)
+      .or(`dead_until.is.null,dead_until.lte.${nowIso}`);
+    const have = existing?.length ?? 0;
+    if (have >= minN) {
+      return new Response(JSON.stringify({ added: 0, have, target: [minN, maxN], reason: "room already populated" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    // Top up to a value somewhere in [minN, maxN]
+    const target = minN + Math.floor(Math.random() * (maxN - minN + 1));
+    const need = Math.max(1, target - have);
 
     const system = `You add residents to a location in EverBloom (the dying world; First City; seven Aethers; mouth-bound Veiled).
 
 Return STRICT JSON:
 {"npcs":[{"name":"","title":"","persona":"","greeting":"","schedule":{"dawn":{"room":"here","activity":""},"morning":{...},"midday":{...},"dusk":{...},"night":{...}}}]}
 
-Generate 1 to ${maxNpcs} NPCs that BELONG here. They live here ("here" in schedule). Persona 2-3 sentences. Greeting may include *brief action*. Activities are short, present-tense, in-world.`;
+Generate exactly ${need} NPCs that BELONG here. They live here ("here" in schedule). Each must be DISTINCT — different names, different roles, different voices (e.g. for a market: a vendor, a haggler, a child sweep, a guard, a beggar). Persona 2-3 sentences. Greeting may include *brief action*. Activities are short, present-tense, in-world.`;
+
     const userMsg = `Location: ${room.name} (${room.kind}). ${room.description}\nAmbience: ${room.ambience ?? ""}`;
 
     const ai = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -79,7 +103,7 @@ Generate 1 to ${maxNpcs} NPCs that BELONG here. They live here ("here" in schedu
     try { parsed = JSON.parse(aiJson.choices?.[0]?.message?.content ?? "{}"); } catch {}
 
     const bucket = timeBucket();
-    const rows = (Array.isArray(parsed.npcs) ? parsed.npcs.slice(0, maxNpcs) : [])
+    const rows = (Array.isArray(parsed.npcs) ? parsed.npcs.slice(0, need) : [])
       .filter((n: any) => n?.name && n?.persona)
       .map((n: any) => {
         const sched: Record<string, { room: string; activity: string }> = {};

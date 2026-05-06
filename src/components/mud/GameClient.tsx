@@ -232,8 +232,8 @@ export default function GameClient({ session }: { session: Session }) {
         setAmityByNpc(map);
       } else { setAmityByNpc({}); }
 
-      // If no living NPCs are here and the place isn't a hand-built solo space, top it up.
-      if ((!n || n.length === 0) && r && (r as any).kind !== "loft") {
+      // Top up residents if this room has fewer NPCs than its kind's floor.
+      if (r && (r as any).kind !== "loft") {
         supabase.functions.invoke("populate-npcs", { body: { room: slug } })
           .then(({ data }) => {
             if (data?.added > 0) {
