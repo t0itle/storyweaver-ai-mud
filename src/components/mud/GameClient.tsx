@@ -887,6 +887,7 @@ export default function GameClient({ session }: { session: Session }) {
           onChanged={() => { reloadRunes(); reloadInventory(); }}
         />
       )}
+      <LesserRuneTracer open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
       {hallOpen && (
         <HallOfChoice
           currentAether={profile.aether}
