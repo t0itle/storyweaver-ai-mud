@@ -302,6 +302,39 @@ Do not mention these tags in your prose.`;
       }
     }
 
+    // Greater Rune (kanji) MEANING discovery: NPC mentioning a kanji glyph or romaji teaches its meaning.
+    const { data: allKanji } = await admin.from("kanji_runes").select("key, kanji, romaji, english_meaning");
+    const kanjiLearned: { key: string; kanji: string; romaji: string; english_meaning: string }[] = [];
+    for (const k of (allKanji ?? []) as Array<{ key: string; kanji: string; romaji: string; english_meaning: string }>) {
+      const reRomaji = new RegExp(`\\b${k.romaji}\\b`, "i");
+      if (content.includes(k.kanji) || reRomaji.test(content)) kanjiLearned.push(k);
+    }
+    if (kanjiLearned.length) {
+      const { data: knownK } = await admin.from("player_kanji_knowledge")
+        .select("kanji_key,knows_meaning").eq("user_id", user.id).in("kanji_key", kanjiLearned.map(k => k.key));
+      const knownMap = new Map((knownK ?? []).map((r: any) => [r.kanji_key, r.knows_meaning]));
+      const fresh = kanjiLearned.filter(k => !knownMap.get(k.key));
+      if (fresh.length) {
+        await admin.from("player_kanji_knowledge").upsert(
+          fresh.map(k => ({
+            user_id: user.id, kanji_key: k.key,
+            knows_meaning: true, knows_stroke: false,
+            learned_meaning_at: new Date().toISOString(),
+            meaning_source: `npc:${npc.name}`,
+          })),
+          { onConflict: "user_id,kanji_key" },
+        );
+        for (const k of fresh) {
+          await admin.from("world_events").insert({
+            room, kind: "kanji_meaning_learned",
+            actor_name: player_name, actor_id: user.id,
+            details: { kanji: k.kanji, romaji: k.romaji, meaning: k.english_meaning, source: `npc:${npc.name}` },
+            decay_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
+          });
+        }
+      }
+    }
+
     if (memoryToStore) {
       await admin.from("npc_memories").insert({
         npc_id: npc.id,
