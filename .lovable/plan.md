@@ -1,98 +1,133 @@
-## Quest System
+# World Expansion: Cities, Roads, Wilds & the Buried City
 
-NPCs offer quests organically through conversation. Quests scale in severity, with rewards tuned to match. Players accept, track, and turn in quests by talking to the giver.
+## Goals
 
-### 1. Data model (one migration)
+1. **20+ rooms per city** (First City + all 7 Aether capitals).
+2. **Travel space between cities** — capitals no longer share an edge with the First City Gate; you walk roads/passes to reach them.
+3. **Fast-travel Wagon Service** — NPCs at hubs who, for gold, teleport you to another hub you've visited.
+4. **Wilderness & Desert** built out with hidden treasures and **Tomb-Below**, a buried city of the dead.
 
-**`quests` table:**
-- `id`, `giver_npc_id`, `user_id`, `title`, `description`, `objective` (short text the AI uses to judge completion), `status` (`offered|active|complete|failed|declined|abandoned`)
-- `severity` — `trivial | minor | standard | major | legendary`
-- `kind` — `fetch | deliver | slay | visit | talk | favor` (favor = freeform AI-judged)
-- `target_kind`, `target_ref` — e.g. `room:archive-of-echoes`, `npc:<id>`, `item:bronze-key`
-- Rewards: `reward_gold int`, `reward_xp int`, `reward_amity int`, `reward_item_key text`, `reward_rune_key text`, `reward_kanji_key text`
-- `accepted_at`, `completed_at`, `created_at`, `expires_at` (nullable — some quests rot)
+---
 
-RLS: players read/update their own quests; service role manages awards. Index on `(user_id, status)`.
+## 1. City Expansions (≥20 rooms each)
 
-**Severity → reward bands** (server-side caps so the AI can't overpay):
+Each capital currently has ~7 rooms (capital + 6 sub-rooms). I'll add ~14 more themed sub-rooms per city, branching 2–3 deep so the city feels like a place you can get lost in. New rooms are themed to each Aether's domain/sin/virtue.
+
+Examples (full list goes into the migration):
+
+- **First City** (~8 → 22): add Veiled Cloister, Pilgrim Steps, Lantern Bridge, Sigil Smithy, Refugee Tier, Breadline, Underbazaar, Cistern Walk, Bell-Tower of Seven, Hospice of the Mute, Chapel of the Unspoken, Foreigners' Tier, Watchwall North/South, Dock of Lost Names, etc.
+- **High Sanctum / Solastin** (Light, pride): Penitents' Stair, Hall of Lit Names, Reliquary of Suns, Tribunal Antechamber, Gilded Choir, Solar Forge, Confessor's Cell, Pyre Court, Almsgate, Reading Loft, Mirror Walk, Acolyte Dorms, Scribes' Tier, Censer Garden.
+- **Iron Bastion / Khalvaris** (Justice, wrath): Gauntlet, Slag Pits, Verdict Steps, Drillyard, Black Anvil, Iron Library, Wardens' Mess, Quenching Pool, Banner Hall, Dueling Pit, Helm Walk, Foundry Stair, Smoke Roost, Veterans' Tier.
+- **Mirrorlands Court / Nyxara** (Identity, envy): Hall of Worn Faces, Two-Names Court, Veil Atelier, Whisper Maze, Pool of Other Lives, Wax Theatre, Naming Garden, Lost-Self Cells, Quiet Mirror, Borrowed Wardrobe, Reflection Stair, Mask Vault, Tutor's Loft, Empty Frame.
+- **Gilded Bazaar / Thalvora** (Wealth, greed): Bonded Vaults, Tithe Steps, Slave-Debt Pen, Auction Tier, Coin-Press, Spice Row, Caravan Yard, Beggars' Stair, Ledger Hall, Pawn Crypt, Silver Garden, Brokers' Loft, Smuggler's Cellar, Customs Walk.
+- **Silent Horizon / Lazareth** (Knowledge, sloth): Folio Stacks, Glyph Hall, Translators' Cells, Hush Stair, Map Vault, Telescope Walk, Forbidden Tier, Sleepers' Long-Beds, Indexers' Hall, Annex of Errors, Drowsy Garden, Ink-Dark Pool, Apprentices' Loft, Footnote Crypt.
+- **Evershade Court / Velithria** (Devotion, lust): Vow Walk, Veil Garden, Mourners' Tier, Singers' Hollow, Chamber of One Name, Memory Pool, Kept-Promises Hall, Hush Stair, Locket Vault, Bridal Loft, Tear-Glass Window, Confessional Booths, Empty Bed, Ribbon Crypt.
+- **Feastlands Keep / Morvayne** (Plenty, gluttony): Long Tables, Spit-Yard, Brewing Cellar, Cull Pens, Granary Stair, Honey Loft, Smokehouse Row, Salt Vault, Bone-Soup Kitchen, Vine Garden, Fat Furnace, Drunkards' Tier, Hunting Lodge, Famine Door (locked).
+
+---
+
+## 2. Travel Corridors Between Cities
+
+Remove the direct exits from `first-city-gate` to each capital. Insert a **road of 22–333 rooms** before each city. Roads have low NPC density, occasional ambushes, ambient encounters randomly generated with bandits, orcs, undead rarely and so on.
 
 ```text
-trivial    : 1-5g    | 5-15xp  | +1-3 amity  | no item
-minor      : 5-20g   | 15-40xp | +3-6 amity  | maybe consumable
-standard   : 20-60g  | 40-100xp| +5-10 amity | uncommon item OR rune word
-major      : 60-200g | 100-250xp | +10-20 amity | rare item AND knowledge
-legendary  : 200-600g| 250-600xp | +20-40 amity | unique item + rune/kanji
+First City Gate
+   ├── pilgrim-causeway → solar-foothills → high-sanctum
+   ├── ironroad → slag-flats → iron-bastion
+   ├── hall-of-mirrors-pass → glassmere → mirrorlands-court
+   ├── caravan-spur → goldwash → gilded-bazaar
+   ├── star-stairs → hush-pines → silent-horizon
+   ├── vow-walk → silver-pines → evershade-court
+   └── hearth-road → barley-flats → feastlands-keep
 ```
 
-A `clamp_reward()` helper enforces these on every insert/award.
+Each road room: kind=`road`, density 0–2 NPCs, scenic description, occasional `world_event`-driven encounter (already supported).
 
-### 2. NPC offers a quest (in `npc-respond`)
+---
 
-Add a fourth hidden tag the NPC may emit:
+## 3. Fast-Travel Wagon Service
 
-```
-<<QUEST_OFFER>>{"title":"...","description":"...","objective":"...","kind":"fetch","severity":"minor","target_kind":"item","target_ref":"silver-locket","rewards":{"gold":15,"xp":25,"amity":4}}<<END>>
-```
+A new NPC role: **Wagonmaster**. Placed at each city gate + the First City Gate.
 
-Prompt rules:
-- Only offer when the conversation naturally produces a need.
-- Severity must match what the NPC actually wants (a tavern fetch ≠ legendary).
-- Rewards must fall in the band for that severity (server clamps anyway).
-- One offer per reply, max. If an active quest with this player already exists, do NOT offer another.
+- New table `wagon_routes` (slug pairs + cost + flavor) OR simpler: hard-coded in a new edge function `wagon-travel`.
+- Player must have **previously visited** the destination (track via `world_events` of kind `discovered_room`).
+- Cost scales by distance (e.g. 5–25 gold).
+- Calling the function: deducts gold, updates `profiles.current_room`, posts a flavorful arrival message ("*The wagon shudders to a halt at the gates of …*").
+- UI: new **"Hire wagon"** button visible in any room with a Wagonmaster NPC; opens a small dialog listing visited destinations + costs.
 
-The function inserts the row with `status='offered'`, returns it in the response, and the client shows an inline Accept / Decline UI.
+---
 
-### 3. Tracking active quests
+## 4. Wilderness & Desert Buildout
 
-Active quests are passed into the NPC's context block on every later conversation:
+### Wilderness (north of First City via `old-flag-road`)
 
-```
-ACTIVE QUEST WITH YOU: "<title>" — <objective> (<status>)
-```
+Expand `wilderness-edge` and `deep-wilds` into a network of ~10 rooms:
 
-This lets the giver react ("any luck with the locket?") and lets bystanders ignore it (only the giver sees it).
+- Briar Hollow, Standing Stones, Wolf-Glade, Drowned Chapel, Hermit's Hut, Moss Bridge, Witch-Tree, Cairn Field, Foxhole Pit, Black Tarn.
+- Hidden treasures: 3–5 rooms have a one-time discoverable cache (gold + item) tied to a `room_caches` table, claimed per-user.
 
-### 4. Completion
+### Desert (south via `caravan-road`)
 
-Two paths, both server-authoritative:
+Expand into ~10 rooms:
 
-**Auto-complete** (no AI needed):
-- `visit` — checked in `moveTo`: if any active quest of kind=visit and target_ref=slug, mark complete.
-- `slay` — checked when `npc_killed` world_event fires (extend existing trigger or do it in the combat resolver).
-- `fetch` — checked when player picks up the item (extend `inventory-action`).
+- Glass Flats, Salt Mirror, Sun-Bleached Caravan, Vulture Spire, Mirage Wells, Ember Dunes, Whisper Stones, Forgotten Oasis, Skeleton Kiln, Wind-Carved Arches.
+- Hidden caches as above.
 
-**AI-judged** (`favor`, `talk`, ambiguous):
-- When player talks to the giver with an active quest, the NPC may emit `<<QUEST_RESOLVE>>{"quest_id":"<id>","outcome":"complete|fail|in_progress","note":"..."}<<END>>`.
-- Server validates the quest belongs to this NPC and player before awarding.
+### The Tomb-Below (buried city of the dead)
 
-On `complete`: a new `award-quest` edge function (or inline in the resolver) applies clamped rewards, bumps `npc_amity`, inserts learned rune/kanji knowledge, grants the item via `player_items`, logs a `world_event` `quest_completed`, and writes a journal entry through the existing trigger.
+A multi-room sub-zone reachable from one specific desert room (`skeleton-kiln`) via a `down` exit unlocked when the player digs/searches there. ~10 rooms:
 
-### 5. Player commands & UI
+- Sunken Gate, Hall of Folded Names, Long Crypts, Coin-Choked River, Silent Market (mirror of the Bazaar), Throne of Dust, Chorus of Bones, Reliquary of the First Voice, Drowned Library, Tomb-Heart.
+- Higher-tier treasures, undead encounters, a major lore drop ("the Speaker's first city, buried before the Aethers rose").
 
-Commands in `GameClient.tsx`:
-- `quests` — list active + offered with title, giver, objective, status
-- `accept <id|title>` / `decline <id|title>` — only valid for offers
-- `abandon <id|title>` — drops an active quest, small amity penalty with the giver
+---
 
-UI:
-- New "Quests" button in the HUD opens a `QuestsPanel` modal listing offered/active/recent.
-- When an NPC reply contains a fresh offer, render an inline Accept/Decline pair under the message.
-- Toast on completion ("✦ Quest complete: The Locket of Renn — +15g, +25xp").
+## Technical Plan
 
-### 6. Journal hook
+### Migrations
 
-Extend `write_journal_from_world_event` with cases for `quest_accepted`, `quest_completed`, `quest_failed`, `quest_abandoned` so the chronicle reflects them.
+1. Insert ~100 new rooms across the categories above (single SQL migration, idempotent via `ON CONFLICT (slug) DO NOTHING`).
+2. Update existing capitals' `exits` to point to road rooms instead of `first-city-gate` directly.
+3. Update `first-city-gate`'s `exits` to the road heads.
+4. Create `room_caches` table:
+  ```sql
+   create table room_caches (
+     room text primary key,
+     gold int default 0,
+     item_key text,
+     hint text
+   );
+   create table player_room_cache_claims (
+     user_id uuid, room text, claimed_at timestamptz default now(),
+     primary key (user_id, room)
+   );
+   -- RLS: own claims readable/insertable by user
+  ```
+5. Seed `room_caches` for the ~10 hidden-treasure rooms.
 
-### Technical details
+### Edge Functions
 
-- Migration: `quests` table + RLS + `clamp_reward(severity, raw_reward)` SQL function + journal trigger cases.
-- Edge fn changes: `npc-respond` (parse `<<QUEST_OFFER>>` and `<<QUEST_RESOLVE>>`, inject ACTIVE QUEST block); `inventory-action`, `combat-action`, and `moveTo` get tiny "check open quests" hooks; new `quest-action` fn handles `accept|decline|abandon`.
-- Client: `QuestsPanel.tsx`, HUD button, command parser additions, inline accept/decline buttons after NPC replies.
-- Anti-abuse: cap one active quest per (npc, player); cap five concurrent active quests per player; expired quests auto-fail in `world-tick`.
+- `**wagon-travel**`: input `{destination_slug}`. Verifies caller is in a wagon-hub room, has visited the destination (from `world_events`/`discovered_room`), can pay the gold. Updates `profiles.current_room`, logs a `world_event`, posts arrival message.
+- `**search-cache**` (or extend `interact`): when player runs "search" or "dig" in a `room_caches` room and hasn't claimed it yet, awards loot + records claim.
 
-### Out of scope (ask later)
+### Client (`GameClient.tsx`)
 
-- Quest chains / prerequisites (next quest unlocked by completing prior).
-- Faction-gated quests (Chaos enclaves giving sabotage missions vs Aether wardens).
-- Multi-step quests with intermediate objectives.
-- Player-shared / party quests.
+- Add a **"Hire Wagon"** button when a Wagonmaster NPC is in the current room (detect by `npcs.title` starting with `Wagonmaster`).
+- Dialog lists visited destinations + costs; calls `wagon-travel`.
+- Add a **"Search"** affordance in rooms with `kind` in (`wilds`,`desert`,`crypt`,`ruin`,`cave`) that calls the cache function.
+
+### Memory updates
+
+- Update `mem://lore/crescent-kingdoms` with the expanded sub-room hierarchy.
+- Update `mem://lore/wilderness` and `mem://lore/desert` with the new locations + Tomb-Below.
+- Add new memory `mem://features/fast-travel` describing wagon mechanics.
+
+---
+
+## Out of scope for this pass
+
+- Random-encounter combat on roads (we'll rely on existing ambient/world-tick systems for now).
+- Procedural loot tables for caches (using fixed seeded loot per room).
+- New NPC art/portraits for wagonmasters (they use generic).
+
+Approve and I'll execute the migration + edge functions + UI in one pass.
