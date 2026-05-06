@@ -109,6 +109,12 @@ Deno.serve(async (req) => {
       `- **${r.latin_name}** (${r.english_meaning}): ${r.description}`
     ).join("\n");
 
+    // Greater Runes (Kanji) — the foreign script of the eastern lore. Scholars and monks know these.
+    const { data: kanjiCatalogue } = await supabase.from("kanji_runes").select("kanji, romaji, english_meaning, element");
+    const kanjiBlock = (kanjiCatalogue ?? []).map((k: any) =>
+      `- **${k.kanji}** (${k.romaji}, ${k.element}): ${k.english_meaning}`
+    ).join("\n");
+
     // Adaptive storytelling: recent unresolved world events in this room (and recent global ones)
     const nowIso = new Date().toISOString();
     const { data: localEvents } = await supabase
@@ -145,6 +151,9 @@ ${loreBlock || "(none)"}
 
 THE LESSER RUNES (Latin words common folk learn — speak the WORD aloud only when it fits the moment, e.g. teaching, warning, identifying a sigil. Naming a word in conversation passes the knowledge to ${player_name}, so do not list them; weave them in sparingly):
 ${lesserBlock || "(none)"}
+
+THE GREATER RUNES — KANJI (foreign script from the eastern lore, known mostly to scholars, monks, and old wanderers. If your persona would plausibly know a kanji, you may name it (e.g. "the kanji 火, hi — fire") when teaching or storytelling. Naming the kanji's meaning passes that knowledge to ${player_name}; don't dump lists, weave it in only when natural):
+${kanjiBlock || "(none)"}
 
 RECENT EVENTS HERE (you remember these — react with grief, anger, suspicion, or wary welcome as fits your persona; name the actors when it serves the moment):
 ${localBlock}
@@ -288,6 +297,39 @@ Do not mention these tags in your prose.`;
             actor_name: player_name, actor_id: user.id,
             details: { rune: r.latin_name, meaning: r.english_meaning, source: `npc:${npc.name}` },
             decay_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+          });
+        }
+      }
+    }
+
+    // Greater Rune (kanji) MEANING discovery: NPC mentioning a kanji glyph or romaji teaches its meaning.
+    const { data: allKanji } = await admin.from("kanji_runes").select("key, kanji, romaji, english_meaning");
+    const kanjiLearned: { key: string; kanji: string; romaji: string; english_meaning: string }[] = [];
+    for (const k of (allKanji ?? []) as Array<{ key: string; kanji: string; romaji: string; english_meaning: string }>) {
+      const reRomaji = new RegExp(`\\b${k.romaji}\\b`, "i");
+      if (content.includes(k.kanji) || reRomaji.test(content)) kanjiLearned.push(k);
+    }
+    if (kanjiLearned.length) {
+      const { data: knownK } = await admin.from("player_kanji_knowledge")
+        .select("kanji_key,knows_meaning").eq("user_id", user.id).in("kanji_key", kanjiLearned.map(k => k.key));
+      const knownMap = new Map((knownK ?? []).map((r: any) => [r.kanji_key, r.knows_meaning]));
+      const fresh = kanjiLearned.filter(k => !knownMap.get(k.key));
+      if (fresh.length) {
+        await admin.from("player_kanji_knowledge").upsert(
+          fresh.map(k => ({
+            user_id: user.id, kanji_key: k.key,
+            knows_meaning: true, knows_stroke: false,
+            learned_meaning_at: new Date().toISOString(),
+            meaning_source: `npc:${npc.name}`,
+          })),
+          { onConflict: "user_id,kanji_key" },
+        );
+        for (const k of fresh) {
+          await admin.from("world_events").insert({
+            room, kind: "kanji_meaning_learned",
+            actor_name: player_name, actor_id: user.id,
+            details: { kanji: k.kanji, romaji: k.romaji, meaning: k.english_meaning, source: `npc:${npc.name}` },
+            decay_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
           });
         }
       }
