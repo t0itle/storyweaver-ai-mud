@@ -51,8 +51,13 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(12);
     const memoryBlock = (memRows ?? []).length
-      ? memRows!.map((m: any) => `- (${m.emotion ?? "neutral"}, imp ${m.importance}${m.room ? `, at ${m.room}` : ""}) ${m.summary}`).join("\n")
-      : "(you have not met this person before)";
+      ? memRows!.map((m: any) => {
+          const header = `### ${m.emotion ?? "neutral"} · importance ${m.importance}${m.room ? ` · ${m.room}` : ""} · ${new Date(m.created_at).toISOString().slice(0,10)}`;
+          // summary is now a markdown block — indent under the header
+          const body = String(m.summary).split("\n").map(l => l.length ? l : "").join("\n");
+          return `${header}\n${body}`;
+        }).join("\n\n")
+      : "_(you have not met this person before)_";
 
     // Gossip: this NPC's strongest memories of OTHER otherworlders.
     const { data: gossipRows } = await supabase
