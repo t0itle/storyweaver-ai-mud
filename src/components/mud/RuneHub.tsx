@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { LesserRuneTracerInline } from "./LesserRuneTracer";
-import { KanjiTracerInline } from "./KanjiTracer";
+import { LesserRuneTracer } from "./LesserRuneTracer";
+import { KanjiTracer } from "./KanjiTracer";
 
 interface Props { open: boolean; onClose: () => void; onCast?: (r: any) => void; }
 
@@ -23,10 +23,10 @@ export function RuneHub({ open, onClose, onCast }: Props) {
             <TabsTrigger value="greater">Greater 字</TabsTrigger>
           </TabsList>
           <TabsContent value="lesser" className="mt-3">
-            <LesserRuneTracerInline open={open && tab === "lesser"} onClose={onClose} onCast={onCast} />
+            <LesserRuneTracer open={open && tab === "lesser"} onClose={onClose} onCast={onCast} inline />
           </TabsContent>
           <TabsContent value="greater" className="mt-3">
-            <KanjiTracerInline open={open && tab === "greater"} onClose={onClose} onCast={onCast} />
+            <KanjiTracer open={open && tab === "greater"} onClose={onClose} onCast={onCast} inline />
           </TabsContent>
         </Tabs>
       </DialogContent>
