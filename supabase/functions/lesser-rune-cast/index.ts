@@ -155,17 +155,38 @@ Deno.serve(async (req) => {
       kind: "emote", content: fullText,
     });
 
-    // World event for adaptive storytelling
-    await admin.from("world_events").insert({
-      room: profile.current_room, kind: outcome === "backfire" ? "rune_backfire" : "rune_cast",
-      actor_name: profile.username, actor_id: user.id,
-      target_name: targetName, details: { rune: runeKey, score: pct, outcome },
-      decay_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString(),
-    });
+    // Reveal the SYMBOL on the first ≥60% trace.
+    let symbolJustLearned = false;
+    if (!knewSymbol && score >= 0.6) {
+      symbolJustLearned = true;
+      await admin.from("player_lesser_rune_knowledge").upsert({
+        user_id: user.id, rune_key: runeKey,
+        knows_word: true, knows_symbol: true,
+        learned_symbol_at: new Date().toISOString(),
+      }, { onConflict: "user_id,rune_key" });
+      await admin.from("world_events").insert({
+        room: profile.current_room, kind: "rune_symbol_learned",
+        actor_name: profile.username, actor_id: user.id,
+        details: { rune: rune.latin_name, key: runeKey },
+        decay_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+      });
+    }
+
+    // World event for adaptive storytelling — only if symbol was already known
+    // (otherwise the room shouldn't see a public cast for a still-unknown sigil).
+    if (knewSymbol) {
+      await admin.from("world_events").insert({
+        room: profile.current_room, kind: outcome === "backfire" ? "rune_backfire" : "rune_cast",
+        actor_name: profile.username, actor_id: user.id,
+        target_name: targetName, details: { rune: runeKey, score: pct, outcome },
+        decay_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString(),
+      });
+    }
 
     return new Response(JSON.stringify({
       ok: true, score: pct, outcome, narrative, damage, heal,
       hp: newHp, corruption_delta: corruptionDelta,
+      symbol_just_learned: symbolJustLearned,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
