@@ -97,6 +97,15 @@ Style: Frank Frazetta meets Greg Rutkowski, atmospheric, cinematic, painterly br
     });
     if (updErr) throw updErr;
 
+    // Grant the standard starter garment: a tattered, dust-covered cloak (equipped)
+    const { data: existingCloak } = await admin.from("player_items")
+      .select("id").eq("user_id", user.id).eq("item_key", "tattered-cloak").maybeSingle();
+    if (!existingCloak) {
+      await admin.from("player_items").insert({
+        user_id: user.id, item_key: "tattered-cloak", quantity: 1, equipped_slot: "body",
+      });
+    }
+
     return json({ portrait_url: pub.publicUrl });
   } catch (e) {
     console.error(e);
