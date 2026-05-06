@@ -146,21 +146,47 @@ Deno.serve(async (req) => {
     ]);
 
     // ── Standing of the speaking player with the Seven / Chaos ──
+    // Most stances are PRIVATE — the player wears a face. Only when corruption
+    // has eaten them through (≥70) does the wrongness become obvious to all.
+    // Otherwise only Chaos-touched NPCs (kind === 'chaos' or persona contains
+    // chaos/heretic/cult) feel a kinship, and only Veiled/wardens sense unease.
     const { data: speakerProfile } = await supabase
       .from("profiles")
       .select("aether, faction, hall_refusals, non_serviam_at, corruption")
       .eq("id", user.id)
       .maybeSingle();
-    let stanceBlock = "Unsworn — they have not yet stood at the basin. The seven still wait for them.";
-    if (speakerProfile?.non_serviam_at) {
-      stanceBlock = `**They have spoken Non Serviam.** They cried out the unmaking-words and turned from the basin. The wardens know their face. Some pity them, most fear them, a few would strike them down on sight. Wherever they walk, the air feels a little wrong.`;
-    } else if (speakerProfile?.faction === "chaos") {
-      stanceBlock = `Marked by **Chaos**. They have forsworn the seven. Aether-faithful folk treat them as a threat or a lost soul; Chaos-touched folk recognize them as kin.`;
+
+    const corruption = speakerProfile?.corruption ?? 0;
+    const isNightmare = corruption >= 70;
+    const personaLower = (npc.persona ?? "").toLowerCase();
+    const titleLower = (npc.title ?? "").toLowerCase();
+    const npcIsChaosTouched = /chaos|heretic|cult|unspoken|black choir|hollow/.test(personaLower + " " + titleLower);
+    const npcIsWarden = /warden|veiled|priest|seven|aether|paladin|inquisit/.test(personaLower + " " + titleLower);
+
+    let stanceBlock = "You sense nothing unusual about them — just another traveler. Their oaths and refusals are their own private business.";
+    if (isNightmare) {
+      // Visible to ALL — they have become a walking wound.
+      if (speakerProfile?.non_serviam_at || speakerProfile?.faction === "chaos") {
+        stanceBlock = `**They reek of Chaos.** Corruption has eaten so much of them that the wrongness is undeniable — every soul present can feel it like a draft from an open grave. React with the full weight of your values: faithful folk should be openly hostile or terrified, scholars morbidly fascinated, the broken drawn in.`;
+      } else {
+        stanceBlock = `Their corruption is so advanced (${corruption}/100) that even the unsworn can feel it. Something inside them is howling.`;
+      }
     } else if (speakerProfile?.aether) {
-      stanceBlock = `Sworn to **${speakerProfile.aether}**. The corresponding glyph still lingers faintly on their skin. Treat them as ${speakerProfile.aether}'s own.`;
-    } else if ((speakerProfile?.hall_refusals ?? 0) > 0) {
+      // Aether marks are subtle — only the faithful notice the glyph's afterimage.
+      if (npcIsWarden || npcIsChaosTouched) {
+        stanceBlock = `You catch the faint afterimage of **${speakerProfile.aether}**'s glyph on them — only those who know what to look for see it. ${npcIsWarden ? "Treat them as kin of the seven." : "Treat them as a marked enemy."} Otherwise their oath is private.`;
+      }
+    } else if (speakerProfile?.non_serviam_at || speakerProfile?.faction === "chaos") {
+      // Chaos-marked but not yet a nightmare — their secret holds for most.
+      if (npcIsChaosTouched) {
+        stanceBlock = `You feel the kinship immediately — **they have spoken Non Serviam.** They are one of yours. Speak in the half-words and shared silences of the marked. Other people in this room have NO idea — do not give them away.`;
+      } else if (npcIsWarden) {
+        stanceBlock = `Something is wrong with them. You can't name it — a coldness, a wrongness in their oath-breath. You suspect, but you cannot prove. Watch them. Be wary.`;
+      }
+      // Everyone else: stance stays private.
+    } else if ((speakerProfile?.hall_refusals ?? 0) > 0 && npcIsWarden) {
       const r = speakerProfile!.hall_refusals;
-      stanceBlock = `They have stood in the Hall of the Seven **${r} time${r === 1 ? "" : "s"}** and walked away each time without choosing. The basin remembers. The faithful note this — there is a hesitation in them, a Chaos-shaped silence growing where an oath should be.`;
+      stanceBlock = `Word from the basin: they have stood in the Hall **${r} time${r === 1 ? "" : "s"}** and walked away each time. The faithful note this hesitation. Be cautious — there is a Chaos-shaped silence growing in them.`;
     }
 
     const otherPlayers = (presentPlayers ?? []).filter((p: any) => p.id !== user.id);
