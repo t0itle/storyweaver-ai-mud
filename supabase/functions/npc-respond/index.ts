@@ -161,10 +161,10 @@ RULES:
 - Never invent quests that promise rewards you can't deliver — keep things grounded.
 - AFTER your in-character reply, append THREE hidden tags on their own lines, in this exact order and format:
 <<PLACES>>["The Archive of Echoes","The Ash Road"]<<END>>
-<<MEMORY>>{"summary":"short third-person fact you want to remember about ${player_name} from THIS exchange","emotion":"warm|wary|grateful|angry|amused|curious|indifferent","importance":1}<<END>>
+<<MEMORY>>{"summary":"# Encounter\\n- **What happened:** brief account in your own voice\\n- **They said/did:** key claims, requests, or actions\\n- **What I noticed:** tells, mood, suspicions\\n- **Promises/debts:** anything owed either way, or null\\n- **Tags:** #comma #separated #keywords","emotion":"warm|wary|grateful|angry|amused|curious|indifferent","importance":1}<<END>>
 <<AMITY>>{"delta":-2,"reason":"asked too many prying questions"}<<END>>
 PLACES: list any specific named travelable place you mentioned, or [].
-MEMORY: one short sentence (max ~140 chars) capturing what was significant about THIS exchange. importance is 1 (small) to 5 (life-changing). If nothing worth remembering, write <<MEMORY>>null<<END>>.
+MEMORY: a structured **markdown log entry** (escaped as a JSON string with \\n for newlines) capturing THIS exchange as you internally remember it. Use the headings/bullets shown above; keep each bullet terse (≤ 120 chars). Importance is 1 (small) to 5 (life-changing). If nothing worth remembering, write <<MEMORY>>null<<END>>.
 AMITY: integer delta from -10 (deeply offended) to +10 (profoundly moved) reflecting how THIS exchange shifted your feeling toward ${player_name}. Most exchanges are -2 to +2. Use 0 if neutral. If unchanged, write <<AMITY>>{"delta":0,"reason":""}<<END>>.
 Do not mention these tags in your prose.`;
 
