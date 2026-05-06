@@ -82,6 +82,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [profileLoadFailed, setProfileLoadFailed] = useState(false);
   const [room, setRoom] = useState<Room | null>(null);
   const [npcs, setNpcs] = useState<Npc[]>([]);
+  const [dragons, setDragons] = useState<{ name: string; epithet: string; personality: string }[]>([]);
   const [amityByNpc, setAmityByNpc] = useState<Record<string, number>>({});
   const [roomEvents, setRoomEvents] = useState<{ kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -172,7 +173,7 @@ export default function GameClient({ session }: { session: Session }) {
     (async () => {
       const nowIso = new Date().toISOString();
       // Only show conversations from the moment the player arrived in this room.
-      const [{ data: r }, { data: n }, { data: m }, { data: ev }] = await Promise.all([
+      const [{ data: r }, { data: n }, { data: m }, { data: ev }, { data: dr }] = await Promise.all([
         supabase.from("rooms").select("*").eq("slug", slug).maybeSingle(),
         supabase.from("npcs").select("*").eq("room", slug)
           .or(`dead_until.is.null,dead_until.lte.${nowIso}`),
@@ -184,9 +185,11 @@ export default function GameClient({ session }: { session: Session }) {
           .eq("room", slug)
           .or(`decay_at.is.null,decay_at.gte.${nowIso}`)
           .order("created_at", { ascending: false }).limit(5),
+        supabase.from("dragons").select("name, epithet, personality").eq("current_room", slug),
       ]);
       if (r) setRoom(r as Room);
       setNpcs((n ?? []) as Npc[]);
+      setDragons((dr ?? []) as any);
       setRoomEvents((ev ?? []) as any);
       setMessages(((m ?? []) as Message[]).reverse());
 
@@ -797,7 +800,12 @@ export default function GameClient({ session }: { session: Session }) {
         {/* Main log */}
         <main className="flex-1 flex flex-col min-w-0">
           <div ref={logRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-6 space-y-3 font-body text-[17px] leading-relaxed">
-            <RoomBlock room={room} npcs={npcs} sceneUrl={sceneUrl} sceneLoading={sceneLoading} events={roomEvents} />
+            <RoomBlock room={room} npcs={npcs} dragons={dragons} sceneUrl={sceneUrl} sceneLoading={sceneLoading} events={roomEvents} />
+            {profile.gold >= 500 && (
+              <div className="border border-ember/40 bg-ember/5 px-3 py-2 text-xs text-ember italic font-mono">
+                ⚠ Your hoard glints too brightly. Carrying {profile.gold}g may catch a dragon's eye.
+              </div>
+            )}
             {profile.in_combat_id && (
               <CombatHUD combatId={profile.in_combat_id} userId={profile.id} onAct={combatAct} />
             )}
@@ -929,8 +937,9 @@ export default function GameClient({ session }: { session: Session }) {
   );
 }
 
-function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
-  room: Room; npcs: Npc[]; sceneUrl: string | null; sceneLoading: boolean;
+function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events }: {
+  room: Room; npcs: Npc[]; dragons: { name: string; epithet: string; personality: string }[];
+  sceneUrl: string | null; sceneLoading: boolean;
   events: { kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[];
 }) {
   return (
@@ -962,6 +971,17 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
         )}
       </p>
       {room.ambience && <p className="text-ash italic mt-2">{room.ambience}</p>}
+      {dragons.length > 0 && (
+        <div className="mt-3 border border-ember/60 bg-ember/10 px-3 py-2">
+          {dragons.map((d) => (
+            <p key={d.name} className="text-ember">
+              <span className="font-display text-lg">✦ {d.name}</span>
+              <span className="italic">, {d.epithet}</span>
+              <span className="block text-whisper text-sm italic mt-1">{d.personality}</span>
+            </p>
+          ))}
+        </div>
+      )}
       {npcs.length > 0 && (
         <div className="text-whisper italic mt-2 space-y-0.5">
           {npcs.map((n) => (
