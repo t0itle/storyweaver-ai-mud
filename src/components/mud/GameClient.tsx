@@ -772,11 +772,8 @@ export default function GameClient({ session }: { session: Session }) {
           <button onClick={() => setRunesOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Blessings">
             <Sparkles className="w-4 h-4" /><span className="hidden sm:inline">blessings</span><span>{knownRunes.length}</span>
           </button>
-          <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Trace a lesser rune">
-            <Flame className="w-4 h-4" /><span className="hidden sm:inline">trace</span>
-          </button>
-          <button onClick={() => setKanjiOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Greater Runes (Kanji)">
-            <span className="font-serif text-sm leading-none">字</span><span className="hidden sm:inline">kanji</span>
+          <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Weave runes (Lesser & Greater)">
+            <Flame className="w-4 h-4" /><span className="hidden sm:inline">runes</span>
           </button>
           <button onClick={() => setJournalOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Your journal">
             <ScrollText className="w-4 h-4" /><span className="hidden sm:inline">journal</span>
@@ -901,8 +898,7 @@ export default function GameClient({ session }: { session: Session }) {
           onChanged={() => { reloadRunes(); reloadInventory(); }}
         />
       )}
-      <LesserRuneTracer open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
-      <KanjiTracer open={kanjiOpen} onClose={() => setKanjiOpen(false)} onCast={() => reloadProfile()} />
+      <RuneHub open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
       <JournalModal open={journalOpen} onClose={() => setJournalOpen(false)} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
