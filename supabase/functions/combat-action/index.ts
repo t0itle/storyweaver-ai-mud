@@ -268,6 +268,27 @@ Deno.serve(async (req) => {
             content: `✶ A blood-mark settles on the stones. ${npcRow.name}'s name will be remembered — and so will ${me.name}'s.`,
           });
         }
+        // === Quest auto-resolution: any active "slay" quest targeting this NPC completes. ===
+        const { data: slayQuests } = await admin.from("quests")
+          .select("id,target_ref")
+          .eq("user_id", user.id).eq("status", "active")
+          .eq("kind", "slay").eq("target_kind", "npc");
+        const matchedSlay = (slayQuests ?? []).filter((q: any) => {
+          const ref = String(q.target_ref ?? "").toLowerCase();
+          if (!ref) return false;
+          return ref === String(target.npc_id ?? "").toLowerCase()
+              || target.name.toLowerCase().includes(ref)
+              || ref.includes(target.name.toLowerCase());
+        });
+        for (const q of matchedSlay) {
+          const auth = req.headers.get("Authorization");
+          if (!auth) continue;
+          await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/quest-award`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: auth },
+            body: JSON.stringify({ quest_id: q.id, note: "auto:slay" }),
+          }).catch(() => null);
+        }
       }
       await advanceTurn(combatId);
       return ok({ ok: true });

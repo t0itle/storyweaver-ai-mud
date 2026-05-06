@@ -10,6 +10,7 @@ import { CharacterSheet } from "./CharacterSheet";
 import { RuneHub } from "./RuneHub";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import HallOfChoice from "./HallOfChoice";
+import { QuestsPanel } from "./QuestsPanel";
 
 interface Profile {
   id: string;
@@ -70,6 +71,10 @@ const HELP = [
   ["who", "list players in this room"],
   ["follow <npc>", "ask an NPC to travel with you"],
   ["dismiss", "part ways with your companion"],
+  ["quests", "open your quest log"],
+  ["accept <title>", "accept an offered quest"],
+  ["decline <title>", "refuse an offered quest"],
+  ["abandon <title>", "drop an active quest (NPC will remember)"],
   ["help", "show this list"],
 ];
 
@@ -109,6 +114,9 @@ export default function GameClient({ session }: { session: Session }) {
   const [chronicleTab, setChronicleTab] = useState<"journal" | "codex">("journal");
   const [hallOpen, setHallOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [questsOpen, setQuestsOpen] = useState(false);
+  const [activeQuestCount, setActiveQuestCount] = useState(0);
+  const [offeredQuestCount, setOfferedQuestCount] = useState(0);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -127,7 +135,24 @@ export default function GameClient({ session }: { session: Session }) {
     if (data) setProfile(data as Profile);
   };
 
-  useEffect(() => { reloadInventory(); reloadRunes(); }, [session.user.id]);
+  const reloadQuestCounts = async () => {
+    const { data } = await supabase.from("quests")
+      .select("status").eq("user_id", session.user.id)
+      .in("status", ["active", "offered"]);
+    setActiveQuestCount((data ?? []).filter((q: any) => q.status === "active").length);
+    setOfferedQuestCount((data ?? []).filter((q: any) => q.status === "offered").length);
+  };
+
+  useEffect(() => { reloadInventory(); reloadRunes(); reloadQuestCounts(); }, [session.user.id]);
+
+  // Quests realtime
+  useEffect(() => {
+    const ch = supabase.channel(`quests:${session.user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "quests", filter: `user_id=eq.${session.user.id}` },
+        () => reloadQuestCounts())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [session.user.id]);
 
   // Profile realtime: catches in_combat_id, hp, gold updates
   useEffect(() => {
@@ -426,6 +451,16 @@ export default function GameClient({ session }: { session: Session }) {
     const { error } = await supabase.from("profiles").update({ current_room: slug }).eq("id", profile.id);
     if (error) { toast.error(error.message); return; }
     setProfile({ ...profile, current_room: slug });
+    // Quest auto-resolution: any active "visit" quest targeting this room completes.
+    supabase.functions.invoke("quest-auto-resolve", {
+      body: { event: { kind: "visit", room: slug } },
+    }).then(({ data }) => {
+      const completed = data?.completed ?? [];
+      for (const r of completed) {
+        toast.success(`✦ Quest complete: ${r.title} — +${r.gold ?? 0}g, +${r.xp ?? 0}xp`);
+      }
+      if (completed.length) reloadProfile();
+    }).catch(() => null);
     setTimeout(() => {
       post("system", `${profile.username} arrives.`, "—");
       if (companionName) {
@@ -604,6 +639,30 @@ export default function GameClient({ session }: { session: Session }) {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
       } finally { setThinking(false); }
+    } else if (c === "quests" || c === "quest" || c === "tasks") {
+      setQuestsOpen(true);
+    } else if (c === "accept" || c === "decline" || c === "abandon") {
+      if (!args) { setMessages((m) => [...m, localSys(`${c} which quest? Try "quests" to see your offers.`)]); return; }
+      const wantStatus = c === "abandon" ? "active" : "offered";
+      const { data: matches } = await supabase.from("quests")
+        .select("id, title, status")
+        .eq("user_id", profile.id)
+        .eq("status", wantStatus)
+        .ilike("title", `%${args.trim()}%`)
+        .limit(2);
+      if (!matches || matches.length === 0) {
+        setMessages((m) => [...m, localSys(`No ${wantStatus} quest matches "${args}".`)]); return;
+      }
+      if (matches.length > 1) {
+        setMessages((m) => [...m, localSys(`Be more specific — could be: ${matches.map(q => q.title).join(" / ")}.`)]); return;
+      }
+      try {
+        const { data, error } = await supabase.functions.invoke("quest-action", {
+          body: { quest_id: matches[0].id, action: c },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        setMessages((m) => [...m, localSys(`✦ Quest ${c}ed: ${matches[0].title}`)]);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
     } else if (c === "lore" || c === "codex") {
       if (!args) {
         setCodexEntry(null); setChronicleTab("codex"); setCodexOpen(true);
@@ -836,6 +895,16 @@ export default function GameClient({ session }: { session: Session }) {
             <span className="hidden sm:inline">chronicle</span>
             <span className="font-mono text-[10px] text-ash">{discoveries.length}/{lore.length}</span>
           </button>
+          <button onClick={() => setQuestsOpen(true)}
+            className="relative flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs"
+            title="Quests">
+            <ScrollText className="w-4 h-4" />
+            <span className="hidden sm:inline">quests</span>
+            <span className="font-mono text-[10px] text-ash">{activeQuestCount}</span>
+            {offeredQuestCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-ember animate-pulse" />
+            )}
+          </button>
           <button onClick={() => setHelpOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs ml-auto" title="Commands">
             <HelpCircle className="w-4 h-4" /><span className="hidden sm:inline">help</span>
           </button>
@@ -955,6 +1024,9 @@ export default function GameClient({ session }: { session: Session }) {
         />
       )}
       <RuneHub open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
+      {questsOpen && (
+        <QuestsPanel userId={profile.id} onClose={() => setQuestsOpen(false)} onChanged={() => { reloadProfile(); reloadQuestCounts(); }} />
+      )}
       <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
