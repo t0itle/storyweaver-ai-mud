@@ -535,6 +535,77 @@ export type Database = {
           },
         ]
       }
+      player_journal_entries: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          kind: string
+          room: string | null
+          source_event_id: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          id?: string
+          kind: string
+          room?: string | null
+          source_event_id?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          room?: string | null
+          source_event_id?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      player_lesser_rune_knowledge: {
+        Row: {
+          knows_symbol: boolean
+          knows_word: boolean
+          learned_symbol_at: string | null
+          learned_word_at: string | null
+          rune_key: string
+          user_id: string
+          word_source: string | null
+        }
+        Insert: {
+          knows_symbol?: boolean
+          knows_word?: boolean
+          learned_symbol_at?: string | null
+          learned_word_at?: string | null
+          rune_key: string
+          user_id: string
+          word_source?: string | null
+        }
+        Update: {
+          knows_symbol?: boolean
+          knows_word?: boolean
+          learned_symbol_at?: string | null
+          learned_word_at?: string | null
+          rune_key?: string
+          user_id?: string
+          word_source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_lesser_rune_knowledge_rune_key_fkey"
+            columns: ["rune_key"]
+            isOneToOne: false
+            referencedRelation: "lesser_runes"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       player_lesser_runes: {
         Row: {
           backfire_count: number

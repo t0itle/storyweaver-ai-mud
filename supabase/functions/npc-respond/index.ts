@@ -103,6 +103,12 @@ Deno.serve(async (req) => {
       `- ${l.title} (${l.slug}): ${l.summary ?? ""}`
     ).join("\n");
 
+    // Lesser runes — the common Latin words anyone steeped in the world might know.
+    const { data: lesserCatalogue } = await supabase.from("lesser_runes").select("latin_name, english_meaning, description");
+    const lesserBlock = (lesserCatalogue ?? []).map((r: any) =>
+      `- **${r.latin_name}** (${r.english_meaning}): ${r.description}`
+    ).join("\n");
+
     // Adaptive storytelling: recent unresolved world events in this room (and recent global ones)
     const nowIso = new Date().toISOString();
     const { data: localEvents } = await supabase
@@ -136,6 +142,9 @@ ${roomRow?.description ?? ""}
 
 WORLD LORE YOU MAY KNOW (reference naturally if relevant — never list, never lecture):
 ${loreBlock || "(none)"}
+
+THE LESSER RUNES (Latin words common folk learn — speak the WORD aloud only when it fits the moment, e.g. teaching, warning, identifying a sigil. Naming a word in conversation passes the knowledge to ${player_name}, so do not list them; weave them in sparingly):
+${lesserBlock || "(none)"}
 
 RECENT EVENTS HERE (you remember these — react with grief, anger, suspicion, or wary welcome as fits your persona; name the actors when it serves the moment):
 ${localBlock}
@@ -250,6 +259,40 @@ Do not mention these tags in your prose.`;
 
     // Persist NPC's memory and amity (service role bypasses RLS).
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // Lesser rune WORD discovery: if the NPC mentions a Latin rune name, the player learns its WORD.
+    const { data: allLesser } = await admin.from("lesser_runes").select("key, latin_name, english_meaning");
+    const lesserLearned: { key: string; latin_name: string; english_meaning: string }[] = [];
+    for (const r of (allLesser ?? []) as Array<{ key: string; latin_name: string; english_meaning: string }>) {
+      const re = new RegExp(`\\b${r.latin_name}\\b`, "i");
+      if (re.test(content)) lesserLearned.push(r);
+    }
+    if (lesserLearned.length) {
+      const { data: known } = await admin.from("player_lesser_rune_knowledge")
+        .select("rune_key").eq("user_id", user.id).in("rune_key", lesserLearned.map(r => r.key));
+      const knownSet = new Set((known ?? []).map((r: any) => r.rune_key));
+      const fresh = lesserLearned.filter(r => !knownSet.has(r.key));
+      if (fresh.length) {
+        await admin.from("player_lesser_rune_knowledge").upsert(
+          fresh.map(r => ({
+            user_id: user.id, rune_key: r.key,
+            knows_word: true, knows_symbol: false,
+            learned_word_at: new Date().toISOString(),
+            word_source: `npc:${npc.name}`,
+          })),
+          { onConflict: "user_id,rune_key" },
+        );
+        for (const r of fresh) {
+          await admin.from("world_events").insert({
+            room, kind: "rune_word_learned",
+            actor_name: player_name, actor_id: user.id,
+            details: { rune: r.latin_name, meaning: r.english_meaning, source: `npc:${npc.name}` },
+            decay_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+          });
+        }
+      }
+    }
+
     if (memoryToStore) {
       await admin.from("npc_memories").insert({
         npc_id: npc.id,

@@ -84,6 +84,15 @@ Deno.serve(async (req) => {
     const { data: rune } = await admin.from("lesser_runes").select("*").eq("key", runeKey).maybeSingle();
     if (!rune) return new Response(JSON.stringify({ error: "No such lesser rune." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+    // Gate: must know the WORD before tracing
+    const { data: knowledge } = await admin.from("player_lesser_rune_knowledge")
+      .select("knows_word, knows_symbol").eq("user_id", user.id).eq("rune_key", runeKey).maybeSingle();
+    if (!knowledge?.knows_word) {
+      return new Response(JSON.stringify({ error: `You do not yet know the word **${rune.latin_name}**. Seek a teacher or a tome.` }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const knewSymbol = !!knowledge?.knows_symbol;
+
     const score = scoreAgainst(stroke, rune.template as Pt[]);
     const pct = Math.round(score * 100);
 
@@ -91,11 +100,20 @@ Deno.serve(async (req) => {
     if (!profile) return new Response(JSON.stringify({ error: "profile missing" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const eff = (rune.effect ?? {}) as Record<string, any>;
-    let outcome: "perfect" | "weakened" | "fizzle" | "backfire" = "fizzle";
+    let outcome: "perfect" | "weakened" | "fizzle" | "backfire" | "practice" = "fizzle";
     let narrative = "";
     let damage = 0, heal = 0, hpDelta = 0, corruptionDelta = 0;
 
-    if (score >= 0.85) {
+    if (!knewSymbol) {
+      // Practice mode: player is still learning the symbol. No damage, no public emote, no backfire.
+      if (score >= 0.6) {
+        outcome = "practice";
+        narrative = `${profile.username}'s hand finds the shape of **${rune.latin_name}** for the first time. The sigil burns into memory.`;
+      } else {
+        outcome = "practice";
+        narrative = `Your hand wavers — the shape of **${rune.latin_name}** still eludes you. Try again.`;
+      }
+    } else if (score >= 0.85) {
       outcome = "perfect";
       damage = eff.type === "damage" ? Math.round((eff.power ?? 1) * 1.0) : 0;
       heal = eff.type === "heal" ? Math.round((eff.power ?? 1) * 1.0) : 0;
@@ -115,7 +133,7 @@ Deno.serve(async (req) => {
       narrative = `${profile.username}'s twisted **${rune.latin_name}** lashes back — the unspoken thing in the air bites at them.`;
     }
 
-    if (eff.corruption) corruptionDelta += Number(eff.corruption);
+    if (knewSymbol && eff.corruption) corruptionDelta += Number(eff.corruption);
 
     const newHp = Math.max(0, Math.min(profile.max_hp, profile.hp + hpDelta));
     if (hpDelta !== 0 || corruptionDelta !== 0) {
@@ -125,38 +143,61 @@ Deno.serve(async (req) => {
       }).eq("id", user.id);
     }
 
-    // Mastery
-    const { data: existing } = await admin.from("player_lesser_runes")
-      .select("best_score,cast_count,backfire_count").eq("user_id", user.id).eq("rune_key", runeKey).maybeSingle();
-    const best = Math.max(Number(existing?.best_score ?? 0), score);
-    await admin.from("player_lesser_runes").upsert({
-      user_id: user.id, rune_key: runeKey,
-      best_score: best,
-      cast_count: (existing?.cast_count ?? 0) + 1,
-      backfire_count: (existing?.backfire_count ?? 0) + (outcome === "backfire" ? 1 : 0),
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "user_id,rune_key" });
+    // Mastery (only count real casts, not practice)
+    if (knewSymbol) {
+      const { data: existing } = await admin.from("player_lesser_runes")
+        .select("best_score,cast_count,backfire_count").eq("user_id", user.id).eq("rune_key", runeKey).maybeSingle();
+      const best = Math.max(Number(existing?.best_score ?? 0), score);
+      await admin.from("player_lesser_runes").upsert({
+        user_id: user.id, rune_key: runeKey,
+        best_score: best,
+        cast_count: (existing?.cast_count ?? 0) + 1,
+        backfire_count: (existing?.backfire_count ?? 0) + (outcome === "backfire" ? 1 : 0),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id,rune_key" });
 
-    // Public room message
-    const fullText = targetName
-      ? `${narrative}${damage ? ` (${damage} damage to ${targetName})` : ""}${heal ? ` (heals ${heal})` : ""}`
-      : `${narrative}${damage ? ` (${damage} damage)` : ""}${heal ? ` (heals ${heal})` : ""}`;
-    await admin.from("messages").insert({
-      room: profile.current_room, user_id: user.id, author_name: profile.username,
-      kind: "emote", content: fullText,
-    });
+      // Public room message
+      const fullText = targetName
+        ? `${narrative}${damage ? ` (${damage} damage to ${targetName})` : ""}${heal ? ` (heals ${heal})` : ""}`
+        : `${narrative}${damage ? ` (${damage} damage)` : ""}${heal ? ` (heals ${heal})` : ""}`;
+      await admin.from("messages").insert({
+        room: profile.current_room, user_id: user.id, author_name: profile.username,
+        kind: "emote", content: fullText,
+      });
+    }
 
-    // World event for adaptive storytelling
-    await admin.from("world_events").insert({
-      room: profile.current_room, kind: outcome === "backfire" ? "rune_backfire" : "rune_cast",
-      actor_name: profile.username, actor_id: user.id,
-      target_name: targetName, details: { rune: runeKey, score: pct, outcome },
-      decay_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString(),
-    });
+    // Reveal the SYMBOL on the first ≥60% trace.
+    let symbolJustLearned = false;
+    if (!knewSymbol && score >= 0.6) {
+      symbolJustLearned = true;
+      await admin.from("player_lesser_rune_knowledge").upsert({
+        user_id: user.id, rune_key: runeKey,
+        knows_word: true, knows_symbol: true,
+        learned_symbol_at: new Date().toISOString(),
+      }, { onConflict: "user_id,rune_key" });
+      await admin.from("world_events").insert({
+        room: profile.current_room, kind: "rune_symbol_learned",
+        actor_name: profile.username, actor_id: user.id,
+        details: { rune: rune.latin_name, key: runeKey },
+        decay_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
+      });
+    }
+
+    // World event for adaptive storytelling — only if symbol was already known
+    // (otherwise the room shouldn't see a public cast for a still-unknown sigil).
+    if (knewSymbol) {
+      await admin.from("world_events").insert({
+        room: profile.current_room, kind: outcome === "backfire" ? "rune_backfire" : "rune_cast",
+        actor_name: profile.username, actor_id: user.id,
+        target_name: targetName, details: { rune: runeKey, score: pct, outcome },
+        decay_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString(),
+      });
+    }
 
     return new Response(JSON.stringify({
       ok: true, score: pct, outcome, narrative, damage, heal,
       hp: newHp, corruption_delta: corruptionDelta,
+      symbol_just_learned: symbolJustLearned,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
