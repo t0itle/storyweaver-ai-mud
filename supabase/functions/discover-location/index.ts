@@ -52,10 +52,22 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "name required (3-80 chars)" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Gate hidden / faction-locked rooms: pull speaker's faction first.
+    const { data: speaker } = await admin.from("profiles")
+      .select("faction, non_serviam_at").eq("id", user.id).maybeSingle();
+    const speakerFaction = speaker?.non_serviam_at ? "chaos" : (speaker?.faction ?? null);
+
     // 1. Existing match
-    const { data: existing } = await admin.from("rooms").select("slug,name").ilike("name", `%${name}%`).limit(1);
+    const { data: existing } = await admin.from("rooms")
+      .select("slug,name,hidden,requires_faction").ilike("name", `%${name}%`).limit(1);
     if (existing && existing.length) {
-      return new Response(JSON.stringify({ slug: existing[0].slug, name: existing[0].name, created: false }),
+      const r = existing[0] as any;
+      // Hidden + faction-locked rooms only reveal themselves to those who belong.
+      if (r.requires_faction && r.requires_faction !== speakerFaction) {
+        return new Response(JSON.stringify({ error: "No such place answers to that name." }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({ slug: r.slug, name: r.name, created: false }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
     const baseSlug = slugify(name);
