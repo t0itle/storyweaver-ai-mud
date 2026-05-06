@@ -629,6 +629,30 @@ export default function GameClient({ session }: { session: Session }) {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
       } finally { setThinking(false); }
+    } else if (c === "quests" || c === "quest" || c === "tasks" || c === "journal" && !args) {
+      setQuestsOpen(true);
+    } else if (c === "accept" || c === "decline" || c === "abandon") {
+      if (!args) { setMessages((m) => [...m, localSys(`${c} which quest? Try "quests" to see your offers.`)]); return; }
+      const wantStatus = c === "abandon" ? "active" : "offered";
+      const { data: matches } = await supabase.from("quests")
+        .select("id, title, status")
+        .eq("user_id", profile.id)
+        .eq("status", wantStatus)
+        .ilike("title", `%${args.trim()}%`)
+        .limit(2);
+      if (!matches || matches.length === 0) {
+        setMessages((m) => [...m, localSys(`No ${wantStatus} quest matches "${args}".`)]); return;
+      }
+      if (matches.length > 1) {
+        setMessages((m) => [...m, localSys(`Be more specific — could be: ${matches.map(q => q.title).join(" / ")}.`)]); return;
+      }
+      try {
+        const { data, error } = await supabase.functions.invoke("quest-action", {
+          body: { quest_id: matches[0].id, action: c },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        setMessages((m) => [...m, localSys(`✦ Quest ${c}ed: ${matches[0].title}`)]);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
     } else if (c === "lore" || c === "codex") {
       if (!args) {
         setCodexEntry(null); setChronicleTab("codex"); setCodexOpen(true);
