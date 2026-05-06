@@ -337,28 +337,34 @@ export function KanjiTracer({ open, onClose, onCast }: Props) {
             )}
           </TabsContent>
 
-          {/* CODEX: known recipes + locked silhouettes */}
+          {/* CODEX: only compounds the player has discovered through experimentation */}
           <TabsContent value="codex" className="space-y-2">
-            {recipeRows.length === 0 && <p className="text-xs text-muted-foreground">No recipes seeded.</p>}
-            {recipeRows.map(({ c, learned, allKnown }) => (
-              <div key={c.key} className={`p-2 rounded border ${learned ? "border-primary/40 bg-primary/5" : "border-border"}`}>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-base">
-                    {c.components.map((k, i) => (
-                      <span key={i}>{knowsStroke(k) ? byKey[k]?.kanji : "？"}{i < c.components.length-1 && <span className="text-xs mx-1 text-muted-foreground">+</span>}</span>
-                    ))}
+            {(() => {
+              const learnedRows = recipeRows.filter(r => r.learned);
+              if (learnedRows.length === 0) {
+                return (
+                  <p className="text-xs text-muted-foreground italic">
+                    No compounds discovered yet. Weave kanji together to uncover their names.
+                  </p>
+                );
+              }
+              return learnedRows.map(({ c }) => (
+                <div key={c.key} className="p-2 rounded border border-primary/40 bg-primary/5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-base">
+                      {c.components.map((k, i) => (
+                        <span key={i}>
+                          {byKey[k]?.kanji}
+                          {i < c.components.length - 1 && <span className="text-xs mx-1 text-muted-foreground">+</span>}
+                        </span>
+                      ))}
+                    </div>
+                    <Badge variant="default" className="text-[10px]">{c.name}</Badge>
                   </div>
-                  <Badge variant={learned ? "default" : "outline"} className="text-[10px]">
-                    {learned ? c.name : (allKnown ? "untried" : "locked")}
-                  </Badge>
-                </div>
-                {learned ? (
                   <p className="text-xs text-muted-foreground mt-1">{c.english_meaning} — {c.description}</p>
-                ) : c.lore_hint ? (
-                  <p className="text-xs italic text-muted-foreground/70 mt-1">"{c.lore_hint}"</p>
-                ) : null}
-              </div>
-            ))}
+                </div>
+              ));
+            })()}
           </TabsContent>
         </Tabs>
       </DialogContent>
