@@ -215,13 +215,16 @@ export default function GameClient({ session }: { session: Session }) {
     })();
   }, [profile?.current_room]);
 
-  // Generate / fetch scene image when room changes
+  // Generate / fetch scene image when room changes (events-aware so the world reflects what's been done)
   useEffect(() => {
     if (!profile || !room) return;
     const slug = profile.current_room;
     let cancelled = false;
     setSceneLoading(true);
-    supabase.functions.invoke("scene-image", { body: { room: slug } })
+    const eventSummary = roomEvents.length
+      ? roomEvents.map(e => describeEvent(e)).join(" ")
+      : "";
+    supabase.functions.invoke("scene-image", { body: { room: slug, context_extra: eventSummary } })
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) console.warn("scene", error);
@@ -229,7 +232,7 @@ export default function GameClient({ session }: { session: Session }) {
       })
       .finally(() => { if (!cancelled) setSceneLoading(false); });
     return () => { cancelled = true; };
-  }, [profile?.current_room, room?.slug]);
+  }, [profile?.current_room, room?.slug, roomEvents.length]);
 
   // Auto-open Hall of the Seven when player enters it (only if not yet sworn)
   useEffect(() => {
