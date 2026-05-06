@@ -7,9 +7,12 @@ const corsHeaders = {
 const ok = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-// Cost table for what teachers charge in gold.
-const TEACH_COST: Record<string, number> = {
-  ember: 12, stoneward: 12, "fire-bolt": 40, mend: 35,
+// Blessings are very hard to acquire — by rarity tier.
+const COST_BY_RARITY: Record<string, { gold: number; merit: number }> = {
+  common:    { gold: 200, merit: 5 },
+  uncommon:  { gold: 600, merit: 15 },
+  rare:      { gold: 1500, merit: 35 },
+  legendary: { gold: 4000, merit: 80 },
 };
 
 type Body = {
