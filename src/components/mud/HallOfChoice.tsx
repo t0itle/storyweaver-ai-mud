@@ -51,11 +51,11 @@ export default function HallOfChoice({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={handleClose}>
       <div className="bg-card border border-border max-w-4xl w-full max-h-[88vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <h2 className="font-display text-2xl text-ember">The Hall of Choice</h2>
-          <button onClick={onClose} className="text-ash hover:text-parchment"><X className="w-5 h-5" /></button>
+          <button onClick={handleClose} className="text-ash hover:text-parchment"><X className="w-5 h-5" /></button>
         </div>
 
         <div className="overflow-y-auto px-6 py-5 space-y-5">
