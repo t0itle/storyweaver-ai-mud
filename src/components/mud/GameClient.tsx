@@ -995,6 +995,38 @@ export default function GameClient({ session }: { session: Session }) {
             </div>
           </div>
 
+          {(wagonRoutes.length > 0 || hasCache) && (
+            <div className="flex flex-col gap-1.5">
+              {wagonRoutes.length > 0 && (
+                <button onClick={() => setWagonOpen(true)}
+                  className="w-full text-left font-mono text-[11px] px-2 py-1.5 border border-border hover:border-ember hover:text-ember transition-colors uppercase tracking-widest text-parchment">
+                  ⛟ Hire Wagon
+                </button>
+              )}
+              {hasCache && (
+                <button
+                  disabled={cacheClaimed}
+                  onClick={async () => {
+                    try {
+                      const { data, error } = await supabase.functions.invoke("search-cache");
+                      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+                      if (data?.found) {
+                        toast.success(`+${data.gold ?? 0}g${data.item ? ` · ${data.item}` : ""}`);
+                        setCacheClaimed(true);
+                        reloadProfile();
+                        reloadInventory();
+                      } else if (data?.already) {
+                        setCacheClaimed(true);
+                      }
+                    } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+                  }}
+                  className="w-full text-left font-mono text-[11px] px-2 py-1.5 border border-border hover:border-ember hover:text-ember transition-colors uppercase tracking-widest text-parchment disabled:opacity-40 disabled:cursor-not-allowed">
+                  ⌖ {cacheClaimed ? "Searched" : "Search Here"}
+                </button>
+              )}
+            </div>
+          )}
+
           <div>
             <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Souls Here</h3>
             <div className="space-y-1">
