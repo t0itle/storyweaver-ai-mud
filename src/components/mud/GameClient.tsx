@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Backpack, Flame, HelpCircle, Loader2, LogOut, ScrollText, Sparkles } from "lucide-react";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
 import { ChronicleModal } from "./ChronicleModal";
+import { CharacterSheet } from "./CharacterSheet";
 import { RuneHub } from "./RuneHub";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import HallOfChoice from "./HallOfChoice";
