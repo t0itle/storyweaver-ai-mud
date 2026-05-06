@@ -3,9 +3,10 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Backpack, BookOpen, Flame, Loader2, LogOut, Sparkles, Sword, Users, X } from "lucide-react";
+import { Backpack, BookOpen, Flame, HelpCircle, Loader2, LogOut, Sparkles, Sword, Users, X } from "lucide-react";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
 import { LesserRuneTracer } from "./LesserRuneTracer";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import HallOfChoice from "./HallOfChoice";
 
 interface Profile {
@@ -96,6 +97,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [invOpen, setInvOpen] = useState(false);
   const [runesOpen, setRunesOpen] = useState(false);
   const [tracerOpen, setTracerOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [hallOpen, setHallOpen] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -714,69 +716,71 @@ export default function GameClient({ session }: { session: Session }) {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Top bar */}
-      <header className="border-b border-border bg-card/60 backdrop-blur px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <img src="/favicon.png" alt="EverBloom" width={28} height={28} className="w-7 h-7 hidden sm:block opacity-90" />
-          {profile.portrait_url ? (
-            <img src={profile.portrait_url} alt={profile.username}
-              className="w-10 h-10 object-cover border border-ember/60 rounded-sm" />
-          ) : (
-            <Flame className="w-5 h-5 text-ember ember-flicker" />
-          )}
-          <div>
-            <div className="font-display text-lg leading-none text-parchment">{profile.username}</div>
-            <div className="font-mono text-[10px] text-ash uppercase tracking-widest">
-              {profile.race ?? "wanderer"} · lvl {profile.level}
-              {profile.aether && <> · <span className="text-ember/80">{profile.aether}</span></>}
+      <header className="border-b border-border bg-card/60 backdrop-blur px-3 sm:px-4 py-2 sm:py-3 flex flex-col gap-2">
+        {/* Row 1: identity + sign-out */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            {profile.portrait_url ? (
+              <img src={profile.portrait_url} alt={profile.username}
+                className="w-8 h-8 sm:w-10 sm:h-10 object-cover border border-ember/60 rounded-sm shrink-0" />
+            ) : (
+              <Flame className="w-5 h-5 text-ember ember-flicker shrink-0" />
+            )}
+            <div className="min-w-0">
+              <div className="font-display text-base sm:text-lg leading-tight text-parchment truncate">{profile.username}</div>
+              <div className="font-mono text-[9px] sm:text-[10px] text-ash uppercase tracking-widest truncate">
+                {profile.race ?? "wanderer"} · lvl {profile.level}
+                {profile.aether && <> · <span className="text-ember/80">{profile.aether}</span></>}
+              </div>
             </div>
           </div>
+          <Button size="sm" variant="ghost" onClick={signOut} className="text-ash hover:text-parchment shrink-0 h-8 w-8 p-0">
+            <LogOut className="w-4 h-4" />
+          </Button>
         </div>
-        <div className="flex items-center gap-4 font-mono text-xs">
+
+        {/* Row 2: stats — wraps on mobile */}
+        <div className="flex items-center gap-x-3 gap-y-1 font-mono text-[11px] sm:text-xs flex-wrap">
           <span className="text-ember">♥ {profile.hp}/{profile.max_hp}</span>
-          <span className="text-accent">✦ {profile.xp} xp</span>
+          <span className="text-accent">✦ {profile.xp}xp</span>
           <span className="text-parchment">⚜ {profile.gold}g</span>
-          <span
-            title={`Merit — your renown in the world: ${profile.merit ?? 0}`}
-            className="text-moss"
-          >
-            ❖ {profile.merit ?? 0} merit
-          </span>
+          <span title={`Merit: ${profile.merit ?? 0}`} className="text-moss">❖ {profile.merit ?? 0}</span>
           <button
             onClick={() => setHallOpen(true)}
             title={`Shadow corruption: ${profile.corruption}/100`}
             className="flex items-center gap-1.5"
           >
             <span className="text-ash">◐</span>
-            <span className="w-16 h-1.5 bg-border relative overflow-hidden">
+            <span className="w-12 sm:w-16 h-1.5 bg-border relative overflow-hidden">
               <span
                 className="absolute inset-y-0 left-0 bg-gradient-to-r from-whisper to-ember"
                 style={{ width: `${Math.min(100, profile.corruption ?? 0)}%` }}
               />
             </span>
           </button>
-          <button onClick={() => setInvOpen(true)} className="flex items-center gap-1 text-whisper hover:text-ember transition-colors" title="Inventory">
-            <Backpack className="w-4 h-4" />
-            <span>{inventory.length}</span>
+        </div>
+
+        {/* Row 3: action toolbar — icon-only on mobile, label on desktop */}
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+          <button onClick={() => setInvOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Inventory">
+            <Backpack className="w-4 h-4" /><span>{inventory.length}</span>
           </button>
-          <button onClick={() => setRunesOpen(true)} className="flex items-center gap-1 text-whisper hover:text-ember transition-colors" title="Runes">
-            <Sparkles className="w-4 h-4" />
-            <span>{knownRunes.length}</span>
+          <button onClick={() => setRunesOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="True runes">
+            <Sparkles className="w-4 h-4" /><span>{knownRunes.length}</span>
           </button>
-          <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 text-whisper hover:text-ember transition-colors" title="Trace a lesser rune">
-            <Flame className="w-4 h-4" />
-            <span>trace</span>
+          <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Trace a lesser rune">
+            <Flame className="w-4 h-4" /><span className="hidden sm:inline">trace</span>
           </button>
           <button
             onClick={() => { setCodexEntry(null); setCodexOpen(true); }}
-            className="flex items-center gap-1 text-whisper hover:text-ember transition-colors"
+            className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs"
             title="Codex of discoveries"
           >
-            <BookOpen className="w-4 h-4" />
-            <span>{discoveries.length}/{lore.length}</span>
+            <BookOpen className="w-4 h-4" /><span>{discoveries.length}/{lore.length}</span>
           </button>
-          <Button size="sm" variant="ghost" onClick={signOut} className="text-ash hover:text-parchment">
-            <LogOut className="w-4 h-4" />
-          </Button>
+          <button onClick={() => setHelpOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs ml-auto" title="Commands">
+            <HelpCircle className="w-4 h-4" /><span className="hidden sm:inline">help</span>
+          </button>
         </div>
       </header>
 
@@ -852,12 +856,12 @@ export default function GameClient({ session }: { session: Session }) {
             </div>
           </div>
 
-          <div>
-            <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2 flex items-center gap-1"><Users className="w-3 h-3" /> Commands</h3>
-            <ul className="space-y-1 font-mono text-[11px] text-ash">
-              {HELP.map(([k, v]) => <li key={k}><span className="text-ember">{k}</span> <span className="text-ash/70">— {v}</span></li>)}
-            </ul>
-          </div>
+          <button
+            onClick={() => setHelpOpen(true)}
+            className="w-full flex items-center justify-center gap-1.5 font-mono text-[11px] text-ash hover:text-ember border border-border hover:border-ember rounded px-2 py-1.5 transition-colors"
+          >
+            <HelpCircle className="w-3 h-3" /> Commands & Help
+          </button>
         </aside>
       </div>
 
@@ -888,6 +892,22 @@ export default function GameClient({ session }: { session: Session }) {
         />
       )}
       <LesserRuneTracer open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Commands</DialogTitle>
+            <DialogDescription>Type any of these in the prompt below.</DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-1.5 font-mono text-xs">
+            {HELP.map(([k, v]) => (
+              <li key={k} className="leading-snug">
+                <div className="text-ember">{k}</div>
+                <div className="text-ash/80 pl-2">— {v}</div>
+              </li>
+            ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
       {hallOpen && (
         <HallOfChoice
           currentAether={profile.aether}
