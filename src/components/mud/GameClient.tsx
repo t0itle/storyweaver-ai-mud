@@ -117,6 +117,10 @@ export default function GameClient({ session }: { session: Session }) {
   const [questsOpen, setQuestsOpen] = useState(false);
   const [activeQuestCount, setActiveQuestCount] = useState(0);
   const [offeredQuestCount, setOfferedQuestCount] = useState(0);
+  const [wagonOpen, setWagonOpen] = useState(false);
+  const [wagonRoutes, setWagonRoutes] = useState<{ destination: string; cost_gold: number; flavor: string; name?: string; visited?: boolean }[]>([]);
+  const [hasCache, setHasCache] = useState(false);
+  const [cacheClaimed, setCacheClaimed] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
