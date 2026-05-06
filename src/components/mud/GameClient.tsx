@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Backpack, BookOpen, Flame, HelpCircle, Loader2, LogOut, ScrollText, Sparkles, Sword, Users, X } from "lucide-react";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
-import { LesserRuneTracer } from "./LesserRuneTracer";
 import { JournalModal } from "./JournalModal";
-import { KanjiTracer } from "./KanjiTracer";
+import { RuneHub } from "./RuneHub";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import HallOfChoice from "./HallOfChoice";
 
@@ -99,7 +98,6 @@ export default function GameClient({ session }: { session: Session }) {
   const [invOpen, setInvOpen] = useState(false);
   const [runesOpen, setRunesOpen] = useState(false);
   const [tracerOpen, setTracerOpen] = useState(false);
-  const [kanjiOpen, setKanjiOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [journalOpen, setJournalOpen] = useState(false);
   const [hallOpen, setHallOpen] = useState(false);
@@ -772,11 +770,8 @@ export default function GameClient({ session }: { session: Session }) {
           <button onClick={() => setRunesOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Blessings">
             <Sparkles className="w-4 h-4" /><span className="hidden sm:inline">blessings</span><span>{knownRunes.length}</span>
           </button>
-          <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Trace a lesser rune">
-            <Flame className="w-4 h-4" /><span className="hidden sm:inline">trace</span>
-          </button>
-          <button onClick={() => setKanjiOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Greater Runes (Kanji)">
-            <span className="font-serif text-sm leading-none">字</span><span className="hidden sm:inline">kanji</span>
+          <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Weave runes (Lesser & Greater)">
+            <Flame className="w-4 h-4" /><span className="hidden sm:inline">runes</span>
           </button>
           <button onClick={() => setJournalOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Your journal">
             <ScrollText className="w-4 h-4" /><span className="hidden sm:inline">journal</span>
@@ -901,8 +896,7 @@ export default function GameClient({ session }: { session: Session }) {
           onChanged={() => { reloadRunes(); reloadInventory(); }}
         />
       )}
-      <LesserRuneTracer open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
-      <KanjiTracer open={kanjiOpen} onClose={() => setKanjiOpen(false)} onCast={() => reloadProfile()} />
+      <RuneHub open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
       <JournalModal open={journalOpen} onClose={() => setJournalOpen(false)} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">

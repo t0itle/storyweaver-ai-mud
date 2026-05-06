@@ -21,10 +21,10 @@ interface Compound {
 }
 interface Discovery { compound_key: string; }
 
-interface Props { open: boolean; onClose: () => void; onCast?: (r: any) => void; }
+interface Props { open: boolean; onClose: () => void; onCast?: (r: any) => void; inline?: boolean; }
 const SIZE = 240;
 
-export function KanjiTracer({ open, onClose, onCast }: Props) {
+export function KanjiTracer({ open, onClose, onCast, inline }: Props) {
   const [kanji, setKanji] = useState<Kanji[]>([]);
   const [knowledge, setKnowledge] = useState<Record<string, Knowledge>>({});
   const [compounds, setCompounds] = useState<Compound[]>([]);
@@ -197,19 +197,10 @@ export function KanjiTracer({ open, onClose, onCast }: Props) {
     return { c, learned, allKnown };
   });
 
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md max-h-[92vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Greater Runes — Kanji</DialogTitle>
-          <DialogDescription className="text-xs">
-            Combine 2–4 kanji into a compound. Practice each kanji alone first, then weave.
-          </DialogDescription>
-        </DialogHeader>
-
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="grid grid-cols-3">
-            <TabsTrigger value="weave">Weave</TabsTrigger>
+  const tabs = (
+    <Tabs value={tab} onValueChange={setTab}>
+      <TabsList className="grid grid-cols-3">
+        <TabsTrigger value="weave">Weave</TabsTrigger>
             <TabsTrigger value="practice">Practice</TabsTrigger>
             <TabsTrigger value="codex">Codex</TabsTrigger>
           </TabsList>
@@ -365,8 +356,22 @@ export function KanjiTracer({ open, onClose, onCast }: Props) {
                 </div>
               ));
             })()}
-          </TabsContent>
-        </Tabs>
+      </TabsContent>
+    </Tabs>
+  );
+
+  if (inline) return tabs;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md max-h-[92vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Greater Runes — Kanji</DialogTitle>
+          <DialogDescription className="text-xs">
+            Combine 2–4 kanji into a compound. Practice each kanji alone first, then weave.
+          </DialogDescription>
+        </DialogHeader>
+        {tabs}
       </DialogContent>
     </Dialog>
   );
