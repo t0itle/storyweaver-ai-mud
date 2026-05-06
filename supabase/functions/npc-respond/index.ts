@@ -140,7 +140,7 @@ Deno.serve(async (req) => {
 
     // ── Live presence: who is physically in this room right now ──
     const [{ data: presentPlayers }, { data: presentNpcs }, { data: presentDragons }] = await Promise.all([
-      supabase.from("profiles").select("id, username, race, faction").eq("current_room", room),
+      supabase.from("profiles").select("id, username, race, faction, corruption").eq("current_room", room),
       supabase.from("npcs").select("id, name, title").eq("room", room).is("dead_until", null),
       supabase.from("dragons").select("name, epithet, personality").eq("current_room", room),
     ]);
