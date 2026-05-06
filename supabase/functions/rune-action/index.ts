@@ -58,30 +58,35 @@ Deno.serve(async (req) => {
         throw new Error(`No such rune. Known runes: ${known}.`);
       }
 
-      const { data: profile } = await admin.from("profiles").select("current_room,gold,username").eq("id", user.id).maybeSingle();
+      const { data: profile } = await admin.from("profiles").select("current_room,gold,username,merit").eq("id", user.id).maybeSingle();
       if (!profile) throw new Error("Profile missing");
 
-      // Must be in same room as a teacher NPC for this rune
-      if (!rune.teacher_npc) throw new Error(`The ${rune.name} rune is not taught by any living tongue.`);
+      if (!rune.teacher_npc) throw new Error(`The Blessing of ${rune.name} is held by no living tongue.`);
       const { data: teacher } = await admin.from("npcs").select("*").eq("id", rune.teacher_npc).maybeSingle();
       if (!teacher) throw new Error("Teacher missing");
-      if (teacher.room !== profile.current_room) throw new Error(`You must stand before ${teacher.name} to learn ${rune.name}.`);
+      if (teacher.room !== profile.current_room) throw new Error(`You must stand before ${teacher.name} to receive the Blessing of ${rune.name}.`);
 
-      const cost = TEACH_COST[rune.key] ?? 50;
-      if ((profile.gold ?? 0) < cost) throw new Error(`${teacher.name} demands ${cost} gold. You have ${profile.gold}.`);
+      const tier = COST_BY_RARITY[rune.rarity] ?? COST_BY_RARITY.common;
+      if ((profile.merit ?? 0) < tier.merit) throw new Error(`${teacher.name} judges you unworthy. The Blessing of ${rune.name} requires ${tier.merit} merit; you have ${profile.merit ?? 0}.`);
+      if ((profile.gold ?? 0) < tier.gold) throw new Error(`${teacher.name} requires an offering of ${tier.gold} gold. You have ${profile.gold}.`);
 
-      // Already learned?
       const { data: existing } = await admin.from("player_runes").select("id")
         .eq("user_id", user.id).eq("rune_key", rune.key).maybeSingle();
-      if (existing) throw new Error(`You already know ${rune.name}.`);
+      if (existing) throw new Error(`The Blessing of ${rune.name} already lives in you.`);
 
-      await admin.from("profiles").update({ gold: profile.gold - cost }).eq("id", user.id);
-      await admin.from("player_runes").insert({ user_id: user.id, rune_key: rune.key, source: `npc:${teacher.name}` });
+      await admin.from("profiles").update({ gold: profile.gold - tier.gold }).eq("id", user.id);
+      await admin.from("player_runes").insert({ user_id: user.id, rune_key: rune.key, source: `blessing:${teacher.name}` });
       await admin.from("messages").insert({
         room: profile.current_room, user_id: null, author_name: "—", kind: "system",
-        content: `${teacher.name} traces the ${rune.glyph} ${rune.name} rune into ${profile.username}'s memory. (-${cost}g)`,
+        content: `${teacher.name} bestows the Blessing of ${rune.glyph} ${rune.name} upon ${profile.username}. (-${tier.gold}g)`,
       });
-      return ok({ ok: true, message: `You learn the ${rune.name} rune.` });
+      await admin.from("world_events").insert({
+        room: profile.current_room, kind: "blessing_received",
+        actor_name: profile.username, actor_id: user.id,
+        details: { blessing: rune.name, rarity: rune.rarity, source: teacher.name },
+        decay_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString(),
+      });
+      return ok({ ok: true, message: `You receive the Blessing of ${rune.name}.` });
     }
 
     if (action === "weave") {
