@@ -93,7 +93,9 @@ Deno.serve(async (req) => {
     }
     const knewSymbol = !!knowledge?.knows_symbol;
 
-    const score = scoreAgainst(stroke, rune.template as Pt[]);
+    const tpl = rune.template as Pt[];
+    const tplRev = [...tpl].reverse();
+    const score = Math.max(scoreAgainst(stroke, tpl), scoreAgainst(stroke, tplRev));
     const pct = Math.round(score * 100);
 
     const { data: profile } = await admin.from("profiles").select("username,current_room,hp,max_hp,corruption").eq("id", user.id).maybeSingle();
