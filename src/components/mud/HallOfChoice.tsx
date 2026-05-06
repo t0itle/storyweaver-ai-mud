@@ -25,6 +25,15 @@ export default function HallOfChoice({
       .then(({ data }) => setAethers((data ?? []) as Aether[]));
   }, []);
 
+  // If the player walks out without choosing, that refusal is itself a choice.
+  // Chaos notices.
+  const handleClose = () => {
+    if (!currentAether) {
+      supabase.functions.invoke("refuse-aethers").catch(() => {});
+    }
+    onClose();
+  };
+
   const align = async () => {
     if (!picked) return;
     setBusy(true);
