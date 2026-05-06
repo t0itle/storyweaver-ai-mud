@@ -84,6 +84,15 @@ Deno.serve(async (req) => {
     const { data: rune } = await admin.from("lesser_runes").select("*").eq("key", runeKey).maybeSingle();
     if (!rune) return new Response(JSON.stringify({ error: "No such lesser rune." }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+    // Gate: must know the WORD before tracing
+    const { data: knowledge } = await admin.from("player_lesser_rune_knowledge")
+      .select("knows_word, knows_symbol").eq("user_id", user.id).eq("rune_key", runeKey).maybeSingle();
+    if (!knowledge?.knows_word) {
+      return new Response(JSON.stringify({ error: `You do not yet know the word **${rune.latin_name}**. Seek a teacher or a tome.` }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const knewSymbol = !!knowledge?.knows_symbol;
+
     const score = scoreAgainst(stroke, rune.template as Pt[]);
     const pct = Math.round(score * 100);
 
