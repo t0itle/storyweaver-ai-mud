@@ -20,22 +20,50 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     const { aether_key } = await req.json();
-    if (!aether_key) return json({ error: "Choose an Aether." }, 400);
+    if (!aether_key) return json({ error: "Choose an Aether or Chaos." }, 400);
 
-    const [{ data: profile }, { data: aether }] = await Promise.all([
-      admin.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-      admin.from("aethers").select("*").eq("key", aether_key).maybeSingle(),
-    ]);
+    const { data: profile } = await admin.from("profiles").select("*").eq("id", user.id).maybeSingle();
     if (!profile) return json({ error: "No profile." }, 400);
-    if (!aether)  return json({ error: "No such Aether." }, 400);
     if (profile.current_room !== "hall-of-the-seven")
       return json({ error: "You can only align yourself in the Hall of Choice." }, 400);
-    if (profile.aether)
-      return json({ error: `You are already sworn to ${profile.aether}. The Speaker keeps oaths.` }, 400);
+    if (profile.aether || profile.faction)
+      return json({ error: `You are already sworn. The Speaker keeps oaths.` }, 400);
+
+    // Branch: Chaos alignment — forsakes the Seven entirely.
+    if (aether_key === "chaos") {
+      await admin.from("profiles").update({
+        faction: "chaos",
+        aether: null,
+        aether_chosen_at: new Date().toISOString(),
+        corruption: (profile.corruption ?? 0) + 10,
+      }).eq("id", user.id);
+
+      await admin.from("world_events").insert({
+        kind: "chaos_aligned",
+        actor_id: user.id,
+        actor_name: profile.username,
+        room: profile.current_room,
+        details: {},
+      });
+
+      await admin.from("messages").insert({
+        room: "hall-of-the-seven",
+        user_id: null,
+        author_name: "—",
+        kind: "system",
+        content: `${profile.username} turns from the basin. The seven sigils flicker. They have sworn themselves to **Chaos** — the wardens will know them by a different name now.`,
+      });
+
+      return json({ ok: true, faction: "chaos" });
+    }
+
+    const { data: aether } = await admin.from("aethers").select("*").eq("key", aether_key).maybeSingle();
+    if (!aether)  return json({ error: "No such Aether." }, 400);
 
     // Apply gift effects.
     const updates: Record<string, unknown> = {
       aether: aether.key,
+      faction: "aether",
       aether_chosen_at: new Date().toISOString(),
     };
     if (aether.key === "pyrrhus") {
