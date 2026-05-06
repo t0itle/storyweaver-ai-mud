@@ -183,6 +183,39 @@ export type Database = {
         }
         Relationships: []
       }
+      dragons: {
+        Row: {
+          created_at: string
+          current_room: string | null
+          epithet: string
+          hoard_target_room: string | null
+          key: string
+          last_woken_at: string | null
+          name: string
+          personality: string
+        }
+        Insert: {
+          created_at?: string
+          current_room?: string | null
+          epithet?: string
+          hoard_target_room?: string | null
+          key: string
+          last_woken_at?: string | null
+          name: string
+          personality?: string
+        }
+        Update: {
+          created_at?: string
+          current_room?: string | null
+          epithet?: string
+          hoard_target_room?: string | null
+          key?: string
+          last_woken_at?: string | null
+          name?: string
+          personality?: string
+        }
+        Relationships: []
+      }
       item_runes: {
         Row: {
           charges: number
@@ -898,6 +931,7 @@ export type Database = {
           created: boolean
           created_at: string
           current_room: string
+          faction: string | null
           gold: number
           hp: number
           id: string
@@ -921,6 +955,7 @@ export type Database = {
           created?: boolean
           created_at?: string
           current_room?: string
+          faction?: string | null
           gold?: number
           hp?: number
           id: string
@@ -944,6 +979,7 @@ export type Database = {
           created?: boolean
           created_at?: string
           current_room?: string
+          faction?: string | null
           gold?: number
           hp?: number
           id?: string
