@@ -254,6 +254,36 @@ export default function GameClient({ session }: { session: Session }) {
     })();
   }, [profile?.current_room]);
 
+  // Wagon routes & cache info for the current room
+  useEffect(() => {
+    if (!profile) return;
+    const slug = profile.current_room;
+    (async () => {
+      const [{ data: routes }, { data: cache }, { data: claim }] = await Promise.all([
+        supabase.from("wagon_routes").select("destination, cost_gold, flavor").eq("hub", slug),
+        supabase.from("room_caches").select("room").eq("room", slug).maybeSingle(),
+        supabase.from("player_room_cache_claims").select("room").eq("user_id", profile.id).eq("room", slug).maybeSingle(),
+      ]);
+      if (routes && routes.length) {
+        // resolve names + check visited
+        const dests = routes.map((r: any) => r.destination);
+        const [{ data: roomNames }, { data: visits }] = await Promise.all([
+          supabase.from("rooms").select("slug, name").in("slug", dests),
+          supabase.from("world_events").select("room").eq("actor_id", profile.id).in("room", dests),
+        ]);
+        const nameMap = new Map((roomNames ?? []).map((r: any) => [r.slug, r.name]));
+        const visitedSet = new Set((visits ?? []).map((v: any) => v.room));
+        setWagonRoutes(routes.map((r: any) => ({
+          ...r, name: nameMap.get(r.destination) ?? r.destination, visited: visitedSet.has(r.destination),
+        })));
+      } else {
+        setWagonRoutes([]);
+      }
+      setHasCache(!!cache);
+      setCacheClaimed(!!claim);
+    })();
+  }, [profile?.current_room, profile?.id]);
+
   // Generate / fetch scene image when room changes (events-aware so the world reflects what's been done)
   useEffect(() => {
     if (!profile || !room) return;
