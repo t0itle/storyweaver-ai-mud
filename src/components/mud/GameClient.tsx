@@ -71,6 +71,10 @@ const HELP = [
   ["who", "list players in this room"],
   ["follow <npc>", "ask an NPC to travel with you"],
   ["dismiss", "part ways with your companion"],
+  ["quests", "open your quest log"],
+  ["accept <title>", "accept an offered quest"],
+  ["decline <title>", "refuse an offered quest"],
+  ["abandon <title>", "drop an active quest (NPC will remember)"],
   ["help", "show this list"],
 ];
 
@@ -131,7 +135,24 @@ export default function GameClient({ session }: { session: Session }) {
     if (data) setProfile(data as Profile);
   };
 
-  useEffect(() => { reloadInventory(); reloadRunes(); }, [session.user.id]);
+  const reloadQuestCounts = async () => {
+    const { data } = await supabase.from("quests")
+      .select("status").eq("user_id", session.user.id)
+      .in("status", ["active", "offered"]);
+    setActiveQuestCount((data ?? []).filter((q: any) => q.status === "active").length);
+    setOfferedQuestCount((data ?? []).filter((q: any) => q.status === "offered").length);
+  };
+
+  useEffect(() => { reloadInventory(); reloadRunes(); reloadQuestCounts(); }, [session.user.id]);
+
+  // Quests realtime
+  useEffect(() => {
+    const ch = supabase.channel(`quests:${session.user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "quests", filter: `user_id=eq.${session.user.id}` },
+        () => reloadQuestCounts())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [session.user.id]);
 
   // Profile realtime: catches in_combat_id, hp, gold updates
   useEffect(() => {
