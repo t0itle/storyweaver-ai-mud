@@ -675,6 +675,12 @@ export default function GameClient({ session }: { session: Session }) {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
       } finally { setThinking(false); }
+    } else if (c === "wagon" || c === "ride") {
+      if (wagonRoutes.length === 0) {
+        setMessages((m) => [...m, localSys("No wagonmaster runs from here.")]);
+      } else {
+        setWagonOpen(true);
+      }
     } else if (c === "quests" || c === "quest" || c === "tasks") {
       setQuestsOpen(true);
     } else if (c === "accept" || c === "decline" || c === "abandon") {
