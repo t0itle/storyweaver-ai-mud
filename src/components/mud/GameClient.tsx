@@ -97,6 +97,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [invOpen, setInvOpen] = useState(false);
   const [runesOpen, setRunesOpen] = useState(false);
   const [tracerOpen, setTracerOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [hallOpen, setHallOpen] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
