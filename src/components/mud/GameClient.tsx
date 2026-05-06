@@ -396,6 +396,16 @@ export default function GameClient({ session }: { session: Session }) {
 
   const moveTo = async (slug: string) => {
     if (!profile) return;
+    // Faction-locked enclaves: only those who belong may cross the threshold.
+    const { data: targetRoom } = await supabase.from("rooms")
+      .select("requires_faction, name").eq("slug", slug).maybeSingle();
+    if (targetRoom?.requires_faction) {
+      const playerFaction = profile.non_serviam_at ? "chaos" : profile.faction;
+      if (targetRoom.requires_faction !== playerFaction) {
+        setMessages((m) => [...m, localSys(`The way to ${targetRoom.name ?? "that place"} closes against you. You were not invited.`)]);
+        return;
+      }
+    }
     await post("system", `${profile.username} departs.`, "—");
 
     // Companion follows along

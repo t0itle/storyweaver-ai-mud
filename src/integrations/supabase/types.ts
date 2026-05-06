@@ -1085,27 +1085,33 @@ export type Database = {
           ambience: string | null
           description: string
           exits: Json
+          hidden: boolean
           kind: string
           label: string
           name: string
+          requires_faction: string | null
           slug: string
         }
         Insert: {
           ambience?: string | null
           description: string
           exits?: Json
+          hidden?: boolean
           kind?: string
           label?: string
           name: string
+          requires_faction?: string | null
           slug: string
         }
         Update: {
           ambience?: string | null
           description?: string
           exits?: Json
+          hidden?: boolean
           kind?: string
           label?: string
           name?: string
+          requires_faction?: string | null
           slug?: string
         }
         Relationships: []
