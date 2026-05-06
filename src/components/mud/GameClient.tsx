@@ -252,27 +252,36 @@ export default function GameClient({ session }: { session: Session }) {
     if (profile?.current_room === "hall-of-the-seven" && !profile.aether) setHallOpen(true);
   }, [profile?.current_room, profile?.aether]);
 
-  // The Shadow whispers in unspoken places (the wilderness around the First City).
+  // The Shadow whispers in unspoken places — and follows refusers everywhere.
+  // The more times a player walks out of the Hall without choosing, the harder Chaos pulls.
   useEffect(() => {
     if (!profile) return;
+    if (profile.aether || profile.faction) return; // already chosen a side
     const slug = profile.current_room;
-    const wild = slug === "crescent-shore" || slug === "red-haze-road" || slug === "sand-bloom-hollow";
-    if (!wild) return;
+    const wild = slug === "crescent-shore" || slug === "red-haze-road" || slug === "sand-bloom-hollow"
+      || slug?.startsWith("wilderness") || slug?.startsWith("deep-wilds")
+      || slug?.startsWith("desert") || slug?.startsWith("bone-dunes") || slug === "caravan-road";
+    const pressure = profile.chaos_pressure ?? 0;
+    // No pressure and not in the wilds → silence.
+    if (!wild && pressure < 20) return;
+    // Interval shrinks as pressure grows: 90s at 0, 20s at 100.
+    const interval = Math.max(20_000, 90_000 - pressure * 700);
     const tick = async () => {
       try {
         const { data } = await supabase.functions.invoke("shadow-tempt", { body: { kind: "whisper" } });
         if (data?.whisper) {
+          const prefix = pressure >= 60 ? "Chaos" : "the Shadow";
           setMessages((m) => [...m, {
-            id: crypto.randomUUID(), room: slug, author_name: "the Shadow",
+            id: crypto.randomUUID(), room: slug, author_name: prefix,
             kind: "shadow", content: data.whisper, created_at: new Date().toISOString(),
             user_id: null, npc_id: null,
           }]);
         }
       } catch { /* silence is also a whisper */ }
     };
-    const t = setInterval(tick, 45_000);
+    const t = setInterval(tick, interval);
     return () => clearInterval(t);
-  }, [profile?.current_room, profile?.id]);
+  }, [profile?.current_room, profile?.id, profile?.aether, profile?.faction, profile?.chaos_pressure]);
 
   // Listen for shadow choices made via inline buttons
   useEffect(() => {
