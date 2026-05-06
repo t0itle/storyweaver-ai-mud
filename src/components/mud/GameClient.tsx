@@ -451,6 +451,16 @@ export default function GameClient({ session }: { session: Session }) {
     const { error } = await supabase.from("profiles").update({ current_room: slug }).eq("id", profile.id);
     if (error) { toast.error(error.message); return; }
     setProfile({ ...profile, current_room: slug });
+    // Quest auto-resolution: any active "visit" quest targeting this room completes.
+    supabase.functions.invoke("quest-auto-resolve", {
+      body: { event: { kind: "visit", room: slug } },
+    }).then(({ data }) => {
+      const completed = data?.completed ?? [];
+      for (const r of completed) {
+        toast.success(`✦ Quest complete: ${r.title} — +${r.gold ?? 0}g, +${r.xp ?? 0}xp`);
+      }
+      if (completed.length) reloadProfile();
+    }).catch(() => null);
     setTimeout(() => {
       post("system", `${profile.username} arrives.`, "—");
       if (companionName) {
