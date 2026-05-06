@@ -521,6 +521,18 @@ export default function GameClient({ session }: { session: Session }) {
       }
     } else if (c === "say" || c === "'") {
       if (!args) return;
+      // Forsaking the seven — a one-shot, world-rippling declaration.
+      const normalized = args.toLowerCase().replace(/[^a-z]/g, "");
+      if (normalized === "nonserviam" || normalized === "nonservium") {
+        try {
+          const { data, error } = await supabase.functions.invoke("declare-non-serviam");
+          if (error || data?.error) throw new Error(data?.error ?? error?.message);
+          await reloadProfile();
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "the words die in your throat");
+        }
+        return;
+      }
       await post("say", args);
     } else if (c === "emote" || c === ":") {
       if (!args) return;
