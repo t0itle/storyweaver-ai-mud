@@ -273,6 +273,81 @@ export type Database = {
         }
         Relationships: []
       }
+      kanji_compounds: {
+        Row: {
+          components: string[]
+          created_at: string
+          description: string
+          effect: Json
+          english_meaning: string
+          key: string
+          lore_hint: string | null
+          name: string
+          rarity: string
+        }
+        Insert: {
+          components: string[]
+          created_at?: string
+          description?: string
+          effect?: Json
+          english_meaning: string
+          key: string
+          lore_hint?: string | null
+          name: string
+          rarity?: string
+        }
+        Update: {
+          components?: string[]
+          created_at?: string
+          description?: string
+          effect?: Json
+          english_meaning?: string
+          key?: string
+          lore_hint?: string | null
+          name?: string
+          rarity?: string
+        }
+        Relationships: []
+      }
+      kanji_runes: {
+        Row: {
+          created_at: string
+          description: string
+          difficulty: number
+          element: string
+          english_meaning: string
+          kanji: string
+          key: string
+          rarity: string
+          romaji: string
+          template: Json
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          difficulty?: number
+          element?: string
+          english_meaning: string
+          kanji: string
+          key: string
+          rarity?: string
+          romaji: string
+          template?: Json
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          difficulty?: number
+          element?: string
+          english_meaning?: string
+          kanji?: string
+          key?: string
+          rarity?: string
+          romaji?: string
+          template?: Json
+        }
+        Relationships: []
+      }
       lesser_runes: {
         Row: {
           created_at: string
@@ -567,6 +642,111 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      player_kanji_compound_discoveries: {
+        Row: {
+          compound_key: string
+          discovered_at: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          compound_key: string
+          discovered_at?: string
+          source?: string
+          user_id: string
+        }
+        Update: {
+          compound_key?: string
+          discovered_at?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_kanji_compound_discoveries_compound_key_fkey"
+            columns: ["compound_key"]
+            isOneToOne: false
+            referencedRelation: "kanji_compounds"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      player_kanji_knowledge: {
+        Row: {
+          kanji_key: string
+          knows_meaning: boolean
+          knows_stroke: boolean
+          learned_meaning_at: string | null
+          learned_stroke_at: string | null
+          meaning_source: string | null
+          user_id: string
+        }
+        Insert: {
+          kanji_key: string
+          knows_meaning?: boolean
+          knows_stroke?: boolean
+          learned_meaning_at?: string | null
+          learned_stroke_at?: string | null
+          meaning_source?: string | null
+          user_id: string
+        }
+        Update: {
+          kanji_key?: string
+          knows_meaning?: boolean
+          knows_stroke?: boolean
+          learned_meaning_at?: string | null
+          learned_stroke_at?: string | null
+          meaning_source?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_kanji_knowledge_kanji_key_fkey"
+            columns: ["kanji_key"]
+            isOneToOne: false
+            referencedRelation: "kanji_runes"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      player_kanji_mastery: {
+        Row: {
+          backfire_count: number
+          best_score: number
+          cast_count: number
+          first_cast_at: string
+          kanji_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          backfire_count?: number
+          best_score?: number
+          cast_count?: number
+          first_cast_at?: string
+          kanji_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          backfire_count?: number
+          best_score?: number
+          cast_count?: number
+          first_cast_at?: string
+          kanji_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_kanji_mastery_kanji_key_fkey"
+            columns: ["kanji_key"]
+            isOneToOne: false
+            referencedRelation: "kanji_runes"
+            referencedColumns: ["key"]
+          },
+        ]
       }
       player_lesser_rune_knowledge: {
         Row: {
