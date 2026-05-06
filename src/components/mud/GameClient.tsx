@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Backpack, Flame, HelpCircle, Loader2, LogOut, ScrollText, Sparkles } from "lucide-react";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
 import { ChronicleModal } from "./ChronicleModal";
+import { CharacterSheet } from "./CharacterSheet";
 import { RuneHub } from "./RuneHub";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import HallOfChoice from "./HallOfChoice";
@@ -102,6 +103,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [journalOpen, setJournalOpen] = useState(false);
   const [chronicleTab, setChronicleTab] = useState<"journal" | "codex">("journal");
   const [hallOpen, setHallOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -724,21 +726,25 @@ export default function GameClient({ session }: { session: Session }) {
       <header className="border-b border-border bg-card/60 backdrop-blur px-3 sm:px-4 py-2 sm:py-3 flex flex-col gap-2">
         {/* Row 1: identity + sign-out */}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          <button
+            onClick={() => setSheetOpen(true)}
+            className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 text-left group"
+            title="Open character sheet"
+          >
             {profile.portrait_url ? (
               <img src={profile.portrait_url} alt={profile.username}
-                className="w-8 h-8 sm:w-10 sm:h-10 object-cover border border-ember/60 rounded-sm shrink-0" />
+                className="w-8 h-8 sm:w-10 sm:h-10 object-cover border border-ember/60 rounded-sm shrink-0 group-hover:border-ember transition-colors" />
             ) : (
               <Flame className="w-5 h-5 text-ember ember-flicker shrink-0" />
             )}
             <div className="min-w-0">
-              <div className="font-display text-base sm:text-lg leading-tight text-parchment truncate">{profile.username}</div>
+              <div className="font-display text-base sm:text-lg leading-tight text-parchment truncate group-hover:text-ember transition-colors">{profile.username}</div>
               <div className="font-mono text-[9px] sm:text-[10px] text-ash uppercase tracking-widest truncate">
                 {profile.race ?? "wanderer"} · lvl {profile.level}
                 {profile.aether && <> · <span className="text-ember/80">{profile.aether}</span></>}
               </div>
             </div>
-          </div>
+          </button>
           <Button size="sm" variant="ghost" onClick={signOut} className="text-ash hover:text-parchment shrink-0 h-8 w-8 p-0">
             <LogOut className="w-4 h-4" />
           </Button>
@@ -899,6 +905,7 @@ export default function GameClient({ session }: { session: Session }) {
         />
       )}
       <RuneHub open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
+      <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>

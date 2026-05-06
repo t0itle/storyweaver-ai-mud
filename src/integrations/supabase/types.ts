@@ -1151,7 +1151,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      level_for_xp: { Args: { _xp: number }; Returns: number }
     }
     Enums: {
       [_ in never]: never
