@@ -189,6 +189,19 @@ Deno.serve(async (req) => {
       stanceBlock = `Word from the basin: they have stood in the Hall **${r} time${r === 1 ? "" : "s"}** and walked away each time. The faithful note this hesitation. Be cautious — there is a Chaos-shaped silence growing in them.`;
     }
 
+    // ── Active and just-offered quests between THIS NPC and THIS player ──
+    const { data: questsWithGiver } = await supabase.from("quests")
+      .select("id, title, objective, status, severity, kind")
+      .eq("user_id", user.id).eq("giver_npc_id", npc_id)
+      .in("status", ["offered", "active"]);
+    const activeQuest = (questsWithGiver ?? []).find((q: any) => q.status === "active");
+    const pendingOffer = (questsWithGiver ?? []).find((q: any) => q.status === "offered");
+    const questBlock = activeQuest
+      ? `ACTIVE QUEST WITH ${player_name}: "${activeQuest.title}" (${activeQuest.severity} ${activeQuest.kind}) — ${activeQuest.objective}\nQUEST_ID: ${activeQuest.id}\nIf they have completed it, emit a <<QUEST_RESOLVE>> tag (see below). Otherwise reference the quest naturally — encourage, taunt, hint.`
+      : pendingOffer
+      ? `(You have already offered "${pendingOffer.title}" but they haven't yet accepted. Do not offer another quest.)`
+      : `(No active quests with this player. You MAY offer one if a need arises naturally — but only ONE per reply, and only if it fits the moment.)`;
+
     const otherPlayers = (presentPlayers ?? []).filter((p: any) => p.id !== user.id);
     const otherNpcs = (presentNpcs ?? []).filter((n: any) => n.id !== npc_id);
     const presentBlock = [
@@ -256,7 +269,21 @@ This MUST color your tone, generosity, and willingness to share secrets, give fa
 
 WHAT YOU KNOW OF ${player_name}'S STANDING WITH THE SEVEN:
 ${stanceBlock}
-This is widely known — every wardenly soul can feel it on them. React with your own values: a Veiled priest will be cold or pitying, a Chaos sympathizer warm, a wandering scholar curious. NEVER pretend not to notice.
+
+QUESTS:
+${questBlock}
+
+QUEST OFFER RULES (when no active quest exists with this player):
+- Only offer when the conversation produces a NATURAL need (lost item, missing person, dangerous beast, message to deliver, place to scout). Do not invent needs.
+- Severity scale: trivial (errand) | minor (small task) | standard (real risk) | major (dangerous) | legendary (epic, rare).
+- kind must be one of: fetch | deliver | slay | visit | talk | favor.
+- Reward bands (server clamps to these regardless of what you write):
+  trivial: gold ≤5, xp ≤15, amity ≤3, no items
+  minor: gold ≤20, xp ≤40, amity ≤6, maybe small item
+  standard: gold ≤60, xp ≤100, amity ≤10, item OR knowledge
+  major: gold ≤200, xp ≤250, amity ≤20, rare item AND knowledge
+  legendary: gold ≤600, xp ≤600, amity ≤40, unique item + knowledge
+- Match severity to what the NPC could plausibly pay.
 
 RULES:
 - Stay strictly in character. Never break the fourth wall, never mention AI, models, or game mechanics. Never speak the amity number aloud — it's an inner feeling.
@@ -264,14 +291,17 @@ RULES:
 - Reference world details naturally — the seven Aethers, the Veiled, the EverBloom in the deep dunes, the Ash Road, the Whispering Wastes — when it fits the conversation.
 - React to what ${player_name} just said or did. Lean on YOUR MEMORIES and YOUR FEELING. Pick up old threads, hold grudges, warm to friends.
 - If recent events make you wary of ${player_name}'s race or kind, show it — but stay true to your persona.
-- Never invent quests that promise rewards you can't deliver — keep things grounded.
-- AFTER your in-character reply, append THREE hidden tags on their own lines, in this exact order and format:
+- AFTER your in-character reply, append hidden tags on their own lines, in this order:
 <<PLACES>>["The Archive of Echoes","The Ash Road"]<<END>>
-<<MEMORY>>{"summary":"# Encounter\\n- **What happened:** brief account in your own voice\\n- **They said/did:** key claims, requests, or actions\\n- **What I noticed:** tells, mood, suspicions\\n- **Promises/debts:** anything owed either way, or null\\n- **Tags:** #comma #separated #keywords","emotion":"warm|wary|grateful|angry|amused|curious|indifferent","importance":1}<<END>>
-<<AMITY>>{"delta":-2,"reason":"asked too many prying questions"}<<END>>
+<<MEMORY>>{"summary":"# Encounter\\n- **What happened:** brief account\\n- **They said/did:** key claims\\n- **What I noticed:** tells, mood\\n- **Promises/debts:** anything owed, or null\\n- **Tags:** #keywords","emotion":"warm|wary|grateful|angry|amused|curious|indifferent","importance":1}<<END>>
+<<AMITY>>{"delta":-2,"reason":"..."}<<END>>
+QUEST_OFFER (optional, ONLY if no active/offered quest exists with this player and a need naturally arose):
+<<QUEST_OFFER>>{"title":"The Locket of Renn","description":"A short paragraph from your POV.","objective":"Bring me the silver locket from the dunes.","kind":"fetch","severity":"minor","target_kind":"item","target_ref":"silver-locket","rewards":{"gold":15,"xp":25,"amity":4,"item_key":null,"rune_key":null,"kanji_key":null}}<<END>>
+QUEST_RESOLVE (ONLY if there is an ACTIVE QUEST above and you judge ${player_name} has either fulfilled or failed it RIGHT NOW based on what they said/did):
+<<QUEST_RESOLVE>>{"quest_id":"<id from QUEST_ID above>","outcome":"complete|fail|in_progress","note":"brief reason"}<<END>>
 PLACES: list any specific named travelable place you mentioned, or [].
-MEMORY: a structured **markdown log entry** (escaped as a JSON string with \\n for newlines) capturing THIS exchange as you internally remember it. Use the headings/bullets shown above; keep each bullet terse (≤ 120 chars). Importance is 1 (small) to 5 (life-changing). If nothing worth remembering, write <<MEMORY>>null<<END>>.
-AMITY: integer delta from -10 (deeply offended) to +10 (profoundly moved) reflecting how THIS exchange shifted your feeling toward ${player_name}. Most exchanges are -2 to +2. Use 0 if neutral. If unchanged, write <<AMITY>>{"delta":0,"reason":""}<<END>>.
+MEMORY: structured markdown summary; importance 1-5; or <<MEMORY>>null<<END>>.
+AMITY: integer delta from -10 to +10. Use 0 for unchanged.
 Do not mention these tags in your prose.`;
 
     const messages = [
@@ -324,10 +354,26 @@ Do not mention these tags in your prose.`;
       } catch { /* ignore */ }
     }
 
+    // Strip and parse hidden <<QUEST_OFFER>>{...}<<END>> tag
+    const questOfferMatch = rawContent.match(/<<QUEST_OFFER>>\s*(\{[\s\S]*?\})\s*<<END>>/);
+    let questOfferRaw: any = null;
+    if (questOfferMatch) {
+      try { questOfferRaw = JSON.parse(questOfferMatch[1]); } catch { /* ignore */ }
+    }
+
+    // Strip and parse hidden <<QUEST_RESOLVE>>{...}<<END>> tag
+    const questResolveMatch = rawContent.match(/<<QUEST_RESOLVE>>\s*(\{[\s\S]*?\})\s*<<END>>/);
+    let questResolveRaw: any = null;
+    if (questResolveMatch) {
+      try { questResolveRaw = JSON.parse(questResolveMatch[1]); } catch { /* ignore */ }
+    }
+
     content = rawContent
       .replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<MEMORY>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<AMITY>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<QUEST_OFFER>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<QUEST_RESOLVE>>[\s\S]*?<<END>>\s*/g, "")
       .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
@@ -441,7 +487,66 @@ Do not mention these tags in your prose.`;
       );
     }
 
-    return new Response(JSON.stringify({ content, discovered, mentioned_places: mentionedPlaces, amity: { score: newScore, word: amityWord(newScore) } }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // ── Persist quest offer (if any, and if no existing offered/active with this NPC) ──
+    let offeredQuest: any = null;
+    const validKinds = new Set(["fetch","deliver","slay","visit","talk","favor"]);
+    const validSeverities = new Set(["trivial","minor","standard","major","legendary"]);
+    if (questOfferRaw && !activeQuest && !pendingOffer
+        && questOfferRaw.title && questOfferRaw.objective
+        && validKinds.has(questOfferRaw.kind)
+        && validSeverities.has(questOfferRaw.severity)) {
+      const r = questOfferRaw.rewards ?? {};
+      const { data: ins } = await admin.from("quests").insert({
+        user_id: user.id,
+        giver_npc_id: npc.id,
+        giver_npc_name: npc.name,
+        title: String(questOfferRaw.title).slice(0, 120),
+        description: String(questOfferRaw.description ?? "").slice(0, 800),
+        objective: String(questOfferRaw.objective).slice(0, 400),
+        kind: questOfferRaw.kind,
+        severity: questOfferRaw.severity,
+        target_kind: questOfferRaw.target_kind ?? null,
+        target_ref: questOfferRaw.target_ref ?? null,
+        reward_gold: Math.max(0, Math.min(600, Number(r.gold) || 0)),
+        reward_xp: Math.max(0, Math.min(600, Number(r.xp) || 0)),
+        reward_amity: Math.max(0, Math.min(40, Number(r.amity) || 0)),
+        reward_item_key: r.item_key ?? null,
+        reward_rune_key: r.rune_key ?? null,
+        reward_kanji_key: r.kanji_key ?? null,
+        offered_room: room,
+      }).select("*").maybeSingle();
+      offeredQuest = ins;
+    }
+
+    // ── Resolve active quest (if AI judged it) ──
+    let questResolution: any = null;
+    if (questResolveRaw && activeQuest && questResolveRaw.quest_id === activeQuest.id) {
+      if (questResolveRaw.outcome === "complete") {
+        // Call quest-award via HTTP so reward logic stays in one place.
+        const awardRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/quest-award`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: authHeader },
+          body: JSON.stringify({ quest_id: activeQuest.id, note: questResolveRaw.note ?? "" }),
+        });
+        questResolution = await awardRes.json().catch(() => ({ ok: false }));
+        questResolution.outcome = "complete";
+      } else if (questResolveRaw.outcome === "fail") {
+        await admin.from("quests").update({
+          status: "failed", completed_at: new Date().toISOString(),
+        }).eq("id", activeQuest.id);
+        await admin.from("world_events").insert({
+          kind: "quest_failed", actor_id: user.id, actor_name: player_name, room,
+          details: { title: activeQuest.title, giver: npc.name, note: questResolveRaw.note ?? "" },
+        });
+        questResolution = { outcome: "fail", title: activeQuest.title, note: questResolveRaw.note };
+      }
+    }
+
+    return new Response(JSON.stringify({
+      content, discovered, mentioned_places: mentionedPlaces,
+      amity: { score: newScore, word: amityWord(newScore) },
+      quest_offer: offeredQuest, quest_resolution: questResolution,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });

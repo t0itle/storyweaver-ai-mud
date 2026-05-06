@@ -1,65 +1,98 @@
-## Wilderness, Desert, Dragons & Chaos — Lore + Systems
+## Quest System
 
-Codify the new lore you described and wire it into the world: rooms, factions, and a dragon-aggro system tied to gold hoards.
+NPCs offer quests organically through conversation. Quests scale in severity, with rewards tuned to match. Players accept, track, and turn in quests by talking to the giver.
 
-### 1. Lore memory (no-code, pure canon)
+### 1. Data model (one migration)
 
-Save three new memory files and update `mem://index.md` Core:
+**`quests` table:**
+- `id`, `giver_npc_id`, `user_id`, `title`, `description`, `objective` (short text the AI uses to judge completion), `status` (`offered|active|complete|failed|declined|abandoned`)
+- `severity` — `trivial | minor | standard | major | legendary`
+- `kind` — `fetch | deliver | slay | visit | talk | favor` (favor = freeform AI-judged)
+- `target_kind`, `target_ref` — e.g. `room:archive-of-echoes`, `npc:<id>`, `item:bronze-key`
+- Rewards: `reward_gold int`, `reward_xp int`, `reward_amity int`, `reward_item_key text`, `reward_rune_key text`, `reward_kanji_key text`
+- `accepted_at`, `completed_at`, `created_at`, `expires_at` (nullable — some quests rot)
 
-- **`mem://lore/wilderness`** — Lands beyond the Crescent Kingdoms. Pre-Aether, older than the current order. Indifferent to the seven, no Aether wardens patrol here. Rules of reality are looser; runes can drift.
-- **`mem://lore/desert`** — Lies between the First City (one side, endless desert beyond it) and the Crescent Kingdoms (other side). Crossed only by caravans and pilgrims; the Veiled know its routes.
-- **`mem://lore/dragons`** — Lords of their own time, dying race. Cruel + magnificently beautiful, distinct named personalities. **Attracted to large gold hoards** (kingdom treasuries or any single player carrying too much). Encountering one is endgame-tier.
-- **`mem://lore/chaos`** — Counter-faction to the Aethers. Hunts Aether **wardens** first, then the Aethers themselves. If Chaos wins → reality-breaking endgame loss. Players may align **Chaos** as an alternative to an Aether (mutually exclusive with `profiles.aether`).
+RLS: players read/update their own quests; service role manages awards. Index on `(user_id, status)`.
 
-Update Core with the one-liners: "Wilderness = pre-Aether lands outside the Kingdoms. Desert sits between First City and the Kingdoms.", "Chaos faction hunts Aether wardens; Chaos victory = game over.", "Dragons are dying lords of time; large gold hoards attract them."
+**Severity → reward bands** (server-side caps so the AI can't overpay):
 
-### 2. World map additions (DB migration)
+```text
+trivial    : 1-5g    | 5-15xp  | +1-3 amity  | no item
+minor      : 5-20g   | 15-40xp | +3-6 amity  | maybe consumable
+standard   : 20-60g  | 40-100xp| +5-10 amity | uncommon item OR rune word
+major      : 60-200g | 100-250xp | +10-20 amity | rare item AND knowledge
+legendary  : 200-600g| 250-600xp | +20-40 amity | unique item + rune/kanji
+```
 
-Add new rooms in `rooms`:
-- `wilderness-edge` (wilds) — frontier just past the Kingdoms' border
-- `deep-wilds` (wilds) — deeper, where Aether law no longer holds
-- `desert-verge` (desert) — Crescent-side dunes
-- `caravan-road` (desert) — the trade route across
-- `bone-dunes` (desert) — endless desert past the First City
-- `dragon-roost` (lair) — hidden, not on any normal exit; only reachable when a dragon spawn-event fires
+A `clamp_reward()` helper enforces these on every insert/award.
 
-Wire exits: existing wilderness / waste-adjacent rooms (`whispering-wastes`, `ash-road`, `red-haze-road`) gain exits to `wilderness-edge` and `desert-verge`; `first-city-gate` ↔ `caravan-road` ↔ `bone-dunes`; `caravan-road` ↔ `desert-verge`.
+### 2. NPC offers a quest (in `npc-respond`)
 
-### 3. Chaos alignment
+Add a fourth hidden tag the NPC may emit:
 
-- Add `'chaos'` as a valid value for `profiles.aether` (currently free text — just allow it). Add a sibling column **`faction`** (`'aether' | 'chaos' | null`) so we can keep the specific Aether key separate from the side they fight on; Chaos gets `faction='chaos'`, `aether=null`.
-- Extend the existing `align-aether` edge function (or add `align-chaos`) so players can choose Chaos. Mutually exclusive with picking an Aether.
-- Log `world_event` kind `chaos_aligned` (analogous to `aether_aligned`) and add a journal trigger case for it.
+```
+<<QUEST_OFFER>>{"title":"...","description":"...","objective":"...","kind":"fetch","severity":"minor","target_kind":"item","target_ref":"silver-locket","rewards":{"gold":15,"xp":25,"amity":4}}<<END>>
+```
 
-### 4. Dragon aggro system
+Prompt rules:
+- Only offer when the conversation naturally produces a need.
+- Severity must match what the NPC actually wants (a tavern fetch ≠ legendary).
+- Rewards must fall in the band for that severity (server clamps anyway).
+- One offer per reply, max. If an active quest with this player already exists, do NOT offer another.
 
-New table **`dragons`**:
-- `key` text PK, `name`, `personality` (text — cruel/regal flavor), `epithet`, `current_room` (nullable; null = slumbering), `hoard_target_room` (nullable), `last_woken_at`.
+The function inserts the row with `status='offered'`, returns it in the response, and the client shows an inline Accept / Decline UI.
 
-Seed 3 named dragons with distinct personalities (e.g., a vain gold-hoarder, a cold archivist of time, a wrathful sky-tyrant).
+### 3. Tracking active quests
 
-New edge function **`dragon-check`** (called from `world-tick` and after any large gold transfer):
-- Compute total gold per room: sum of `profiles.gold` for players in that room + a future kingdom-treasury value.
-- Threshold: any single player carrying > **500 gold**, or a room total > **2000 gold**, rolls a weighted chance to wake a sleeping dragon.
-- On wake: set `dragons.current_room = <hoard_room>`, log `world_event` kind `dragon_stirs` (room-visible) and broadcast a system message ("The sky darkens. <Name> has caught the scent of gold.").
-- A dragon in a room becomes a present NPC-equivalent: `npc-respond` and `interact` need to read `dragons` for the room and inject them into the "WHO IS PHYSICALLY HERE" block with their personality.
+Active quests are passed into the NPC's context block on every later conversation:
 
-Client (`GameClient.tsx`): include dragons in the room's present-entities list and surface a warning in the HUD when the player's gold crosses the dragon-attraction threshold.
+```
+ACTIVE QUEST WITH YOU: "<title>" — <objective> (<status>)
+```
 
-### 5. Chaos incursions (light first pass)
+This lets the giver react ("any luck with the locket?") and lets bystanders ignore it (only the giver sees it).
 
-- Add `world_event` kind `chaos_incursion` — periodically rolled in `world-tick` against a kingdom capital. Logs in background; NPCs (especially Aether wardens) can reference recent incursions through the existing world-events context. Actual combat encounters can come later.
+### 4. Completion
+
+Two paths, both server-authoritative:
+
+**Auto-complete** (no AI needed):
+- `visit` — checked in `moveTo`: if any active quest of kind=visit and target_ref=slug, mark complete.
+- `slay` — checked when `npc_killed` world_event fires (extend existing trigger or do it in the combat resolver).
+- `fetch` — checked when player picks up the item (extend `inventory-action`).
+
+**AI-judged** (`favor`, `talk`, ambiguous):
+- When player talks to the giver with an active quest, the NPC may emit `<<QUEST_RESOLVE>>{"quest_id":"<id>","outcome":"complete|fail|in_progress","note":"..."}<<END>>`.
+- Server validates the quest belongs to this NPC and player before awarding.
+
+On `complete`: a new `award-quest` edge function (or inline in the resolver) applies clamped rewards, bumps `npc_amity`, inserts learned rune/kanji knowledge, grants the item via `player_items`, logs a `world_event` `quest_completed`, and writes a journal entry through the existing trigger.
+
+### 5. Player commands & UI
+
+Commands in `GameClient.tsx`:
+- `quests` — list active + offered with title, giver, objective, status
+- `accept <id|title>` / `decline <id|title>` — only valid for offers
+- `abandon <id|title>` — drops an active quest, small amity penalty with the giver
+
+UI:
+- New "Quests" button in the HUD opens a `QuestsPanel` modal listing offered/active/recent.
+- When an NPC reply contains a fresh offer, render an inline Accept/Decline pair under the message.
+- Toast on completion ("✦ Quest complete: The Locket of Renn — +15g, +25xp").
+
+### 6. Journal hook
+
+Extend `write_journal_from_world_event` with cases for `quest_accepted`, `quest_completed`, `quest_failed`, `quest_abandoned` so the chronicle reflects them.
 
 ### Technical details
 
-- Migration: add columns, seed rooms + dragons, extend `write_journal_from_world_event` switch with `chaos_aligned` and `dragon_stirs` cases.
-- `align-aether/index.ts`: branch on `target === 'chaos'` to set `faction='chaos'` and skip `aether`.
-- `world-tick/index.ts`: invoke `dragon-check` once per tick.
-- `npc-respond/index.ts` + `interact/index.ts`: extend the "present entities" query to include `dragons` where `current_room = room`.
-- `GameClient.tsx`: render dragons in the room presence list; show a subtle "Your hoard glints too brightly..." warning above the gold threshold.
+- Migration: `quests` table + RLS + `clamp_reward(severity, raw_reward)` SQL function + journal trigger cases.
+- Edge fn changes: `npc-respond` (parse `<<QUEST_OFFER>>` and `<<QUEST_RESOLVE>>`, inject ACTIVE QUEST block); `inventory-action`, `combat-action`, and `moveTo` get tiny "check open quests" hooks; new `quest-action` fn handles `accept|decline|abandon`.
+- Client: `QuestsPanel.tsx`, HUD button, command parser additions, inline accept/decline buttons after NPC replies.
+- Anti-abuse: cap one active quest per (npc, player); cap five concurrent active quests per player; expired quests auto-fail in `world-tick`.
 
 ### Out of scope (ask later)
 
-- Full dragon combat / loot tables
-- Kingdom-treasury data model (currently approximated by summed player gold in a room)
-- Chaos cultist NPC archetypes and their dialogue trees
+- Quest chains / prerequisites (next quest unlocked by completing prior).
+- Faction-gated quests (Chaos enclaves giving sabotage missions vs Aether wardens).
+- Multi-step quests with intermediate objectives.
+- Player-shared / party quests.
