@@ -40,14 +40,28 @@ const SLOT_ICON: Record<string, any> = {
 };
 
 export function CharacterSheet({
-  open, onClose, profile, inventory,
+  open, onClose, profile, inventory, onPortraitUpdated,
 }: {
   open: boolean; onClose: () => void;
   profile: SheetProfile;
   inventory: InvItem[];
+  onPortraitUpdated?: (url: string) => void;
 }) {
+  const [restyling, setRestyling] = useState(false);
   const equipped = inventory.filter(i => i.equipped_slot);
   const findSlot = (slot: string) => equipped.find(i => i.equipped_slot === slot);
+
+  const restyle = async () => {
+    setRestyling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("restyle-portrait", { body: {} });
+      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      toast.success("Your likeness is repainted.");
+      if (data?.portrait_url) onPortraitUpdated?.(data.portrait_url);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The brush refuses.");
+    } finally { setRestyling(false); }
+  };
 
   const armor = equipped.reduce((s, i) => s + (i.items.base_armor ?? 0), 0);
   const weapon = findSlot("main_hand");
