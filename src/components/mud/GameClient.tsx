@@ -8,6 +8,7 @@ import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } f
 import { LesserRuneTracer } from "./LesserRuneTracer";
 import { JournalModal } from "./JournalModal";
 import { KanjiTracer } from "./KanjiTracer";
+import { RuneHub } from "./RuneHub";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import HallOfChoice from "./HallOfChoice";
 
@@ -99,7 +100,6 @@ export default function GameClient({ session }: { session: Session }) {
   const [invOpen, setInvOpen] = useState(false);
   const [runesOpen, setRunesOpen] = useState(false);
   const [tracerOpen, setTracerOpen] = useState(false);
-  const [kanjiOpen, setKanjiOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [journalOpen, setJournalOpen] = useState(false);
   const [hallOpen, setHallOpen] = useState(false);
