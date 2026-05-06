@@ -572,6 +572,17 @@ export default function GameClient({ session }: { session: Session }) {
         if (data?.amity?.score !== undefined) {
           setAmityByNpc((prev) => ({ ...prev, [npc.id]: data.amity.score }));
         }
+        if (data?.quest_offer) {
+          const q = data.quest_offer;
+          setMessages((mm) => [...mm, localSys(`✦ ${npc.name} offers you a quest: **${q.title}** (${q.severity}). Type "accept ${q.title}" or "decline ${q.title}".`)]);
+        }
+        if (data?.quest_resolution?.outcome === "complete") {
+          const r = data.quest_resolution;
+          toast.success(`✦ Quest complete: ${r.title} — +${r.gold ?? 0}g, +${r.xp ?? 0}xp`);
+          reloadProfile();
+        } else if (data?.quest_resolution?.outcome === "fail") {
+          toast.error(`Quest failed: ${data.quest_resolution.title}`);
+        }
         // Auto-discover any places the NPC named, so "go to <place>" works immediately.
         const places: string[] = data?.mentioned_places ?? [];
         if (places.length) {
