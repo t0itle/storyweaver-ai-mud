@@ -49,12 +49,17 @@ Deno.serve(async (req) => {
       ? `Visible figures: ${(npcs ?? []).map((n: any) => `${n.name}${n.title ? `, ${n.title}` : ""}`).join("; ")}.`
       : "";
 
+    const eventsLine = (context_extra && String(context_extra).trim())
+      ? `Recent events that have visibly altered this place: ${context_extra}. Show those scars on the world — burn marks, broken stone, fresh graves, ash in the air, signs of struggle — woven naturally into the scene.`
+      : "";
+
     const prompt = `Painterly fantasy environment concept art, oil-painted, cinematic wide shot, parchment-and-ember palette (deep crimson, ash gray, candle gold, smoky black), atmospheric volumetric light, no text, no logos, no characters in the foreground.
 
 Scene: ${room.name}.
 ${room.description}
 ${room.ambience ?? ""}
 ${npcLine}
+${eventsLine}
 
 Style: Frank Frazetta meets Greg Rutkowski, brooding fantasy, painterly brushwork, slight grain.`;
 
