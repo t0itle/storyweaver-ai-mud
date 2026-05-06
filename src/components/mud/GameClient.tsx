@@ -762,6 +762,10 @@ export default function GameClient({ session }: { session: Session }) {
             <Sparkles className="w-4 h-4" />
             <span>{knownRunes.length}</span>
           </button>
+          <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 text-whisper hover:text-ember transition-colors" title="Trace a lesser rune">
+            <Flame className="w-4 h-4" />
+            <span>trace</span>
+          </button>
           <button
             onClick={() => { setCodexEntry(null); setCodexOpen(true); }}
             className="flex items-center gap-1 text-whisper hover:text-ember transition-colors"
