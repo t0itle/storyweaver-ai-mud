@@ -925,6 +925,7 @@ export type Database = {
         Row: {
           aether: string | null
           aether_chosen_at: string | null
+          chaos_pressure: number
           char_description: string | null
           companion_npc_id: string | null
           corruption: number
@@ -933,6 +934,7 @@ export type Database = {
           current_room: string
           faction: string | null
           gold: number
+          hall_refusals: number
           hp: number
           id: string
           in_combat_id: string | null
@@ -940,6 +942,7 @@ export type Database = {
           max_hp: number
           max_weight: number
           merit: number
+          non_serviam_at: string | null
           portrait_url: string | null
           race: string | null
           updated_at: string
@@ -949,6 +952,7 @@ export type Database = {
         Insert: {
           aether?: string | null
           aether_chosen_at?: string | null
+          chaos_pressure?: number
           char_description?: string | null
           companion_npc_id?: string | null
           corruption?: number
@@ -957,6 +961,7 @@ export type Database = {
           current_room?: string
           faction?: string | null
           gold?: number
+          hall_refusals?: number
           hp?: number
           id: string
           in_combat_id?: string | null
@@ -964,6 +969,7 @@ export type Database = {
           max_hp?: number
           max_weight?: number
           merit?: number
+          non_serviam_at?: string | null
           portrait_url?: string | null
           race?: string | null
           updated_at?: string
@@ -973,6 +979,7 @@ export type Database = {
         Update: {
           aether?: string | null
           aether_chosen_at?: string | null
+          chaos_pressure?: number
           char_description?: string | null
           companion_npc_id?: string | null
           corruption?: number
@@ -981,6 +988,7 @@ export type Database = {
           current_room?: string
           faction?: string | null
           gold?: number
+          hall_refusals?: number
           hp?: number
           id?: string
           in_combat_id?: string | null
@@ -988,6 +996,7 @@ export type Database = {
           max_hp?: number
           max_weight?: number
           merit?: number
+          non_serviam_at?: string | null
           portrait_url?: string | null
           race?: string | null
           updated_at?: string
