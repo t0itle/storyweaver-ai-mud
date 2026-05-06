@@ -977,9 +977,20 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
   );
 }
 
+// Only world-altering events should bleed into the room narration.
+// Everyday chatter (npc_activity, npc_moved, location_discovered, rune_cast, rune_word_learned, etc.)
+// is tracked in the background for NPC awareness but is not shown in the scene description.
+const VISIBLE_EVENT_KINDS = new Set(["npc_killed", "died", "rune_backfire", "compound_backfire"]);
+
 function describeEvent(e: { kind: string; actor_name: string; target_name: string | null; details: any }) {
   if (e.kind === "npc_killed") {
     return `${e.actor_name} slew ${e.target_name}${e.details?.npc_title ? `, ${e.details.npc_title}` : ""} on these stones. The mark lingers.`;
+  }
+  if (e.kind === "died") {
+    return `${e.actor_name} fell here. The ground remembers.`;
+  }
+  if (e.kind === "rune_backfire" || e.kind === "compound_backfire") {
+    return `${e.actor_name}'s weave bit back here — the air still tastes wrong.`;
   }
   return `${e.actor_name} did ${e.kind}${e.target_name ? ` to ${e.target_name}` : ""} here.`;
 }
