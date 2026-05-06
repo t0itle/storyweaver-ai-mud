@@ -776,15 +776,14 @@ export default function GameClient({ session }: { session: Session }) {
           <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Weave runes (Lesser & Greater)">
             <Flame className="w-4 h-4" /><span className="hidden sm:inline">runes</span>
           </button>
-          <button onClick={() => setJournalOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Your journal">
-            <ScrollText className="w-4 h-4" /><span className="hidden sm:inline">journal</span>
-          </button>
           <button
-            onClick={() => { setCodexEntry(null); setCodexOpen(true); }}
+            onClick={() => { setCodexEntry(null); setChronicleTab("journal"); setJournalOpen(true); }}
             className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs"
-            title="Codex of discoveries"
+            title="Your chronicle (journal & codex of truths)"
           >
-            <BookOpen className="w-4 h-4" /><span>{discoveries.length}/{lore.length}</span>
+            <ScrollText className="w-4 h-4" />
+            <span className="hidden sm:inline">chronicle</span>
+            <span className="font-mono text-[10px] text-ash">{discoveries.length}/{lore.length}</span>
           </button>
           <button onClick={() => setHelpOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs ml-auto" title="Commands">
             <HelpCircle className="w-4 h-4" /><span className="hidden sm:inline">help</span>
