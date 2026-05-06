@@ -954,10 +954,10 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
       </div>
       <p className="text-parchment whitespace-pre-line">
         {room.description}
-        {events.length > 0 && (
+        {events.filter(e => VISIBLE_EVENT_KINDS.has(e.kind)).length > 0 && (
           <>
             {" "}
-            <span className="text-whisper italic">{events.map(e => describeEvent(e)).join(" ")}</span>
+            <span className="text-whisper italic">{events.filter(e => VISIBLE_EVENT_KINDS.has(e.kind)).map(e => describeEvent(e)).join(" ")}</span>
           </>
         )}
       </p>
