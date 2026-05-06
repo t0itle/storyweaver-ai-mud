@@ -885,6 +885,16 @@ export default function GameClient({ session }: { session: Session }) {
             <span className="hidden sm:inline">chronicle</span>
             <span className="font-mono text-[10px] text-ash">{discoveries.length}/{lore.length}</span>
           </button>
+          <button onClick={() => setQuestsOpen(true)}
+            className="relative flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs"
+            title="Quests">
+            <ScrollText className="w-4 h-4" />
+            <span className="hidden sm:inline">quests</span>
+            <span className="font-mono text-[10px] text-ash">{activeQuestCount}</span>
+            {offeredQuestCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-ember animate-pulse" />
+            )}
+          </button>
           <button onClick={() => setHelpOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs ml-auto" title="Commands">
             <HelpCircle className="w-4 h-4" /><span className="hidden sm:inline">help</span>
           </button>
