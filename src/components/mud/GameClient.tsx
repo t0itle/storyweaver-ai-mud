@@ -772,9 +772,6 @@ export default function GameClient({ session }: { session: Session }) {
           <button onClick={() => setInvOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Inventory">
             <Backpack className="w-4 h-4" /><span>{inventory.length}</span>
           </button>
-          <button onClick={() => setRunesOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Blessings">
-            <Sparkles className="w-4 h-4" /><span className="hidden sm:inline">blessings</span><span>{knownRunes.length}</span>
-          </button>
           <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Weave runes (Lesser & Greater)">
             <Flame className="w-4 h-4" /><span className="hidden sm:inline">runes</span>
           </button>
