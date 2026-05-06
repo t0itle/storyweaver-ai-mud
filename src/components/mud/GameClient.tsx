@@ -75,6 +75,8 @@ const HELP = [
   ["accept <title>", "accept an offered quest"],
   ["decline <title>", "refuse an offered quest"],
   ["abandon <title>", "drop an active quest (NPC will remember)"],
+  ["search", "search the room for hidden caches"],
+  ["wagon", "hire the wagonmaster (open the fast-travel panel)"],
   ["help", "show this list"],
 ];
 
