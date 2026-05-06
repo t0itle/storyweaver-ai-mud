@@ -180,21 +180,13 @@ export function KanjiTracer({ open, onClose, onCast }: Props) {
   })();
   const submitPractice = async () => {
     if (!practiceKanji || practiceStroke.length < 6) return;
-    const sc = practiceScore ?? 0;
-    if (sc < 0.55) { toast.message(`Your hand wavers (${Math.round(sc*100)}%) — try again.`); return; }
-    // Mark stroke learned via direct upsert (RLS-allowed via service role would be ideal,
-    // but simpler: write through a tiny RPC-less path using upsert).
-    const { error } = await supabase.from("player_kanji_knowledge" as any).upsert({
-      kanji_key: practiceKanji.key,
-      knows_meaning: true, knows_stroke: true,
-      learned_stroke_at: new Date().toISOString(),
-    } as any);
-    if (error) {
-      // Fallback: if RLS forbids client write, route through a cast-like endpoint.
-      toast.error(error.message);
-      return;
-    }
-    toast.success(`Your hand remembers ${practiceKanji.kanji} (${practiceKanji.romaji}).`);
+    const n: Pt[] = practiceStroke.map(p => [p[0]/SIZE, p[1]/SIZE]);
+    const { data, error } = await supabase.functions.invoke("kanji-practice", {
+      body: { kanji_key: practiceKanji.key, stroke: n },
+    });
+    if (error || !data?.ok) { toast.error((data as any)?.error || error?.message || "The shape resists you."); return; }
+    if (data.learned) toast.success(data.message);
+    else toast.message(data.message);
     setPracticeStroke([]); await reload();
   };
 
