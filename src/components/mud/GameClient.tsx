@@ -1044,9 +1044,10 @@ function formatRoom(room: Room, npcs: Npc[], events: { kind: string; actor_name:
   if (room.ambience) lines.push("", room.ambience);
   if (npcs.length) lines.push("", "Here: " + npcs.map(n => n.current_activity ? `${n.name} (${n.current_activity})` : n.name).join(", "));
   lines.push("", "Exits: " + (Object.keys(room.exits).join(", ") || "none"));
-  if (events.length) {
+  const visible = events.filter(e => VISIBLE_EVENT_KINDS.has(e.kind));
+  if (visible.length) {
     lines.push("", "— what happened here —");
-    for (const e of events) {
+    for (const e of visible) {
       if (e.kind === "npc_killed") lines.push(`  ${e.actor_name} slew ${e.target_name}${e.details?.npc_title ? `, ${e.details.npc_title}` : ""}.`);
       else lines.push(`  ${e.actor_name} ${e.kind}${e.target_name ? ` ${e.target_name}` : ""}.`);
     }
