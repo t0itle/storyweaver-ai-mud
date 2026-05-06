@@ -273,6 +273,42 @@ export type Database = {
         }
         Relationships: []
       }
+      lesser_runes: {
+        Row: {
+          created_at: string
+          description: string
+          difficulty: number
+          effect: Json
+          english_meaning: string
+          glyph: string
+          key: string
+          latin_name: string
+          template: Json
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          difficulty?: number
+          effect?: Json
+          english_meaning: string
+          glyph?: string
+          key: string
+          latin_name: string
+          template?: Json
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          difficulty?: number
+          effect?: Json
+          english_meaning?: string
+          glyph?: string
+          key?: string
+          latin_name?: string
+          template?: Json
+        }
+        Relationships: []
+      }
       lore_entries: {
         Row: {
           content: string
@@ -495,6 +531,44 @@ export type Database = {
             columns: ["item_key"]
             isOneToOne: false
             referencedRelation: "items"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      player_lesser_runes: {
+        Row: {
+          backfire_count: number
+          best_score: number
+          cast_count: number
+          first_cast_at: string
+          rune_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          backfire_count?: number
+          best_score?: number
+          cast_count?: number
+          first_cast_at?: string
+          rune_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          backfire_count?: number
+          best_score?: number
+          cast_count?: number
+          first_cast_at?: string
+          rune_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_lesser_runes_rune_key_fkey"
+            columns: ["rune_key"]
+            isOneToOne: false
+            referencedRelation: "lesser_runes"
             referencedColumns: ["key"]
           },
         ]
