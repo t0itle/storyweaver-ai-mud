@@ -267,6 +267,9 @@ ${gossipBlock}
 YOUR CURRENT FEELING TOWARD ${player_name}: **${amityBlock}** on a scale from -100 (Hostile) to +100 (Devoted).
 This MUST color your tone, generosity, and willingness to share secrets, give favors, or even raise a hand. Hostile = sharp, dismissive, possibly threatening; Wary = guarded; Neutral = polite stranger; Friendly = warm, helpful; Devoted = loyal, loving, will share secrets and offer aid.
 
+WHAT YOU KNOW OF ${player_name}'S STANDING WITH THE SEVEN:
+${stanceBlock}
+
 QUESTS:
 ${questBlock}
 
