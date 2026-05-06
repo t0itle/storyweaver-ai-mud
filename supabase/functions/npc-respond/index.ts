@@ -138,6 +138,37 @@ Deno.serve(async (req) => {
     const localBlock = (localEvents ?? []).map(fmtEvent).join("\n") || "(none — quiet here)";
     const globalBlock = (globalEvents ?? []).map(fmtEvent).join("\n") || "(none — the wider world is calm)";
 
+    // ── Live presence: who is physically in this room right now ──
+    const [{ data: presentPlayers }, { data: presentNpcs }] = await Promise.all([
+      supabase.from("profiles").select("id, username, race").eq("current_room", room),
+      supabase.from("npcs").select("id, name, title").eq("room", room).is("dead_until", null),
+    ]);
+    const otherPlayers = (presentPlayers ?? []).filter((p: any) => p.id !== user.id);
+    const otherNpcs = (presentNpcs ?? []).filter((n: any) => n.id !== npc_id);
+    const presentBlock = [
+      `- ${player_name} (the one speaking to you)`,
+      ...otherPlayers.map((p: any) => `- ${p.username}${p.race ? ` (${p.race})` : ""}`),
+      ...otherNpcs.map((n: any) => `- ${n.name}${n.title ? `, ${n.title}` : ""}`),
+    ].join("\n");
+
+    // Recent comings & goings here (last 30 min) — so NPCs notice who has just left or arrived.
+    const sinceIso = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const { data: movement } = await supabase
+      .from("messages")
+      .select("author_name, content, created_at")
+      .eq("room", room)
+      .eq("kind", "system")
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    const movementBlock = (movement ?? []).length
+      ? movement!.map((m: any) => {
+          const mins = Math.max(0, Math.round((Date.now() - new Date(m.created_at).getTime()) / 60000));
+          return `- (${mins}m ago) ${m.content}`;
+        }).join("\n")
+      : "(no one has come or gone recently)";
+
+
     const system = `You are roleplaying ${npc.name}${npc.title ? ", " + npc.title : ""}, an NPC in a text-based fantasy MUD set in **the First City** — the last walled city still burning against the dark, a place of protection guarded by all seven Aethers and watched over by the Veiled, the mouth-bound priests of the silenced Speaker. The Veiled welcome Otherworlders who find their way in from the wilderness.
 
 PERSONA:
@@ -145,6 +176,12 @@ ${npc.persona}
 
 CURRENT LOCATION: ${roomRow?.name ?? room}
 ${roomRow?.description ?? ""}
+
+WHO IS PHYSICALLY HERE WITH YOU RIGHT NOW (you can see them; if a name is NOT on this list, they are not in the room — do not address them as if present, and you may even note their absence if it matters):
+${presentBlock}
+
+RECENT COMINGS & GOINGS (who has just arrived or departed this place):
+${movementBlock}
 
 WORLD LORE YOU MAY KNOW (reference naturally if relevant — never list, never lecture):
 ${loreBlock || "(none)"}
