@@ -144,6 +144,25 @@ Deno.serve(async (req) => {
       supabase.from("npcs").select("id, name, title").eq("room", room).is("dead_until", null),
       supabase.from("dragons").select("name, epithet, personality").eq("current_room", room),
     ]);
+
+    // ── Standing of the speaking player with the Seven / Chaos ──
+    const { data: speakerProfile } = await supabase
+      .from("profiles")
+      .select("aether, faction, hall_refusals, non_serviam_at, corruption")
+      .eq("id", user.id)
+      .maybeSingle();
+    let stanceBlock = "Unsworn — they have not yet stood at the basin. The seven still wait for them.";
+    if (speakerProfile?.non_serviam_at) {
+      stanceBlock = `**They have spoken Non Serviam.** They cried out the unmaking-words and turned from the basin. The wardens know their face. Some pity them, most fear them, a few would strike them down on sight. Wherever they walk, the air feels a little wrong.`;
+    } else if (speakerProfile?.faction === "chaos") {
+      stanceBlock = `Marked by **Chaos**. They have forsworn the seven. Aether-faithful folk treat them as a threat or a lost soul; Chaos-touched folk recognize them as kin.`;
+    } else if (speakerProfile?.aether) {
+      stanceBlock = `Sworn to **${speakerProfile.aether}**. The corresponding glyph still lingers faintly on their skin. Treat them as ${speakerProfile.aether}'s own.`;
+    } else if ((speakerProfile?.hall_refusals ?? 0) > 0) {
+      const r = speakerProfile!.hall_refusals;
+      stanceBlock = `They have stood in the Hall of the Seven **${r} time${r === 1 ? "" : "s"}** and walked away each time without choosing. The basin remembers. The faithful note this — there is a hesitation in them, a Chaos-shaped silence growing where an oath should be.`;
+    }
+
     const otherPlayers = (presentPlayers ?? []).filter((p: any) => p.id !== user.id);
     const otherNpcs = (presentNpcs ?? []).filter((n: any) => n.id !== npc_id);
     const presentBlock = [
@@ -208,6 +227,10 @@ ${gossipBlock}
 
 YOUR CURRENT FEELING TOWARD ${player_name}: **${amityBlock}** on a scale from -100 (Hostile) to +100 (Devoted).
 This MUST color your tone, generosity, and willingness to share secrets, give favors, or even raise a hand. Hostile = sharp, dismissive, possibly threatening; Wary = guarded; Neutral = polite stranger; Friendly = warm, helpful; Devoted = loyal, loving, will share secrets and offer aid.
+
+WHAT YOU KNOW OF ${player_name}'S STANDING WITH THE SEVEN:
+${stanceBlock}
+This is widely known — every wardenly soul can feel it on them. React with your own values: a Veiled priest will be cold or pitying, a Chaos sympathizer warm, a wandering scholar curious. NEVER pretend not to notice.
 
 RULES:
 - Stay strictly in character. Never break the fourth wall, never mention AI, models, or game mechanics. Never speak the amity number aloud — it's an inner feeling.
