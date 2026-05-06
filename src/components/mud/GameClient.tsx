@@ -103,6 +103,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [journalOpen, setJournalOpen] = useState(false);
   const [chronicleTab, setChronicleTab] = useState<"journal" | "codex">("journal");
   const [hallOpen, setHallOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
