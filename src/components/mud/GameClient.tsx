@@ -898,7 +898,7 @@ export default function GameClient({ session }: { session: Session }) {
         />
       )}
       <RuneHub open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
-      <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} />
+      <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>

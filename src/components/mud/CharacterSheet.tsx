@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem } from "lucide-react";
+import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem, Wand2, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { InvItem } from "./Panels";
 
 interface SheetProfile {
@@ -37,14 +40,28 @@ const SLOT_ICON: Record<string, any> = {
 };
 
 export function CharacterSheet({
-  open, onClose, profile, inventory,
+  open, onClose, profile, inventory, onPortraitUpdated,
 }: {
   open: boolean; onClose: () => void;
   profile: SheetProfile;
   inventory: InvItem[];
+  onPortraitUpdated?: (url: string) => void;
 }) {
+  const [restyling, setRestyling] = useState(false);
   const equipped = inventory.filter(i => i.equipped_slot);
   const findSlot = (slot: string) => equipped.find(i => i.equipped_slot === slot);
+
+  const restyle = async () => {
+    setRestyling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("restyle-portrait", { body: {} });
+      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      toast.success("Your likeness is repainted.");
+      if (data?.portrait_url) onPortraitUpdated?.(data.portrait_url);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The brush refuses.");
+    } finally { setRestyling(false); }
+  };
 
   const armor = equipped.reduce((s, i) => s + (i.items.base_armor ?? 0), 0);
   const weapon = findSlot("main_hand");
@@ -77,6 +94,15 @@ export function CharacterSheet({
                 <div className="w-full h-full flex items-center justify-center text-ash text-xs italic">no likeness</div>
               )}
             </div>
+            <button
+              onClick={restyle}
+              disabled={restyling}
+              className="w-full font-mono text-[10px] uppercase tracking-widest text-ash hover:text-ember border border-border hover:border-ember/60 px-2 py-1.5 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+              title="Repaint your portrait to reflect what you currently wear"
+            >
+              {restyling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+              {restyling ? "repainting…" : "reflect my gear"}
+            </button>
             {profile.char_description && (
               <p className="text-xs text-whisper italic leading-snug">{profile.char_description}</p>
             )}
