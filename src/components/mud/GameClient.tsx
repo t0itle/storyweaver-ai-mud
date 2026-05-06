@@ -23,8 +23,12 @@ interface Profile {
   in_combat_id: string | null;
   max_weight: number;
   aether: string | null;
+  faction: string | null;
   corruption: number;
   merit: number;
+  hall_refusals: number;
+  chaos_pressure: number;
+  non_serviam_at: string | null;
   companion_npc_id: string | null;
 }
 interface Room {
