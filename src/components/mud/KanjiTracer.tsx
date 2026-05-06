@@ -356,8 +356,22 @@ export function KanjiTracer({ open, onClose, onCast, inline }: Props) {
                 </div>
               ));
             })()}
-          </TabsContent>
-        </Tabs>
+      </TabsContent>
+    </Tabs>
+  );
+
+  if (inline) return tabs;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md max-h-[92vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Greater Runes — Kanji</DialogTitle>
+          <DialogDescription className="text-xs">
+            Combine 2–4 kanji into a compound. Practice each kanji alone first, then weave.
+          </DialogDescription>
+        </DialogHeader>
+        {tabs}
       </DialogContent>
     </Dialog>
   );
