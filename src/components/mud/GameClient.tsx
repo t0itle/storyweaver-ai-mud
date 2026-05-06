@@ -856,12 +856,12 @@ export default function GameClient({ session }: { session: Session }) {
             </div>
           </div>
 
-          <div>
-            <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2 flex items-center gap-1"><Users className="w-3 h-3" /> Commands</h3>
-            <ul className="space-y-1 font-mono text-[11px] text-ash">
-              {HELP.map(([k, v]) => <li key={k}><span className="text-ember">{k}</span> <span className="text-ash/70">— {v}</span></li>)}
-            </ul>
-          </div>
+          <button
+            onClick={() => setHelpOpen(true)}
+            className="w-full flex items-center justify-center gap-1.5 font-mono text-[11px] text-ash hover:text-ember border border-border hover:border-ember rounded px-2 py-1.5 transition-colors"
+          >
+            <HelpCircle className="w-3 h-3" /> Commands & Help
+          </button>
         </aside>
       </div>
 
