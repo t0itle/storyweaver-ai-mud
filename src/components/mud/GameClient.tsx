@@ -224,8 +224,11 @@ export default function GameClient({ session }: { session: Session }) {
     const slug = profile.current_room;
     let cancelled = false;
     setSceneLoading(true);
-    const eventSummary = roomEvents.length
-      ? roomEvents.map(e => describeEvent(e)).join(" ")
+    // Only events that visibly scar the world should trigger scene regeneration.
+    const SCENE_AFFECTING = new Set(["npc_killed", "died", "rune_backfire", "compound_backfire"]);
+    const sceneEvents = roomEvents.filter(e => SCENE_AFFECTING.has(e.kind));
+    const eventSummary = sceneEvents.length
+      ? sceneEvents.map(e => describeEvent(e)).join(" ")
       : "";
     supabase.functions.invoke("scene-image", { body: { room: slug, context_extra: eventSummary } })
       .then(({ data, error }) => {
@@ -951,10 +954,10 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
       </div>
       <p className="text-parchment whitespace-pre-line">
         {room.description}
-        {events.length > 0 && (
+        {events.filter(e => VISIBLE_EVENT_KINDS.has(e.kind)).length > 0 && (
           <>
             {" "}
-            <span className="text-whisper italic">{events.map(e => describeEvent(e)).join(" ")}</span>
+            <span className="text-whisper italic">{events.filter(e => VISIBLE_EVENT_KINDS.has(e.kind)).map(e => describeEvent(e)).join(" ")}</span>
           </>
         )}
       </p>
@@ -974,9 +977,20 @@ function RoomBlock({ room, npcs, sceneUrl, sceneLoading, events }: {
   );
 }
 
+// Only world-altering events should bleed into the room narration.
+// Everyday chatter (npc_activity, npc_moved, location_discovered, rune_cast, rune_word_learned, etc.)
+// is tracked in the background for NPC awareness but is not shown in the scene description.
+const VISIBLE_EVENT_KINDS = new Set(["npc_killed", "died", "rune_backfire", "compound_backfire"]);
+
 function describeEvent(e: { kind: string; actor_name: string; target_name: string | null; details: any }) {
   if (e.kind === "npc_killed") {
     return `${e.actor_name} slew ${e.target_name}${e.details?.npc_title ? `, ${e.details.npc_title}` : ""} on these stones. The mark lingers.`;
+  }
+  if (e.kind === "died") {
+    return `${e.actor_name} fell here. The ground remembers.`;
+  }
+  if (e.kind === "rune_backfire" || e.kind === "compound_backfire") {
+    return `${e.actor_name}'s weave bit back here — the air still tastes wrong.`;
   }
   return `${e.actor_name} did ${e.kind}${e.target_name ? ` to ${e.target_name}` : ""} here.`;
 }
@@ -1030,9 +1044,10 @@ function formatRoom(room: Room, npcs: Npc[], events: { kind: string; actor_name:
   if (room.ambience) lines.push("", room.ambience);
   if (npcs.length) lines.push("", "Here: " + npcs.map(n => n.current_activity ? `${n.name} (${n.current_activity})` : n.name).join(", "));
   lines.push("", "Exits: " + (Object.keys(room.exits).join(", ") || "none"));
-  if (events.length) {
+  const visible = events.filter(e => VISIBLE_EVENT_KINDS.has(e.kind));
+  if (visible.length) {
     lines.push("", "— what happened here —");
-    for (const e of events) {
+    for (const e of visible) {
       if (e.kind === "npc_killed") lines.push(`  ${e.actor_name} slew ${e.target_name}${e.details?.npc_title ? `, ${e.details.npc_title}` : ""}.`);
       else lines.push(`  ${e.actor_name} ${e.kind}${e.target_name ? ` ${e.target_name}` : ""}.`);
     }
