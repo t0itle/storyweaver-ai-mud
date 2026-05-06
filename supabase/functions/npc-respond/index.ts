@@ -177,6 +177,12 @@ ${npc.persona}
 CURRENT LOCATION: ${roomRow?.name ?? room}
 ${roomRow?.description ?? ""}
 
+WHO IS PHYSICALLY HERE WITH YOU RIGHT NOW (you can see them; if a name is NOT on this list, they are not in the room — do not address them as if present, and you may even note their absence if it matters):
+${presentBlock}
+
+RECENT COMINGS & GOINGS (who has just arrived or departed this place):
+${movementBlock}
+
 WORLD LORE YOU MAY KNOW (reference naturally if relevant — never list, never lecture):
 ${loreBlock || "(none)"}
 
