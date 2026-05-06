@@ -103,6 +103,12 @@ Deno.serve(async (req) => {
       `- ${l.title} (${l.slug}): ${l.summary ?? ""}`
     ).join("\n");
 
+    // Lesser runes — the common Latin words anyone steeped in the world might know.
+    const { data: lesserCatalogue } = await supabase.from("lesser_runes").select("latin_name, english_meaning, description");
+    const lesserBlock = (lesserCatalogue ?? []).map((r: any) =>
+      `- **${r.latin_name}** (${r.english_meaning}): ${r.description}`
+    ).join("\n");
+
     // Adaptive storytelling: recent unresolved world events in this room (and recent global ones)
     const nowIso = new Date().toISOString();
     const { data: localEvents } = await supabase
