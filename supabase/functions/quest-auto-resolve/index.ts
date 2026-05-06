@@ -1,7 +1,6 @@
 // Auto-resolve active quests when world events happen (slay / visit).
-// Called by GameClient on room arrival and by combat-action after a kill.
+// Called by GameClient on room arrival and after a kill. Delegates rewards to quest-award.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { completeQuest } from "../quest-award/index.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +21,6 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     const body = await req.json().catch(() => ({}));
-    // event: { kind: "slay"|"visit", target_id?, target_name?, room? }
     const ev = body.event ?? body;
     if (!ev?.kind) return json({ error: "event.kind required" }, 400);
 
@@ -43,8 +41,13 @@ Deno.serve(async (req) => {
         if (ref && rm && ref === rm) match = true;
       }
       if (match) {
-        const r = await completeQuest(admin, q.id, `auto:${ev.kind}`);
-        if (r.ok) completed.push(r);
+        const r = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/quest-award`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: auth },
+          body: JSON.stringify({ quest_id: q.id, note: `auto:${ev.kind}` }),
+        });
+        const result = await r.json().catch(() => ({ ok: false }));
+        if (result.ok) completed.push({ ...result, quest_id: q.id });
       }
     }
     return json({ ok: true, completed });
