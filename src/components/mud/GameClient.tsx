@@ -552,15 +552,14 @@ export default function GameClient({ session }: { session: Session }) {
       } finally { setThinking(false); }
     } else if (c === "lore" || c === "codex") {
       if (!args) {
-        setCodexEntry(null); setCodexOpen(true);
+        setCodexEntry(null); setChronicleTab("codex"); setCodexOpen(true);
       } else {
-        // open a specific entry if discovered
         const entry = lore.find(l =>
           l.slug === args.toLowerCase() ||
           l.title.toLowerCase().includes(args.toLowerCase()),
         );
         if (entry && discoveredSlugs.has(entry.slug)) {
-          setCodexEntry(entry.slug); setCodexOpen(true);
+          setCodexEntry(entry.slug); setChronicleTab("codex"); setCodexOpen(true);
         } else {
           setMessages((m) => [...m, localSys(`You know nothing of "${args}". Yet.`)]);
         }
