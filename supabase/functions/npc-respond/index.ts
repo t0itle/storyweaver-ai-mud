@@ -109,6 +109,12 @@ Deno.serve(async (req) => {
       `- **${r.latin_name}** (${r.english_meaning}): ${r.description}`
     ).join("\n");
 
+    // Greater Runes (Kanji) — the foreign script of the eastern lore. Scholars and monks know these.
+    const { data: kanjiCatalogue } = await supabase.from("kanji_runes").select("kanji, romaji, english_meaning, element");
+    const kanjiBlock = (kanjiCatalogue ?? []).map((k: any) =>
+      `- **${k.kanji}** (${k.romaji}, ${k.element}): ${k.english_meaning}`
+    ).join("\n");
+
     // Adaptive storytelling: recent unresolved world events in this room (and recent global ones)
     const nowIso = new Date().toISOString();
     const { data: localEvents } = await supabase
