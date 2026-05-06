@@ -1,0 +1,138 @@
+// Award quest rewards. Called server-side by npc-respond when a quest resolves,
+// or by automated checks (visit/slay/fetch). Server clamps rewards to severity bands.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+const json = (b: unknown, s = 200) =>
+  new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
+
+export async function completeQuest(admin: any, questId: string, note = "") {
+  const { data: quest } = await admin.from("quests").select("*").eq("id", questId).maybeSingle();
+  if (!quest || quest.status !== "active") return { ok: false, reason: "not active" };
+
+  const { data: capsRow } = await admin.rpc("quest_reward_caps", { _severity: quest.severity });
+  const caps = capsRow ?? { gold_max: 20, xp_max: 40, amity_max: 6, item: false, knowledge: false };
+
+  const gold = Math.max(0, Math.min(caps.gold_max, quest.reward_gold ?? 0));
+  const xp = Math.max(0, Math.min(caps.xp_max, quest.reward_xp ?? 0));
+  const amity = Math.max(0, Math.min(caps.amity_max, quest.reward_amity ?? 0));
+
+  // Apply gold + xp.
+  const { data: profile } = await admin.from("profiles")
+    .select("gold, xp, username, current_room").eq("id", quest.user_id).maybeSingle();
+  await admin.from("profiles").update({
+    gold: (profile?.gold ?? 0) + gold,
+    xp: (profile?.xp ?? 0) + xp,
+  }).eq("id", quest.user_id);
+
+  // Bump amity with the giver.
+  if (amity > 0) {
+    const { data: a } = await admin.from("npc_amity").select("score")
+      .eq("user_id", quest.user_id).eq("npc_id", quest.giver_npc_id).maybeSingle();
+    const next = Math.max(-100, Math.min(100, (a?.score ?? 0) + amity));
+    await admin.from("npc_amity").upsert({
+      npc_id: quest.giver_npc_id, user_id: quest.user_id, score: next,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "npc_id,user_id" });
+  }
+
+  // Item reward (only if severity allows).
+  if (caps.item && quest.reward_item_key) {
+    const { data: item } = await admin.from("items").select("key").eq("key", quest.reward_item_key).maybeSingle();
+    if (item) {
+      await admin.from("player_items").insert({
+        user_id: quest.user_id, item_key: item.key, quantity: 1,
+      });
+    }
+  }
+
+  // Knowledge rewards (only if severity allows).
+  if (caps.knowledge && quest.reward_rune_key) {
+    const { data: rune } = await admin.from("lesser_runes")
+      .select("key, latin_name, english_meaning").eq("key", quest.reward_rune_key).maybeSingle();
+    if (rune) {
+      await admin.from("player_lesser_rune_knowledge").upsert({
+        user_id: quest.user_id, rune_key: rune.key,
+        knows_word: true, knows_symbol: false,
+        learned_word_at: new Date().toISOString(),
+        word_source: `quest:${quest.giver_npc_name}`,
+      }, { onConflict: "user_id,rune_key" });
+      await admin.from("world_events").insert({
+        kind: "rune_word_learned", actor_id: quest.user_id, actor_name: profile?.username,
+        room: profile?.current_room,
+        details: { rune: rune.latin_name, meaning: rune.english_meaning, source: `quest` },
+      });
+    }
+  }
+  if (caps.knowledge && quest.reward_kanji_key) {
+    const { data: k } = await admin.from("kanji_runes")
+      .select("key, kanji, romaji, english_meaning").eq("key", quest.reward_kanji_key).maybeSingle();
+    if (k) {
+      await admin.from("player_kanji_knowledge").upsert({
+        user_id: quest.user_id, kanji_key: k.key,
+        knows_meaning: true, knows_stroke: false,
+        learned_meaning_at: new Date().toISOString(),
+        meaning_source: `quest:${quest.giver_npc_name}`,
+      }, { onConflict: "user_id,kanji_key" });
+      await admin.from("world_events").insert({
+        kind: "kanji_meaning_learned", actor_id: quest.user_id, actor_name: profile?.username,
+        room: profile?.current_room,
+        details: { kanji: k.kanji, romaji: k.romaji, meaning: k.english_meaning, source: `quest` },
+      });
+    }
+  }
+
+  // Mark complete.
+  await admin.from("quests").update({
+    status: "complete",
+    completed_at: new Date().toISOString(),
+  }).eq("id", questId);
+
+  // Journal-yielding event.
+  await admin.from("world_events").insert({
+    kind: "quest_completed",
+    actor_id: quest.user_id,
+    actor_name: profile?.username,
+    room: profile?.current_room ?? quest.offered_room,
+    details: {
+      title: quest.title, giver: quest.giver_npc_name, note,
+      gold, xp, amity, item: caps.item ? quest.reward_item_key : null,
+    },
+  });
+
+  return {
+    ok: true, gold, xp, amity,
+    item: caps.item ? quest.reward_item_key : null,
+    rune: caps.knowledge ? quest.reward_rune_key : null,
+    kanji: caps.knowledge ? quest.reward_kanji_key : null,
+    title: quest.title,
+  };
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+  try {
+    const auth = req.headers.get("Authorization");
+    if (!auth) return json({ error: "Unauthorized" }, 401);
+    const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: auth } } });
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: { user } } = await supa.auth.getUser();
+    if (!user) return json({ error: "Unauthorized" }, 401);
+
+    const { quest_id, note } = await req.json();
+    if (!quest_id) return json({ error: "quest_id required" }, 400);
+    // Verify ownership before awarding.
+    const { data: q } = await admin.from("quests").select("user_id").eq("id", quest_id).maybeSingle();
+    if (!q || q.user_id !== user.id) return json({ error: "no such quest" }, 404);
+
+    const result = await completeQuest(admin, quest_id, note ?? "");
+    return json(result);
+  } catch (e) {
+    console.error(e);
+    return json({ error: e instanceof Error ? e.message : "error" }, 500);
+  }
+});
