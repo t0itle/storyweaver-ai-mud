@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Backpack, BookOpen, Flame, Loader2, LogOut, Sparkles, Sword, Users, X } from "lucide-react";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
+import { LesserRuneTracer } from "./LesserRuneTracer";
 import HallOfChoice from "./HallOfChoice";
 
 interface Profile {
@@ -94,6 +95,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [knownRunes, setKnownRunes] = useState<KnownRune[]>([]);
   const [invOpen, setInvOpen] = useState(false);
   const [runesOpen, setRunesOpen] = useState(false);
+  const [tracerOpen, setTracerOpen] = useState(false);
   const [hallOpen, setHallOpen] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -760,6 +762,10 @@ export default function GameClient({ session }: { session: Session }) {
             <Sparkles className="w-4 h-4" />
             <span>{knownRunes.length}</span>
           </button>
+          <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 text-whisper hover:text-ember transition-colors" title="Trace a lesser rune">
+            <Flame className="w-4 h-4" />
+            <span>trace</span>
+          </button>
           <button
             onClick={() => { setCodexEntry(null); setCodexOpen(true); }}
             className="flex items-center gap-1 text-whisper hover:text-ember transition-colors"
@@ -881,6 +887,7 @@ export default function GameClient({ session }: { session: Session }) {
           onChanged={() => { reloadRunes(); reloadInventory(); }}
         />
       )}
+      <LesserRuneTracer open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
       {hallOpen && (
         <HallOfChoice
           currentAether={profile.aether}
