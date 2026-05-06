@@ -189,6 +189,19 @@ Deno.serve(async (req) => {
       stanceBlock = `Word from the basin: they have stood in the Hall **${r} time${r === 1 ? "" : "s"}** and walked away each time. The faithful note this hesitation. Be cautious — there is a Chaos-shaped silence growing in them.`;
     }
 
+    // ── Active and just-offered quests between THIS NPC and THIS player ──
+    const { data: questsWithGiver } = await supabase.from("quests")
+      .select("id, title, objective, status, severity, kind")
+      .eq("user_id", user.id).eq("giver_npc_id", npc_id)
+      .in("status", ["offered", "active"]);
+    const activeQuest = (questsWithGiver ?? []).find((q: any) => q.status === "active");
+    const pendingOffer = (questsWithGiver ?? []).find((q: any) => q.status === "offered");
+    const questBlock = activeQuest
+      ? `ACTIVE QUEST WITH ${player_name}: "${activeQuest.title}" (${activeQuest.severity} ${activeQuest.kind}) — ${activeQuest.objective}\nQUEST_ID: ${activeQuest.id}\nIf they have completed it, emit a <<QUEST_RESOLVE>> tag (see below). Otherwise reference the quest naturally — encourage, taunt, hint.`
+      : pendingOffer
+      ? `(You have already offered "${pendingOffer.title}" but they haven't yet accepted. Do not offer another quest.)`
+      : `(No active quests with this player. You MAY offer one if a need arises naturally — but only ONE per reply, and only if it fits the moment.)`;
+
     const otherPlayers = (presentPlayers ?? []).filter((p: any) => p.id !== user.id);
     const otherNpcs = (presentNpcs ?? []).filter((n: any) => n.id !== npc_id);
     const presentBlock = [
