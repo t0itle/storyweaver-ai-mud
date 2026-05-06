@@ -38,6 +38,9 @@ Deno.serve(async (req) => {
     const { room: roomSlug } = await req.json();
     if (!roomSlug) return new Response(JSON.stringify({ error: "room required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+    const { data: room } = await admin.from("rooms").select("*").eq("slug", roomSlug).maybeSingle();
+    if (!room) return new Response(JSON.stringify({ error: "room not found" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
     // Density by room kind. [min, max] living NPCs we want present.
     // Bustling places (markets, squares, taverns, capitals) feel crowded.
     // Deep wilds, crypts, dragon lairs feel empty.
