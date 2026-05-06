@@ -224,8 +224,11 @@ export default function GameClient({ session }: { session: Session }) {
     const slug = profile.current_room;
     let cancelled = false;
     setSceneLoading(true);
-    const eventSummary = roomEvents.length
-      ? roomEvents.map(e => describeEvent(e)).join(" ")
+    // Only events that visibly scar the world should trigger scene regeneration.
+    const SCENE_AFFECTING = new Set(["npc_killed", "died", "rune_backfire", "compound_backfire"]);
+    const sceneEvents = roomEvents.filter(e => SCENE_AFFECTING.has(e.kind));
+    const eventSummary = sceneEvents.length
+      ? sceneEvents.map(e => describeEvent(e)).join(" ")
       : "";
     supabase.functions.invoke("scene-image", { body: { room: slug, context_extra: eventSummary } })
       .then(({ data, error }) => {
