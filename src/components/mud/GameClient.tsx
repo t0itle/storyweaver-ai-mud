@@ -75,6 +75,8 @@ const HELP = [
   ["accept <title>", "accept an offered quest"],
   ["decline <title>", "refuse an offered quest"],
   ["abandon <title>", "drop an active quest (NPC will remember)"],
+  ["search", "search the room for hidden caches"],
+  ["wagon", "hire the wagonmaster (open the fast-travel panel)"],
   ["help", "show this list"],
 ];
 
@@ -117,6 +119,10 @@ export default function GameClient({ session }: { session: Session }) {
   const [questsOpen, setQuestsOpen] = useState(false);
   const [activeQuestCount, setActiveQuestCount] = useState(0);
   const [offeredQuestCount, setOfferedQuestCount] = useState(0);
+  const [wagonOpen, setWagonOpen] = useState(false);
+  const [wagonRoutes, setWagonRoutes] = useState<{ destination: string; cost_gold: number; flavor: string; name?: string; visited?: boolean }[]>([]);
+  const [hasCache, setHasCache] = useState(false);
+  const [cacheClaimed, setCacheClaimed] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -249,6 +255,36 @@ export default function GameClient({ session }: { session: Session }) {
       }
     })();
   }, [profile?.current_room]);
+
+  // Wagon routes & cache info for the current room
+  useEffect(() => {
+    if (!profile) return;
+    const slug = profile.current_room;
+    (async () => {
+      const [{ data: routes }, { data: cache }, { data: claim }] = await Promise.all([
+        supabase.from("wagon_routes").select("destination, cost_gold, flavor").eq("hub", slug),
+        supabase.from("room_caches").select("room").eq("room", slug).maybeSingle(),
+        supabase.from("player_room_cache_claims").select("room").eq("user_id", profile.id).eq("room", slug).maybeSingle(),
+      ]);
+      if (routes && routes.length) {
+        // resolve names + check visited
+        const dests = routes.map((r: any) => r.destination);
+        const [{ data: roomNames }, { data: visits }] = await Promise.all([
+          supabase.from("rooms").select("slug, name").in("slug", dests),
+          supabase.from("world_events").select("room").eq("actor_id", profile.id).in("room", dests),
+        ]);
+        const nameMap = new Map((roomNames ?? []).map((r: any) => [r.slug, r.name]));
+        const visitedSet = new Set((visits ?? []).map((v: any) => v.room));
+        setWagonRoutes(routes.map((r: any) => ({
+          ...r, name: nameMap.get(r.destination) ?? r.destination, visited: visitedSet.has(r.destination),
+        })));
+      } else {
+        setWagonRoutes([]);
+      }
+      setHasCache(!!cache);
+      setCacheClaimed(!!claim);
+    })();
+  }, [profile?.current_room, profile?.id]);
 
   // Generate / fetch scene image when room changes (events-aware so the world reflects what's been done)
   useEffect(() => {
@@ -639,6 +675,12 @@ export default function GameClient({ session }: { session: Session }) {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
       } finally { setThinking(false); }
+    } else if (c === "wagon" || c === "ride") {
+      if (wagonRoutes.length === 0) {
+        setMessages((m) => [...m, localSys("No wagonmaster runs from here.")]);
+      } else {
+        setWagonOpen(true);
+      }
     } else if (c === "quests" || c === "quest" || c === "tasks") {
       setQuestsOpen(true);
     } else if (c === "accept" || c === "decline" || c === "abandon") {
@@ -961,6 +1003,38 @@ export default function GameClient({ session }: { session: Session }) {
             </div>
           </div>
 
+          {(wagonRoutes.length > 0 || hasCache) && (
+            <div className="flex flex-col gap-1.5">
+              {wagonRoutes.length > 0 && (
+                <button onClick={() => setWagonOpen(true)}
+                  className="w-full text-left font-mono text-[11px] px-2 py-1.5 border border-border hover:border-ember hover:text-ember transition-colors uppercase tracking-widest text-parchment">
+                  ⛟ Hire Wagon
+                </button>
+              )}
+              {hasCache && (
+                <button
+                  disabled={cacheClaimed}
+                  onClick={async () => {
+                    try {
+                      const { data, error } = await supabase.functions.invoke("search-cache");
+                      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+                      if (data?.found) {
+                        toast.success(`+${data.gold ?? 0}g${data.item ? ` · ${data.item}` : ""}`);
+                        setCacheClaimed(true);
+                        reloadProfile();
+                        reloadInventory();
+                      } else if (data?.already) {
+                        setCacheClaimed(true);
+                      }
+                    } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+                  }}
+                  className="w-full text-left font-mono text-[11px] px-2 py-1.5 border border-border hover:border-ember hover:text-ember transition-colors uppercase tracking-widest text-parchment disabled:opacity-40 disabled:cursor-not-allowed">
+                  ⌖ {cacheClaimed ? "Searched" : "Search Here"}
+                </button>
+              )}
+            </div>
+          )}
+
           <div>
             <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Souls Here</h3>
             <div className="space-y-1">
@@ -1041,6 +1115,41 @@ export default function GameClient({ session }: { session: Session }) {
                 <div className="text-ash/80 pl-2">— {v}</div>
               </li>
             ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={wagonOpen} onOpenChange={setWagonOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Wagonmaster</DialogTitle>
+            <DialogDescription>The driver tips a wide hat. "Where to, traveler? You can only ride to a place you've already trodden."</DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-1.5">
+            {wagonRoutes.map((r) => {
+              const canAfford = profile.gold >= r.cost_gold;
+              const ok = r.visited && canAfford;
+              return (
+                <li key={r.destination}>
+                  <button
+                    disabled={!ok}
+                    onClick={async () => {
+                      try {
+                        const { data, error } = await supabase.functions.invoke("wagon-travel", { body: { destination: r.destination } });
+                        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+                        setWagonOpen(false);
+                        toast.success(`Wagon away — ${r.cost_gold}g`);
+                        reloadProfile();
+                      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+                    }}
+                    className="w-full flex items-center justify-between px-3 py-2 border border-border hover:border-ember disabled:opacity-40 disabled:cursor-not-allowed text-left">
+                    <span className="font-body text-parchment">{r.name}</span>
+                    <span className="font-mono text-xs text-ash">
+                      {!r.visited ? "unvisited" : !canAfford ? `${r.cost_gold}g (short)` : `${r.cost_gold}g`}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         </DialogContent>
       </Dialog>

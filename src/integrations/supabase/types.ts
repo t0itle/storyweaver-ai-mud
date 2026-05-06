@@ -889,6 +889,24 @@ export type Database = {
           },
         ]
       }
+      player_room_cache_claims: {
+        Row: {
+          claimed_at: string
+          room: string
+          user_id: string
+        }
+        Insert: {
+          claimed_at?: string
+          room: string
+          user_id: string
+        }
+        Update: {
+          claimed_at?: string
+          room?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       player_runes: {
         Row: {
           id: string
@@ -1134,6 +1152,30 @@ export type Database = {
         }
         Relationships: []
       }
+      room_caches: {
+        Row: {
+          gold: number
+          hint: string
+          item_key: string | null
+          reveal_text: string
+          room: string
+        }
+        Insert: {
+          gold?: number
+          hint?: string
+          item_key?: string | null
+          reveal_text?: string
+          room: string
+        }
+        Update: {
+          gold?: number
+          hint?: string
+          item_key?: string | null
+          reveal_text?: string
+          room?: string
+        }
+        Relationships: []
+      }
       room_scenes: {
         Row: {
           context_hash: string
@@ -1233,6 +1275,27 @@ export type Database = {
           name?: string
           rarity?: string
           teacher_npc?: string | null
+        }
+        Relationships: []
+      }
+      wagon_routes: {
+        Row: {
+          cost_gold: number
+          destination: string
+          flavor: string
+          hub: string
+        }
+        Insert: {
+          cost_gold?: number
+          destination: string
+          flavor?: string
+          hub: string
+        }
+        Update: {
+          cost_gold?: number
+          destination?: string
+          flavor?: string
+          hub?: string
         }
         Relationships: []
       }
