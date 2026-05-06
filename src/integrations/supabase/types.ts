@@ -1020,6 +1020,87 @@ export type Database = {
           },
         ]
       }
+      quests: {
+        Row: {
+          accepted_at: string | null
+          completed_at: string | null
+          created_at: string
+          description: string
+          expires_at: string | null
+          giver_npc_id: string
+          giver_npc_name: string
+          id: string
+          kind: string
+          objective: string
+          offered_room: string | null
+          reward_amity: number
+          reward_gold: number
+          reward_item_key: string | null
+          reward_kanji_key: string | null
+          reward_rune_key: string | null
+          reward_xp: number
+          severity: string
+          status: string
+          target_kind: string | null
+          target_ref: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string
+          expires_at?: string | null
+          giver_npc_id: string
+          giver_npc_name: string
+          id?: string
+          kind?: string
+          objective?: string
+          offered_room?: string | null
+          reward_amity?: number
+          reward_gold?: number
+          reward_item_key?: string | null
+          reward_kanji_key?: string | null
+          reward_rune_key?: string | null
+          reward_xp?: number
+          severity?: string
+          status?: string
+          target_kind?: string | null
+          target_ref?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string
+          expires_at?: string | null
+          giver_npc_id?: string
+          giver_npc_name?: string
+          id?: string
+          kind?: string
+          objective?: string
+          offered_room?: string | null
+          reward_amity?: number
+          reward_gold?: number
+          reward_item_key?: string | null
+          reward_kanji_key?: string | null
+          reward_rune_key?: string | null
+          reward_xp?: number
+          severity?: string
+          status?: string
+          target_kind?: string | null
+          target_ref?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       races: {
         Row: {
           cost: string
@@ -1203,6 +1284,7 @@ export type Database = {
     }
     Functions: {
       level_for_xp: { Args: { _xp: number }; Returns: number }
+      quest_reward_caps: { Args: { _severity: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
