@@ -892,6 +892,22 @@ export default function GameClient({ session }: { session: Session }) {
         />
       )}
       <LesserRuneTracer open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
+      <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Commands</DialogTitle>
+            <DialogDescription>Type any of these in the prompt below.</DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-1.5 font-mono text-xs">
+            {HELP.map(([k, v]) => (
+              <li key={k} className="leading-snug">
+                <div className="text-ember">{k}</div>
+                <div className="text-ash/80 pl-2">— {v}</div>
+              </li>
+            ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
       {hallOpen && (
         <HallOfChoice
           currentAether={profile.aether}
