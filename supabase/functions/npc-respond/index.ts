@@ -354,10 +354,26 @@ Do not mention these tags in your prose.`;
       } catch { /* ignore */ }
     }
 
+    // Strip and parse hidden <<QUEST_OFFER>>{...}<<END>> tag
+    const questOfferMatch = rawContent.match(/<<QUEST_OFFER>>\s*(\{[\s\S]*?\})\s*<<END>>/);
+    let questOfferRaw: any = null;
+    if (questOfferMatch) {
+      try { questOfferRaw = JSON.parse(questOfferMatch[1]); } catch { /* ignore */ }
+    }
+
+    // Strip and parse hidden <<QUEST_RESOLVE>>{...}<<END>> tag
+    const questResolveMatch = rawContent.match(/<<QUEST_RESOLVE>>\s*(\{[\s\S]*?\})\s*<<END>>/);
+    let questResolveRaw: any = null;
+    if (questResolveMatch) {
+      try { questResolveRaw = JSON.parse(questResolveMatch[1]); } catch { /* ignore */ }
+    }
+
     content = rawContent
       .replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<MEMORY>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<AMITY>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<QUEST_OFFER>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<QUEST_RESOLVE>>[\s\S]*?<<END>>\s*/g, "")
       .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
