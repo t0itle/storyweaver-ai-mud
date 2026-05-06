@@ -84,7 +84,22 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, bucket, moved, logged }),
+    // Roll for dragon stir based on current hoards.
+    let dragonResult: any = null;
+    try {
+      const dragonRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/dragon-check`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        },
+      });
+      dragonResult = await dragonRes.json().catch(() => null);
+    } catch (e) {
+      console.error("dragon-check failed", e);
+    }
+
+    return new Response(JSON.stringify({ ok: true, bucket, moved, logged, dragonResult }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);

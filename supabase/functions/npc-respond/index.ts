@@ -139,16 +139,18 @@ Deno.serve(async (req) => {
     const globalBlock = (globalEvents ?? []).map(fmtEvent).join("\n") || "(none — the wider world is calm)";
 
     // ── Live presence: who is physically in this room right now ──
-    const [{ data: presentPlayers }, { data: presentNpcs }] = await Promise.all([
-      supabase.from("profiles").select("id, username, race").eq("current_room", room),
+    const [{ data: presentPlayers }, { data: presentNpcs }, { data: presentDragons }] = await Promise.all([
+      supabase.from("profiles").select("id, username, race, faction").eq("current_room", room),
       supabase.from("npcs").select("id, name, title").eq("room", room).is("dead_until", null),
+      supabase.from("dragons").select("name, epithet, personality").eq("current_room", room),
     ]);
     const otherPlayers = (presentPlayers ?? []).filter((p: any) => p.id !== user.id);
     const otherNpcs = (presentNpcs ?? []).filter((n: any) => n.id !== npc_id);
     const presentBlock = [
       `- ${player_name} (the one speaking to you)`,
-      ...otherPlayers.map((p: any) => `- ${p.username}${p.race ? ` (${p.race})` : ""}`),
+      ...otherPlayers.map((p: any) => `- ${p.username}${p.race ? ` (${p.race})` : ""}${p.faction === "chaos" ? " [marked by Chaos]" : ""}`),
       ...otherNpcs.map((n: any) => `- ${n.name}${n.title ? `, ${n.title}` : ""}`),
+      ...(presentDragons ?? []).map((d: any) => `- **${d.name}, ${d.epithet}** — A DRAGON. ${d.personality}`),
     ].join("\n");
 
     // Recent comings & goings here (last 30 min) — so NPCs notice who has just left or arrived.
