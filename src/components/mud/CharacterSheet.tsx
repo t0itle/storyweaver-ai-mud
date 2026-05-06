@@ -1,5 +1,8 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem } from "lucide-react";
+import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem, Wand2, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import type { InvItem } from "./Panels";
 
 interface SheetProfile {
