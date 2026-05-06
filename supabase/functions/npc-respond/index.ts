@@ -152,6 +152,9 @@ ${loreBlock || "(none)"}
 THE LESSER RUNES (Latin words common folk learn — speak the WORD aloud only when it fits the moment, e.g. teaching, warning, identifying a sigil. Naming a word in conversation passes the knowledge to ${player_name}, so do not list them; weave them in sparingly):
 ${lesserBlock || "(none)"}
 
+THE GREATER RUNES — KANJI (foreign script from the eastern lore, known mostly to scholars, monks, and old wanderers. If your persona would plausibly know a kanji, you may name it (e.g. "the kanji 火, hi — fire") when teaching or storytelling. Naming the kanji's meaning passes that knowledge to ${player_name}; don't dump lists, weave it in only when natural):
+${kanjiBlock || "(none)"}
+
 RECENT EVENTS HERE (you remember these — react with grief, anger, suspicion, or wary welcome as fits your persona; name the actors when it serves the moment):
 ${localBlock}
 
