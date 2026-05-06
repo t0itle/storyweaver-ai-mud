@@ -629,7 +629,7 @@ export default function GameClient({ session }: { session: Session }) {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
       } finally { setThinking(false); }
-    } else if (c === "quests" || c === "quest" || c === "tasks" || c === "journal" && !args) {
+    } else if (c === "quests" || c === "quest" || c === "tasks") {
       setQuestsOpen(true);
     } else if (c === "accept" || c === "decline" || c === "abandon") {
       if (!args) { setMessages((m) => [...m, localSys(`${c} which quest? Try "quests" to see your offers.`)]); return; }
