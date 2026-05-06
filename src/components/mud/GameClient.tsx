@@ -756,11 +756,7 @@ export default function GameClient({ session }: { session: Session }) {
           <span className="text-accent">✦ {profile.xp}xp</span>
           <span className="text-parchment">⚜ {profile.gold}g</span>
           <span title={`Merit: ${profile.merit ?? 0}`} className="text-moss">❖ {profile.merit ?? 0}</span>
-          <button
-            onClick={() => setHallOpen(true)}
-            title={`Shadow corruption: ${profile.corruption}/100`}
-            className="flex items-center gap-1.5"
-          >
+          <span title={`Shadow corruption: ${profile.corruption}/100`} className="flex items-center gap-1.5">
             <span className="text-ash">◐</span>
             <span className="w-12 sm:w-16 h-1.5 bg-border relative overflow-hidden">
               <span
@@ -768,16 +764,13 @@ export default function GameClient({ session }: { session: Session }) {
                 style={{ width: `${Math.min(100, profile.corruption ?? 0)}%` }}
               />
             </span>
-          </button>
+          </span>
         </div>
 
         {/* Row 3: action toolbar — icon-only on mobile, label on desktop */}
         <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
           <button onClick={() => setInvOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Inventory">
             <Backpack className="w-4 h-4" /><span>{inventory.length}</span>
-          </button>
-          <button onClick={() => setRunesOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Blessings">
-            <Sparkles className="w-4 h-4" /><span className="hidden sm:inline">blessings</span><span>{knownRunes.length}</span>
           </button>
           <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Weave runes (Lesser & Greater)">
             <Flame className="w-4 h-4" /><span className="hidden sm:inline">runes</span>
