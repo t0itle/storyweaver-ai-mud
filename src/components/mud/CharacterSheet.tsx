@@ -41,16 +41,33 @@ const SLOT_ICON: Record<string, any> = {
 };
 
 export function CharacterSheet({
-  open, onClose, profile, inventory, onPortraitUpdated,
+  open, onClose, profile, inventory, onPortraitUpdated, onRestarted,
 }: {
   open: boolean; onClose: () => void;
   profile: SheetProfile;
   inventory: InvItem[];
   onPortraitUpdated?: (url: string) => void;
+  onRestarted?: () => void;
 }) {
   const [restyling, setRestyling] = useState(false);
+  const [confirmRestart, setConfirmRestart] = useState(false);
+  const [restarting, setRestarting] = useState(false);
   const equipped = inventory.filter(i => i.equipped_slot);
   const findSlot = (slot: string) => equipped.find(i => i.equipped_slot === slot);
+
+  const restart = async () => {
+    setRestarting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("restart-character", { body: {} });
+      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      toast.success("The wind takes your old name. A new road waits.");
+      setConfirmRestart(false);
+      onClose();
+      onRestarted?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The wind refuses.");
+    } finally { setRestarting(false); }
+  };
 
   const restyle = async () => {
     setRestyling(true);
