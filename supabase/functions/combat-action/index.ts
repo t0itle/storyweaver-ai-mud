@@ -9,7 +9,7 @@ const ok = (b: unknown, s = 200) =>
 
 type Pt = [number, number];
 type Body = {
-  action: "start" | "join" | "attack" | "defend" | "cast" | "cast_lesser" | "interrupt" | "flee";
+  action: "start" | "join" | "attack" | "defend" | "cast" | "cast_lesser" | "interrupt" | "flee" | "death_save";
   target_name?: string;
   target_kind?: "npc" | "player";
   combat_id?: string;
