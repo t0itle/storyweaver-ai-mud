@@ -282,6 +282,7 @@ export function CombatHUD({
           <CombatBtn label="attack" disabled={!myTurn} onClick={() => onAct("attack")} />
           <CombatBtn label="defend" disabled={!myTurn} onClick={() => onAct("defend")} />
           <CombatBtn label={castOpen ? "cancel cast" : "cast"} disabled={!myTurn || activeRunes.length === 0} onClick={() => setCastOpen(o => !o)} />
+          <CombatBtn label="trace ✶" disabled={!myTurn} onClick={() => onAct("trace_lesser")} />
           <CombatBtn label="flee" disabled={!myTurn} onClick={() => onAct("flee")} />
           {!myTurn && <span className="font-mono text-[10px] text-ash self-center italic">…waiting your turn</span>}
         </div>
