@@ -9,7 +9,7 @@ const ok = (b: unknown, s = 200) =>
 
 type Pt = [number, number];
 type Body = {
-  action: "start" | "join" | "attack" | "defend" | "cast" | "cast_lesser" | "interrupt" | "flee";
+  action: "start" | "join" | "attack" | "defend" | "cast" | "cast_lesser" | "interrupt" | "flee" | "death_save";
   target_name?: string;
   target_kind?: "npc" | "player";
   combat_id?: string;
@@ -198,10 +198,18 @@ Deno.serve(async (req) => {
       if (target.kind === "player") targetGear = await playerStats(target.user_id);
       const final = Math.max(1, dmg - targetGear.armor - (target.defending ? 2 : 0));
       const newHp = Math.max(0, target.hp - final);
-      const defeated = newHp <= 0;
+      const wouldDie = newHp <= 0;
+      // Players don't die on the spot — they're DOWNED and get a death save.
+      // They're still defeated for combat math (no more turns), but their profile stays alive pending the trace.
+      const defeated = wouldDie;
       await admin.from("combatants").update({ hp: newHp, defeated }).eq("id", target.id);
       if (target.kind === "player") {
         await admin.from("profiles").update({ hp: newHp }).eq("id", target.user_id);
+        if (wouldDie) {
+          await admin.from("profiles").update({
+            downed: true, downed_at: new Date().toISOString(), downed_combat_id: combatId,
+          }).eq("id", target.user_id);
+        }
       }
       const fallback = `${npc.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`;
       const ai = await narrateLine({
@@ -295,13 +303,63 @@ Deno.serve(async (req) => {
     }
 
     // For attack/defend/cast/flee — must be current actor's turn
-    const combatId = body.combat_id ?? profile.in_combat_id;
+    const combatId = body.combat_id ?? profile.in_combat_id ?? profile.downed_combat_id;
     if (!combatId) throw new Error("You are not in a fight.");
     const { data: combat } = await admin.from("combats").select("*").eq("id", combatId).maybeSingle();
-    if (!combat || combat.status !== "active") throw new Error("That fight has ended.");
+    if (!combat) throw new Error("That fight has ended.");
     const { data: combatants } = await admin.from("combatants").select("*").eq("combat_id", combatId);
     const me = (combatants ?? []).find((c: any) => c.user_id === user.id);
     if (!me) throw new Error("You are not in this fight.");
+
+    // ===== DEATH_SAVE (life-saving rune trace from a downed player) =====
+    if (body.action === "death_save") {
+      if (!profile.downed) throw new Error("You are not downed.");
+      if (profile.dead) throw new Error("You are already dead.");
+      const stroke = Array.isArray(body.stroke) ? body.stroke as Pt[] : [];
+      // Use a default lesser rune as the death-save shape if available, else just score-by-length
+      let score = 0;
+      if (stroke.length >= 6) {
+        const { data: rune } = await admin.from("lesser_runes").select("template").eq("key", body.rune_key ?? "vita").maybeSingle();
+        const tpl = (rune?.template as Pt[] | undefined) ?? null;
+        if (tpl && tpl.length >= 2) {
+          score = Math.max(scoreStroke(stroke, tpl), scoreStroke(stroke, [...tpl].reverse()));
+        } else {
+          // No template — score by stroke completion (≥40 points = pass)
+          score = Math.min(1, stroke.length / 60);
+        }
+      }
+      const passed = score >= 0.55;
+      if (passed) {
+        const reviveHp = Math.max(2, Math.floor((profile.max_hp ?? 20) * 0.15));
+        await admin.from("profiles").update({
+          downed: false, downed_at: null, downed_combat_id: null,
+          hp: reviveHp, in_combat_id: null,
+        }).eq("id", user.id);
+        await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
+        await pushAction(combatId, combat.turn_number, user.id, me.name, "death_save", null,
+          `${me.name} claws back from the brink (${Math.round(score * 100)}%) and reels out of the fight!`);
+        await advanceTurn(combatId);
+        return ok({ ok: true, saved: true, hp: reviveHp });
+      } else {
+        // Permadeath
+        await admin.from("profiles").update({
+          downed: false, downed_at: null, downed_combat_id: null,
+          dead: true, dead_at: new Date().toISOString(),
+          death_room: profile.current_room, hp: 0, in_combat_id: null,
+        }).eq("id", user.id);
+        await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
+        await pushAction(combatId, combat.turn_number, user.id, me.name, "death_save", null,
+          `${me.name}'s hand fails the sigil (${Math.round(score * 100)}%). The breath leaves them. **${me.name} is dead.**`);
+        await admin.from("world_events").insert({
+          kind: "died", actor_id: user.id, actor_name: me.name,
+          room: profile.current_room, details: { combat_id: combatId, score: Math.round(score * 100) },
+        });
+        await advanceTurn(combatId);
+        return ok({ ok: true, saved: false, dead: true });
+      }
+    }
+
+    if (combat.status !== "active") throw new Error("That fight has ended.");
     if (combat.current_combatant_id !== me.id) {
       // Interrupt is a timer-driven side effect — silently no-op if the turn already moved on.
       if (body.action === "interrupt") return ok({ ok: true, skipped: true });

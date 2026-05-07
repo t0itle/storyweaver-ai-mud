@@ -11,6 +11,7 @@ import { RuneHub } from "./RuneHub";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import HallOfChoice from "./HallOfChoice";
 import { QuestsPanel } from "./QuestsPanel";
+import { DeathSaveModal } from "./DeathSaveModal";
 
 interface Profile {
   id: string;
@@ -31,6 +32,9 @@ interface Profile {
   chaos_pressure: number;
   non_serviam_at: string | null;
   companion_npc_id: string | null;
+  downed: boolean; downed_at: string | null; downed_combat_id: string | null;
+  dead: boolean; dead_at: string | null; death_room: string | null;
+  zombified: boolean; revived_by: string | null; revived_at: string | null;
 }
 interface Room {
   slug: string; name: string; description: string;
@@ -116,6 +120,8 @@ export default function GameClient({ session }: { session: Session }) {
   const [chronicleTab, setChronicleTab] = useState<"journal" | "codex">("journal");
   const [hallOpen, setHallOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [corpses, setCorpses] = useState<{ id: string; username: string }[]>([]);
+  const [reviving, setReviving] = useState(false);
   const [questsOpen, setQuestsOpen] = useState(false);
   const [activeQuestCount, setActiveQuestCount] = useState(0);
   const [offeredQuestCount, setOfferedQuestCount] = useState(0);
@@ -199,6 +205,31 @@ export default function GameClient({ session }: { session: Session }) {
     const timeout = window.setTimeout(() => setProfileLoadFailed(true), 5000);
     return () => window.clearTimeout(timeout);
   }, [profile]);
+
+  // Corpses in this room (dead players you could potentially revive)
+  useEffect(() => {
+    if (!profile) { setCorpses([]); return; }
+    const load = () => supabase.from("profiles")
+      .select("id,username")
+      .eq("dead", true).eq("death_room", profile.current_room).neq("id", profile.id)
+      .then(({ data }) => setCorpses((data ?? []) as any));
+    load();
+    const ch = supabase.channel(`corpses:${profile.current_room}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [profile?.current_room, profile?.id]);
+
+  const reviveCorpse = async (targetId: string, name: string) => {
+    if (reviving) return;
+    setReviving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("revive-player", { body: { target_user_id: targetId } });
+      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      toast.success(`${name} rises — zombified.`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "The dead refuse the call."); }
+    finally { setReviving(false); }
+  };
 
   // Load room + npcs + history when room changes
   useEffect(() => {
@@ -874,6 +905,27 @@ export default function GameClient({ session }: { session: Session }) {
     </div>
   );
 
+  // ===== Permadeath screen =====
+  if (profile.dead) {
+    // (Dead is a render-only branch; no hooks here.)
+    return (
+      <div className="min-h-screen bg-black text-red-100 flex flex-col items-center justify-center gap-6 p-8 text-center">
+        <div className="text-7xl">⚰</div>
+        <h1 className="text-3xl tracking-widest text-red-300">YOU ARE DEAD</h1>
+        <p className="max-w-md text-red-200/80">
+          Your corpse lies in <strong className="text-red-300">{profile.death_room ?? "an unmarked place"}</strong>.
+          Only a friend who knows the Blessing of <strong>💀 Necros</strong> can call you back — and you will return <em className="text-red-400">zombified</em>.
+        </p>
+        <p className="text-xs text-red-200/50 max-w-md">
+          (You cannot act. Wait for another player to find your corpse and revive you. This window will refresh when you return.)
+        </p>
+        <Button variant="outline" className="border-red-800 text-red-200 hover:bg-red-950" onClick={() => reloadProfile()}>
+          Listen for the call
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Top bar */}
@@ -959,6 +1011,22 @@ export default function GameClient({ session }: { session: Session }) {
         <main className="flex-1 flex flex-col min-w-0">
           <div ref={logRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-6 space-y-3 font-body text-[17px] leading-relaxed">
             <RoomBlock room={room} npcs={npcs} dragons={dragons} sceneUrl={sceneUrl} sceneLoading={sceneLoading} events={roomEvents} />
+            {corpses.length > 0 && (
+              <div className="border border-red-900/50 bg-red-950/20 px-3 py-2 mb-3 text-sm">
+                <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-red-400 mb-1">⚰ Corpses here</div>
+                {corpses.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between gap-2 py-1">
+                    <span className="text-red-200">{c.username}</span>
+                    <button
+                      onClick={() => reviveCorpse(c.id, c.username)}
+                      disabled={reviving}
+                      className="text-xs px-2 py-0.5 rounded border border-red-800 text-red-200 hover:bg-red-900/40 disabled:opacity-50"
+                      title="Costs 50g + the Blessing of 💀 Necros. They return zombified."
+                    >💀 Revive (50g)</button>
+                  </div>
+                ))}
+              </div>
+            )}
             {profile.gold >= 500 && (
               <div className="border border-ember/40 bg-ember/5 px-3 py-2 text-xs text-ember italic font-mono">
                 ⚠ Your hoard glints too brightly. Carrying {profile.gold}g may catch a dragon's eye.
@@ -1099,6 +1167,10 @@ export default function GameClient({ session }: { session: Session }) {
         />
       )}
       <RuneHub open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
+      <DeathSaveModal
+        open={!!profile.downed && !profile.dead}
+        onResolved={(saved) => { reloadProfile(); if (saved) toast.success("You drag yourself out of the dark."); else toast.error("The dark wins. You are dead."); }}
+      />
       {questsOpen && (
         <QuestsPanel userId={profile.id} onClose={() => setQuestsOpen(false)} onChanged={() => { reloadProfile(); reloadQuestCounts(); }} />
       )}
