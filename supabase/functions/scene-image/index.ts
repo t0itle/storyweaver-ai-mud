@@ -37,6 +37,46 @@ Deno.serve(async (req) => {
     if (!room) return json({ error: "room not found" }, 404);
     const { data: npcs } = await admin.from("npcs").select("name,title").eq("room", roomSlug);
 
+    // Pick a palette/mood from the room itself rather than forcing ember on everything.
+    function pickMood(r: any): { palette: string; mood: string } {
+      const slug = String(r.slug ?? "").toLowerCase();
+      const name = String(r.name ?? "").toLowerCase();
+      const desc = String(r.description ?? "").toLowerCase();
+      const kind = String(r.kind ?? "").toLowerCase();
+      const blob = `${slug} ${name} ${desc} ${kind}`;
+
+      // Aether capitals — each gets its own signature palette.
+      if (/solastin|magma|forge|ember-hold|khalvaris|pyre/.test(blob))
+        return { palette: "molten reds, ember orange, soot black, gold sparks", mood: "forge-lit, heat-shimmer, volcanic" };
+      if (/tide|sea|shore|harbor|reef|coral|wave|abyss/.test(blob))
+        return { palette: "deep teal, seafoam, pearl white, twilight blue", mood: "salt-air, luminous, oceanic calm" };
+      if (/grove|forest|wood|leaf|root|bloom|verdant|moss/.test(blob))
+        return { palette: "verdant greens, dappled gold, mossy umber, soft amber light", mood: "sun-dappled, alive, fragrant" };
+      if (/sky|cloud|storm|wind|aerie|peak|mountain/.test(blob))
+        return { palette: "cobalt skies, cloud-silver, rose-quartz dawn", mood: "vast, windswept, luminous" };
+      if (/library|archive|scriptor|veil|cloister|chapel|first-city|bond/.test(blob))
+        return { palette: "candlelit ivory, parchment cream, indigo shadow, brass", mood: "hushed, sacred, lantern-warm" };
+      if (/market|bazaar|square|tavern|inn|hearth/.test(blob))
+        return { palette: "warm lantern gold, terracotta, woven crimson, spice browns", mood: "bustling, lived-in, warmly lit" };
+      if (/desert|dune|sand|sun|kiln|skeleton/.test(blob))
+        return { palette: "bleached bone, ochre sand, burnt sienna, pale cobalt sky", mood: "sun-scoured, arid, vast" };
+      if (/tomb|crypt|bone|grave|catacomb|below/.test(blob))
+        return { palette: "cold stone grey, bone white, deep violet shadow, faint green witchlight", mood: "sepulchral, still, ancient" };
+      if (/snow|ice|frost|glacier|north/.test(blob))
+        return { palette: "glacier blue, snow white, pale lavender shadow", mood: "crisp, silent, crystalline" };
+      if (/swamp|marsh|bog|fen/.test(blob))
+        return { palette: "murky olive, peat brown, foxfire green, mist grey", mood: "humid, brooding, mist-veiled" };
+      if (/ruin|broken|shattered|fallen/.test(blob))
+        return { palette: "weathered stone, lichen green, dust gold, soft slate", mood: "melancholy, time-worn, quiet" };
+      if (/road|causeway|path|wagon|bridge/.test(blob))
+        return { palette: "open-sky blue, road dust, distant haze, late-afternoon gold", mood: "expansive, journeying, open air" };
+      if (/wild|wilderness|hollow|clearing/.test(blob))
+        return { palette: "earthy greens, bark browns, leaf-shadow, soft natural light", mood: "untamed, peaceful, breathing" };
+      // Default: cinematic painterly fantasy without forced fire/ash.
+      return { palette: "naturalistic painterly tones suited to the scene", mood: "cinematic, atmospheric, balanced light" };
+    }
+    const mood = pickMood(room);
+
     const npcKey = (npcs ?? []).map((n: any) => n.name).sort().join(",");
     const cacheKey = await sha256(`${roomSlug}|${npcKey}|${context_extra ?? ""}`);
 
