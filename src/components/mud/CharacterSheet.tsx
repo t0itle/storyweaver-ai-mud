@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem, Wand2, Loader2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem, Wand2, Loader2, Skull } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { InvItem } from "./Panels";
@@ -40,16 +41,33 @@ const SLOT_ICON: Record<string, any> = {
 };
 
 export function CharacterSheet({
-  open, onClose, profile, inventory, onPortraitUpdated,
+  open, onClose, profile, inventory, onPortraitUpdated, onRestarted,
 }: {
   open: boolean; onClose: () => void;
   profile: SheetProfile;
   inventory: InvItem[];
   onPortraitUpdated?: (url: string) => void;
+  onRestarted?: () => void;
 }) {
   const [restyling, setRestyling] = useState(false);
+  const [confirmRestart, setConfirmRestart] = useState(false);
+  const [restarting, setRestarting] = useState(false);
   const equipped = inventory.filter(i => i.equipped_slot);
   const findSlot = (slot: string) => equipped.find(i => i.equipped_slot === slot);
+
+  const restart = async () => {
+    setRestarting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("restart-character", { body: {} });
+      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      toast.success("The wind takes your old name. A new road waits.");
+      setConfirmRestart(false);
+      onClose();
+      onRestarted?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The wind refuses.");
+    } finally { setRestarting(false); }
+  };
 
   const restyle = async () => {
     setRestyling(true);
@@ -154,9 +172,39 @@ export function CharacterSheet({
                 })}
               </div>
             </div>
+
+            <div className="border-t border-border/60 pt-4 mt-2">
+              <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Begin Anew</h3>
+              <p className="text-xs text-whisper italic mb-2 leading-snug">
+                Walk away from this life entirely. Your name, your face, your gold, your runes — all surrendered to the wind. A new walker stands up at the dunes' edge.
+              </p>
+              <button
+                onClick={() => setConfirmRestart(true)}
+                className="w-full font-mono text-[10px] uppercase tracking-widest text-ash hover:text-ember border border-border hover:border-ember/60 px-2 py-1.5 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Skull className="w-3 h-3" /> begin a new adventure
+              </button>
+            </div>
           </div>
         </div>
       </DialogContent>
+
+      <AlertDialog open={confirmRestart} onOpenChange={(o) => !restarting && setConfirmRestart(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display text-ember">Surrender this life?</AlertDialogTitle>
+            <AlertDialogDescription className="font-body text-ash leading-relaxed">
+              Everything {profile.username} has carried, learned, or earned will be unstitched from the world. This cannot be undone. A new walker will wake on the road in their place.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={restarting}>Stay this life</AlertDialogCancel>
+            <AlertDialogAction onClick={restart} disabled={restarting} className="bg-ember text-background hover:bg-ember/90">
+              {restarting ? <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> unstitching…</> : "Yes — let it go"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

@@ -1174,7 +1174,7 @@ export default function GameClient({ session }: { session: Session }) {
       {questsOpen && (
         <QuestsPanel userId={profile.id} onClose={() => setQuestsOpen(false)} onChanged={() => { reloadProfile(); reloadQuestCounts(); }} />
       )}
-      <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} />
+      <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} onRestarted={() => window.location.reload()} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
