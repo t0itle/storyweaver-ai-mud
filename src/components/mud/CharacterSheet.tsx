@@ -172,9 +172,39 @@ export function CharacterSheet({
                 })}
               </div>
             </div>
+
+            <div className="border-t border-border/60 pt-4 mt-2">
+              <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Begin Anew</h3>
+              <p className="text-xs text-whisper italic mb-2 leading-snug">
+                Walk away from this life entirely. Your name, your face, your gold, your runes — all surrendered to the wind. A new walker stands up at the dunes' edge.
+              </p>
+              <button
+                onClick={() => setConfirmRestart(true)}
+                className="w-full font-mono text-[10px] uppercase tracking-widest text-ash hover:text-ember border border-border hover:border-ember/60 px-2 py-1.5 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <Skull className="w-3 h-3" /> begin a new adventure
+              </button>
+            </div>
           </div>
         </div>
       </DialogContent>
+
+      <AlertDialog open={confirmRestart} onOpenChange={(o) => !restarting && setConfirmRestart(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display text-ember">Surrender this life?</AlertDialogTitle>
+            <AlertDialogDescription className="font-body text-ash leading-relaxed">
+              Everything {profile.username} has carried, learned, or earned will be unstitched from the world. This cannot be undone. A new walker will wake on the road in their place.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={restarting}>Stay this life</AlertDialogCancel>
+            <AlertDialogAction onClick={restart} disabled={restarting} className="bg-ember text-background hover:bg-ember/90">
+              {restarting ? <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> unstitching…</> : "Yes — let it go"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
