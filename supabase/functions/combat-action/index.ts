@@ -233,7 +233,10 @@ Deno.serve(async (req) => {
       let target: any = null;
       const tname = body.target_name.toLowerCase();
       if (body.target_kind !== "player") {
-        const { data: npcs } = await admin.from("npcs").select("*").eq("room", profile.current_room);
+        const nowIso = new Date().toISOString();
+        const { data: npcs } = await admin.from("npcs").select("*")
+          .eq("room", profile.current_room)
+          .or(`dead_until.is.null,dead_until.lte.${nowIso}`);
         target = (npcs ?? []).find((n: any) => n.name.toLowerCase().startsWith(tname));
       }
       if (!target && body.target_kind !== "npc") {
