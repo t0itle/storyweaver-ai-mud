@@ -1079,6 +1079,23 @@ export default function GameClient({ session }: { session: Session }) {
             {thinking && <div className="text-whisper italic typewriter">a voice gathers in the dark</div>}
           </div>
 
+          {/* Inline exits bar (especially valuable on mobile where the sidebar is below the fold) */}
+          {room && (
+            <div className="md:hidden border-t border-border bg-card/60 px-3 py-2 flex flex-wrap items-center gap-1.5">
+              <span className="font-mono text-[10px] uppercase tracking-widest text-ash mr-1">Exits</span>
+              {Object.keys(room.exits).length === 0 ? (
+                <span className="text-ash italic text-xs">none</span>
+              ) : (
+                Object.entries(room.exits).map(([dir]) => (
+                  <button key={dir} onClick={() => handleCommand(`go ${dir}`)}
+                    className="font-mono text-[11px] px-2 py-1 border border-border hover:border-ember hover:text-ember transition-colors uppercase">
+                    {dir}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+
           {/* Input */}
           <form
             onSubmit={(e) => { e.preventDefault(); handleCommand(input); }}
