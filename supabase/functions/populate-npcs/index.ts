@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       wilds:    [0, 1],
       ruin:     [0, 1],
       cave:     [0, 1],
-      crypt:    [0, 1],
+      crypt:    [2, 4],  // souls — hidden until uncovered, silent without Necros
       lair:     [0, 0],
       room:     [1, 2],
     };
@@ -79,7 +79,16 @@ Deno.serve(async (req) => {
     const target = minN + Math.floor(Math.random() * (maxN - minN + 1));
     const need = Math.max(1, target - have);
 
-    const system = `You add residents to a location in EverBloom (the dying world; First City; seven Aethers; mouth-bound Veiled).
+    const isCrypt = room.kind === "crypt";
+
+    const system = isCrypt
+      ? `You populate a tomb in EverBloom with **lingering souls** — the dead who never left. They are not living people. Each is a memory bound to bone, dust, or a relic in this place.
+
+Return STRICT JSON:
+{"npcs":[{"name":"","title":"","persona":"","greeting":"","schedule":{"dawn":{"room":"here","activity":""},"morning":{...},"midday":{...},"dusk":{...},"night":{...}}}]}
+
+Generate exactly ${need} souls. Each persona (2-3 sentences) describes WHO THEY WERE in life, HOW they died, and what unfinished thing keeps them tethered here. Title should be a death-epithet ("the Drowned Scribe", "the Last Coin-Counter"). Greeting is what they would whisper IF a living tongue could hear them — a fragment, a grievance, a name. Activities are present-tense but ghostly ("rearranging coins that no longer exist", "weeping over a sealed jar", "counting the seams in the wall").`
+      : `You add residents to a location in EverBloom (the dying world; First City; seven Aethers; mouth-bound Veiled).
 
 Return STRICT JSON:
 {"npcs":[{"name":"","title":"","persona":"","greeting":"","schedule":{"dawn":{"room":"here","activity":""},"morning":{...},"midday":{...},"dusk":{...},"night":{...}}}]}
@@ -124,6 +133,9 @@ Generate exactly ${need} NPCs that BELONG here. They live here ("here" in schedu
           schedule: sched,
           current_activity: sched[bucket].activity,
           last_tick_at: new Date().toISOString(),
+          is_soul: isCrypt,
+          hidden: isCrypt,
+          requires_rune_key: isCrypt ? "necros" : null,
         };
       });
     if (rows.length) await admin.from("npcs").insert(rows);

@@ -28,6 +28,19 @@ Deno.serve(async (req) => {
     const { data: npc } = await supabase.from("npcs").select("*").eq("id", npc_id).maybeSingle();
     if (!npc) throw new Error("NPC not found");
 
+    // Soul gate: dead can only be heard by those bound to the required rune (Necros).
+    if ((npc as any).requires_rune_key) {
+      const { data: knows } = await supabase.from("player_lesser_rune_knowledge")
+        .select("rune_key").eq("user_id", user.id).eq("rune_key", (npc as any).requires_rune_key)
+        .eq("knows_word", true).eq("knows_symbol", true).maybeSingle();
+      if (!knows) {
+        return new Response(JSON.stringify({
+          content: `*${npc.name} is moving their lips, but no sound reaches you. Without the Blessing of Necros, the dead are silent.*`,
+          silent: true,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
     const { data: roomRow } = await supabase.from("rooms").select("*").eq("slug", room).maybeSingle();
 
     const { data: history } = await supabase

@@ -24,6 +24,32 @@ Deno.serve(async (req) => {
     if (!profile) return new Response(JSON.stringify({ error: "no profile" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const room = profile.current_room;
+
+    // Check if this is a crypt — if so, "search" reveals lingering souls to this player.
+    const { data: roomRow } = await admin.from("rooms").select("kind, name").eq("slug", room).maybeSingle();
+    if (roomRow?.kind === "crypt") {
+      const { data: hiddenSouls } = await admin.from("npcs")
+        .select("id, name, title").eq("room", room).eq("is_soul", true).eq("hidden", true);
+      const { data: alreadyFound } = await admin.from("player_npc_discoveries")
+        .select("npc_id").eq("user_id", user.id).in("npc_id", (hiddenSouls ?? []).map(s => s.id));
+      const foundIds = new Set((alreadyFound ?? []).map((r: any) => r.npc_id));
+      const newOnes = (hiddenSouls ?? []).filter(s => !foundIds.has(s.id));
+      if (newOnes.length) {
+        await admin.from("player_npc_discoveries").insert(
+          newOnes.map(s => ({ user_id: user.id, npc_id: s.id })),
+        );
+        const names = newOnes.map(s => `**${s.name}**${s.title ? ` (${s.title})` : ""}`).join(", ");
+        await admin.from("messages").insert({
+          room, author_name: "—", kind: "ambient",
+          content: `*${profile.username} parts the dust and listens. Lingering shapes resolve in the gloom: ${names}. They cannot be heard without the Blessing of Necros.*`,
+          user_id: null,
+        });
+        return new Response(JSON.stringify({ ok: true, found: true, souls: newOnes.length }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      // No new souls — fall through to cache check below if any, else dust.
+    }
+
     const { data: cache } = await admin.from("room_caches").select("*").eq("room", room).maybeSingle();
     if (!cache) {
       // Soft fail: still post a message so the player knows nothing is here
