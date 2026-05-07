@@ -122,6 +122,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [corpses, setCorpses] = useState<{ id: string; username: string }[]>([]);
   const [reviving, setReviving] = useState(false);
+  const [kinOpen, setKinOpen] = useState(false);
   const [questsOpen, setQuestsOpen] = useState(false);
   const [activeQuestCount, setActiveQuestCount] = useState(0);
   const [offeredQuestCount, setOfferedQuestCount] = useState(0);
