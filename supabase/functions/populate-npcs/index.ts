@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       wilds:    [0, 1],
       ruin:     [0, 1],
       cave:     [0, 1],
-      crypt:    [0, 1],
+      crypt:    [2, 4],  // souls — hidden until uncovered, silent without Necros
       lair:     [0, 0],
       room:     [1, 2],
     };
