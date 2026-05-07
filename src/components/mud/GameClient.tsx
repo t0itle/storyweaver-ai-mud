@@ -656,24 +656,7 @@ export default function GameClient({ session }: { session: Session }) {
         } else if (data?.quest_resolution?.outcome === "fail") {
           toast.error(`Quest failed: ${data.quest_resolution.title}`);
         }
-        // Auto-discover any places the NPC named, so "go to <place>" works immediately.
-        const places: string[] = data?.mentioned_places ?? [];
-        if (places.length) {
-          (async () => {
-            const learned: string[] = [];
-            for (const p of places.slice(0, 4)) {
-              try {
-                const { data: d } = await supabase.functions.invoke("discover-location", {
-                  body: { name: p, hint: what, from_room: profile.current_room },
-                });
-                if (d?.created && d?.name) learned.push(d.name);
-              } catch { /* ignore */ }
-            }
-            if (learned.length) {
-              setMessages((mm) => [...mm, localSys(`✦ New places stir on the map: ${learned.join(", ")}. (try "go to ${learned[0]}")`)]);
-            }
-          })();
-        }
+        // NPCs may name places — but the world is fixed. We no longer auto-create rooms.
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
       } finally { setThinking(false); }
