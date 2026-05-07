@@ -856,6 +856,22 @@ export default function GameClient({ session }: { session: Session }) {
 
   const combatAct = async (kind: string, args: Record<string, unknown> = {}) => {
     try {
+      if (kind === "trace_lesser") {
+        // Open the rune hub for live tracing; start a 10s timer that
+        // triggers an "interrupt" if the player doesn't submit in time.
+        setTracerOpen(true);
+        toast.warning("Trace a lesser rune within 10s — or your foe will strike!");
+        const timer = window.setTimeout(async () => {
+          await supabase.functions.invoke("combat-action", { body: { action: "interrupt" } });
+          toast.error("Your hand faltered — the foe struck!");
+        }, 10_000);
+        // Cancel the timer the moment a cast lands (any combat_action insert)
+        const ch = supabase.channel(`trace-timer:${profile!.id}:${Date.now()}`)
+          .on("postgres_changes", { event: "INSERT", schema: "public", table: "combat_actions" },
+            () => { window.clearTimeout(timer); supabase.removeChannel(ch); })
+          .subscribe();
+        return;
+      }
       const { data, error } = await supabase.functions.invoke("combat-action", { body: { action: kind, ...args } });
       if (error || data?.error) throw new Error(data?.error ?? error?.message);
     } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }

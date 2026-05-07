@@ -7,14 +7,93 @@ const corsHeaders = {
 const ok = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+type Pt = [number, number];
 type Body = {
-  action: "start" | "join" | "attack" | "defend" | "cast" | "flee";
-  target_name?: string;          // npc/player name (for start, attack)
+  action: "start" | "join" | "attack" | "defend" | "cast" | "cast_lesser" | "interrupt" | "flee";
+  target_name?: string;
   target_kind?: "npc" | "player";
   combat_id?: string;
-  rune_key?: string;             // for cast
-  cast_item_id?: string;         // which item (focus) to spend a charge from
+  rune_key?: string;
+  cast_item_id?: string;
+  stroke?: Pt[];           // for cast_lesser
+  trace_score?: number;    // optional client-reported score (server re-scores anyway)
 };
+
+// === $1 unistroke (mirrors lesser-rune-cast) ===
+const N = 64; const HALF_DIAGONAL = 0.5 * Math.SQRT2;
+const ANGLE_RANGE = (45 * Math.PI) / 180; const ANGLE_PRECISION = (2 * Math.PI) / 180;
+const PHI = 0.5 * (-1 + Math.sqrt(5));
+const dist = (a: Pt, b: Pt) => Math.hypot(a[0]-b[0], a[1]-b[1]);
+function pathLen(p: Pt[]) { let d=0; for (let i=1;i<p.length;i++) d+=dist(p[i-1],p[i]); return d; }
+function resample(p: Pt[], n: number): Pt[] {
+  if (p.length<2) return p.slice();
+  const I = pathLen(p)/(n-1); let D=0; const out: Pt[]=[p[0]]; const pts=p.slice();
+  for (let i=1;i<pts.length;i++) {
+    const d = dist(pts[i-1], pts[i]);
+    if (D+d>=I) { const qx=pts[i-1][0]+((I-D)/d)*(pts[i][0]-pts[i-1][0]);
+      const qy=pts[i-1][1]+((I-D)/d)*(pts[i][1]-pts[i-1][1]);
+      const q: Pt=[qx,qy]; out.push(q); pts.splice(i,0,q); D=0;
+    } else D+=d;
+  }
+  while (out.length<n) out.push(pts[pts.length-1]); return out;
+}
+function centroid(p: Pt[]): Pt { let x=0,y=0; for (const q of p){x+=q[0];y+=q[1];} return [x/p.length,y/p.length]; }
+function rotateBy(p: Pt[], r: number): Pt[] { const c=centroid(p); const cs=Math.cos(r),sn=Math.sin(r);
+  return p.map(q=>[(q[0]-c[0])*cs-(q[1]-c[1])*sn+c[0],(q[0]-c[0])*sn+(q[1]-c[1])*cs+c[1]] as Pt); }
+function scaleTo(p: Pt[], s: number): Pt[] { let mnX=Infinity,mxX=-Infinity,mnY=Infinity,mxY=-Infinity;
+  for (const q of p){if(q[0]<mnX)mnX=q[0];if(q[0]>mxX)mxX=q[0];if(q[1]<mnY)mnY=q[1];if(q[1]>mxY)mxY=q[1];}
+  const w=mxX-mnX||1,h=mxY-mnY||1; return p.map(q=>[(q[0]-mnX)*(s/w),(q[1]-mnY)*(s/h)] as Pt); }
+function translateTo(p: Pt[], t: Pt): Pt[] { const c=centroid(p); return p.map(q=>[q[0]+t[0]-c[0],q[1]+t[1]-c[1]] as Pt); }
+function pathDistance(a: Pt[], b: Pt[]) { let d=0; const n=Math.min(a.length,b.length);
+  for (let i=0;i<n;i++) d+=dist(a[i],b[i]); return d/n; }
+function distAtAngle(p: Pt[], t: Pt[], r: number) { return pathDistance(rotateBy(p,r),t); }
+function distAtBest(p: Pt[], t: Pt[]) { let a=-ANGLE_RANGE,b=ANGLE_RANGE;
+  let x1=PHI*a+(1-PHI)*b; let f1=distAtAngle(p,t,x1);
+  let x2=(1-PHI)*a+PHI*b; let f2=distAtAngle(p,t,x2);
+  while (Math.abs(b-a)>ANGLE_PRECISION) {
+    if (f1<f2){b=x2;x2=x1;f2=f1;x1=PHI*a+(1-PHI)*b;f1=distAtAngle(p,t,x1);}
+    else {a=x1;x1=x2;f1=f2;x2=(1-PHI)*a+PHI*b;f2=distAtAngle(p,t,x2);}
+  } return Math.min(f1,f2);
+}
+function preprocess(r: Pt[]): Pt[] { let p=resample(r,N);
+  const ang=Math.atan2(centroid(p)[1]-p[0][1], centroid(p)[0]-p[0][0]);
+  p=rotateBy(p,-ang); p=scaleTo(p,1); p=translateTo(p,[0,0]); return p; }
+function scoreStroke(drawn: Pt[], tpl: Pt[]): number {
+  if (drawn.length<4||tpl.length<2) return 0;
+  return Math.max(0, 1 - distAtBest(preprocess(drawn), preprocess(tpl))/HALF_DIAGONAL);
+}
+
+// === AI narration ===
+async function narrateLine(args: {
+  actor: string; verb: "strikes" | "casts" | "defends" | "is_struck"; target?: string;
+  weapon?: string; armor?: string; rune?: string; runeGlyph?: string;
+  damage?: number; outcome?: string; defeated?: boolean;
+}): Promise<string | null> {
+  const key = Deno.env.get("LOVABLE_API_KEY"); if (!key) return null;
+  const sys = `You are a combat narrator for EverBloom — a dying world of Aethers, mouth-bound Veiled, and the silenced Speaker. Output ONE vivid sentence (max 28 words), present tense, third person, no second-person, no game numbers, no quest hooks. Reference the named weapon/armor/rune naturally when given. End with a hard period.`;
+  const lines: string[] = [`${args.actor} ${args.verb}${args.target ? ` ${args.target}` : ""}.`];
+  if (args.weapon) lines.push(`Weapon: ${args.weapon}.`);
+  if (args.armor) lines.push(`Wearing: ${args.armor}.`);
+  if (args.rune) lines.push(`Rune: ${args.runeGlyph ?? ""} ${args.rune}.`);
+  if (typeof args.damage === "number") lines.push(`Damage dealt: ${args.damage}.`);
+  if (args.outcome) lines.push(`Trace outcome: ${args.outcome}.`);
+  if (args.defeated) lines.push(`Result: target falls.`);
+  try {
+    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [{ role: "system", content: sys }, { role: "user", content: lines.join("\n") }],
+      }),
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const t = j.choices?.[0]?.message?.content?.trim();
+    if (!t) return null;
+    return t.replace(/^["'\s]+|["'\s]+$/g, "").slice(0, 240);
+  } catch { return null; }
+}
 
 const SR = (n: number) => Math.floor(Math.random() * n);
 
@@ -40,9 +119,15 @@ Deno.serve(async (req) => {
       const { data: items } = await admin.from("player_items").select("*, items(*), item_runes(*, runes(*))")
         .eq("user_id", uid).not("equipped_slot", "is", null);
       let dmg = 1, armor = 0, hpBonus = 0;
+      let weaponName: string | null = null;
+      const armorPieces: string[] = [];
       for (const pi of (items ?? []) as any[]) {
-        dmg += pi.items.base_damage ?? 0;
-        armor += pi.items.base_armor ?? 0;
+        const slot = pi.equipped_slot;
+        const baseD = pi.items.base_damage ?? 0;
+        const baseA = pi.items.base_armor ?? 0;
+        dmg += baseD; armor += baseA;
+        if ((slot === "main_hand" || slot === "off_hand") && (baseD > 0 || !weaponName)) weaponName = pi.items.name;
+        if (baseA > 0) armorPieces.push(pi.items.name);
         for (const ir of pi.item_runes ?? []) {
           const eff = ir.runes?.effect ?? {};
           if (eff.type === "damage_bonus") dmg += eff.value;
@@ -50,7 +135,7 @@ Deno.serve(async (req) => {
           if (eff.type === "max_hp") hpBonus += eff.value;
         }
       }
-      return { prof, dmg, armor, hpBonus };
+      return { prof, dmg, armor, hpBonus, weaponName, armorName: armorPieces.join(", ") || null };
     };
 
     const pushAction = async (combatId: string, turn: number, actorId: string | null, actorName: string,
@@ -109,15 +194,22 @@ Deno.serve(async (req) => {
       if (enemies.length === 0) { await advanceTurn(combatId); return; }
       const target = enemies[SR(enemies.length)];
       const dmg = 2 + SR(4);
-      const final = Math.max(1, dmg - (target.kind === "player" ? (await playerStats(target.user_id)).armor : 0) - (target.defending ? 2 : 0));
+      let targetGear: { armor: number; weaponName: string | null; armorName: string | null } = { armor: 0, weaponName: null, armorName: null };
+      if (target.kind === "player") targetGear = await playerStats(target.user_id);
+      const final = Math.max(1, dmg - targetGear.armor - (target.defending ? 2 : 0));
       const newHp = Math.max(0, target.hp - final);
       const defeated = newHp <= 0;
       await admin.from("combatants").update({ hp: newHp, defeated }).eq("id", target.id);
       if (target.kind === "player") {
         await admin.from("profiles").update({ hp: newHp }).eq("id", target.user_id);
       }
-      await pushAction(combatId, combat!.turn_number, null, npc.name, "attack", target.name,
-        `${npc.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`, final);
+      const fallback = `${npc.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`;
+      const ai = await narrateLine({
+        actor: npc.name, verb: "strikes", target: target.name,
+        armor: targetGear.armorName ?? undefined,
+        damage: final, defeated,
+      });
+      await pushAction(combatId, combat!.turn_number, null, npc.name, "attack", target.name, ai ?? fallback, final);
       await advanceTurn(combatId);
     };
 
@@ -232,8 +324,15 @@ Deno.serve(async (req) => {
       if (target.kind === "player") {
         await admin.from("profiles").update({ hp: newHp }).eq("id", target.user_id);
       }
-      await pushAction(combatId, combat.turn_number, user.id, me.name, "attack", target.name,
-        `${me.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`, final);
+      const targetArmorName = target.kind === "player" ? (await playerStats(target.user_id)).armorName : null;
+      const fallback = `${me.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`;
+      const ai = await narrateLine({
+        actor: me.name, verb: "strikes", target: target.name,
+        weapon: stats.weaponName ?? undefined,
+        armor: targetArmorName ?? undefined,
+        damage: final, defeated,
+      });
+      await pushAction(combatId, combat.turn_number, user.id, me.name, "attack", target.name, ai ?? fallback, final);
       // XP/gold reward on kill (only against NPCs)
       if (defeated && target.kind === "npc") {
         const reward = 8 + SR(8); const goldReward = 3 + SR(8); const meritReward = 1 + SR(2);
@@ -337,9 +436,112 @@ Deno.serve(async (req) => {
         text = `${me.name} hurls ${chosen.ir.runes.glyph} ${chosen.ir.runes.name} at ${target.name} for ${dmg} damage.${defeated ? ` ${target.name} falls!` : ""}`;
       }
       await admin.from("item_runes").update({ charges: chosen.ir.charges - 1 }).eq("id", chosen.ir.id);
-      await pushAction(combatId, combat.turn_number, user.id, me.name, "cast", null, text);
+      const aiCast = await narrateLine({
+        actor: me.name, verb: "casts",
+        rune: chosen.ir.runes.name, runeGlyph: chosen.ir.runes.glyph,
+      });
+      await pushAction(combatId, combat.turn_number, user.id, me.name, "cast", null, aiCast ? `${aiCast} (${text})` : text);
       await advanceTurn(combatId);
       return ok({ ok: true });
+    }
+
+    // ===== CAST_LESSER (timed traced rune in combat) =====
+    if (body.action === "cast_lesser") {
+      if (!body.rune_key || !Array.isArray(body.stroke) || body.stroke.length < 6) {
+        throw new Error("Trace required to weave a lesser rune.");
+      }
+      const { data: rune } = await admin.from("lesser_runes").select("*").eq("key", body.rune_key).maybeSingle();
+      if (!rune) throw new Error("No such rune.");
+      const { data: kn } = await admin.from("player_lesser_rune_knowledge")
+        .select("knows_word, knows_symbol").eq("user_id", user.id).eq("rune_key", body.rune_key).maybeSingle();
+      if (!kn?.knows_word || !kn?.knows_symbol) throw new Error(`You have not yet bound the rune ${rune.latin_name}.`);
+
+      const tpl = rune.template as Pt[];
+      const score = Math.max(scoreStroke(body.stroke as Pt[], tpl), scoreStroke(body.stroke as Pt[], [...tpl].reverse()));
+      const eff = (rune.effect ?? {}) as Record<string, any>;
+      const enemies = (combatants ?? []).filter((c: any) => c.side !== me.side && !c.defeated);
+
+      let text = ""; let damage = 0; let healed = 0;
+      let outcome: "perfect" | "weakened" | "fizzle" | "backfire" = "fizzle";
+      if (score >= 0.85) outcome = "perfect";
+      else if (score >= 0.6) outcome = "weakened";
+      else if (score >= 0.35) outcome = "fizzle";
+      else outcome = "backfire";
+
+      if (eff.type === "heal") {
+        const base = eff.power ?? 6;
+        healed = outcome === "perfect" ? base : outcome === "weakened" ? Math.max(1, Math.round(base * 0.5)) : 0;
+        const newHp = Math.min(me.max_hp, me.hp + healed);
+        await admin.from("combatants").update({ hp: newHp }).eq("id", me.id);
+        await admin.from("profiles").update({ hp: newHp }).eq("id", user.id);
+        text = `${me.name} traces ${rune.glyph} ${rune.latin_name} (${Math.round(score*100)}%). Skin knits — +${healed} HP.`;
+      } else {
+        const target = body.target_name
+          ? (enemies.find((e: any) => e.name.toLowerCase().startsWith(body.target_name!.toLowerCase())) ?? enemies[0])
+          : enemies[0];
+        if (!target && outcome !== "backfire") throw new Error("No target.");
+        const base = eff.power ?? 6;
+        damage = outcome === "perfect" ? base + SR(3)
+               : outcome === "weakened" ? Math.max(1, Math.round(base * 0.5))
+               : 0;
+        if (target && damage > 0) {
+          const newHp = Math.max(0, target.hp - damage);
+          const defeated = newHp <= 0;
+          await admin.from("combatants").update({ hp: newHp, defeated }).eq("id", target.id);
+          if (target.kind === "player") await admin.from("profiles").update({ hp: newHp }).eq("id", target.user_id);
+          text = `${me.name} hurls ${rune.glyph} ${rune.latin_name} at ${target.name} (${Math.round(score*100)}%) — ${damage} damage.${defeated ? ` ${target.name} falls!` : ""}`;
+        } else if (outcome === "backfire") {
+          const back = 2 + SR(3);
+          const newHp = Math.max(0, me.hp - back);
+          await admin.from("combatants").update({ hp: newHp }).eq("id", me.id);
+          await admin.from("profiles").update({ hp: newHp, corruption: (profile.corruption ?? 0) + 1 }).eq("id", user.id);
+          text = `${me.name}'s ${rune.glyph} ${rune.latin_name} unravels and bites back — ${back} damage.`;
+        } else {
+          text = `${me.name}'s ${rune.glyph} ${rune.latin_name} hangs broken in the air, then unravels.`;
+        }
+      }
+
+      const aiLesser = await narrateLine({
+        actor: me.name, verb: "casts", target: body.target_name ?? undefined,
+        rune: rune.latin_name, runeGlyph: rune.glyph,
+        weapon: stats.weaponName ?? undefined,
+        damage: damage || undefined, outcome,
+      });
+      await pushAction(combatId, combat.turn_number, user.id, me.name, "cast_lesser", body.target_name ?? null,
+        aiLesser ? `${aiLesser} (${text})` : text, damage);
+
+      // Mastery
+      await admin.from("player_lesser_runes").upsert({
+        user_id: user.id, rune_key: body.rune_key,
+        best_score: score, cast_count: 1,
+        backfire_count: outcome === "backfire" ? 1 : 0,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id,rune_key" });
+
+      await advanceTurn(combatId);
+      return ok({ ok: true, score: Math.round(score * 100), outcome, damage, healed });
+    }
+
+    // ===== INTERRUPT (player ran out of trace time — foe gets a free swing) =====
+    if (body.action === "interrupt") {
+      const enemies = (combatants ?? []).filter((c: any) => c.side !== me.side && !c.defeated);
+      const foe = enemies[SR(enemies.length)];
+      if (foe) {
+        const dmg = 2 + SR(4);
+        const final = Math.max(1, dmg - stats.armor);
+        const newHp = Math.max(0, me.hp - final);
+        await admin.from("combatants").update({ hp: newHp }).eq("id", me.id);
+        await admin.from("profiles").update({ hp: newHp }).eq("id", user.id);
+        const aiInt = await narrateLine({
+          actor: foe.name, verb: "strikes", target: me.name,
+          armor: stats.armorName ?? undefined,
+          damage: final, outcome: "interrupt",
+        });
+        await pushAction(combatId, combat.turn_number, null, foe.name, "interrupt", me.name,
+          aiInt ?? `${me.name}'s hand falters mid-trace — ${foe.name} drives in for ${final} damage.`, final);
+      }
+      // Player's turn stays open; they may try again or attack/defend.
+      return ok({ ok: true, interrupted: true });
     }
 
     if (body.action === "flee") {
