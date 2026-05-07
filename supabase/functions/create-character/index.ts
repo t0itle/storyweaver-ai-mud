@@ -45,6 +45,8 @@ Deno.serve(async (req) => {
 Subject: a ${race.visual_traits}.
 Player describes themselves as: ${description.trim()}
 
+IMPORTANT: Do NOT add any weapons, swords, daggers, bows, staves, shields, or armor pieces unless the player's description explicitly mentions them. No props of any kind unless described. Plain travelling clothes by default.
+
 Style: painterly brushwork in the spirit of Studio Ghibli character art and Craig Mullins — believable light, balanced colour, slight grain.`;
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
