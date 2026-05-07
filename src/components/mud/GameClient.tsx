@@ -880,7 +880,7 @@ export default function GameClient({ session }: { session: Session }) {
 
   // ===== Permadeath screen =====
   if (profile.dead) {
-    const [reviving, setReviving] = useState(false); // not actually used; kept for clarity
+    // (Dead is a render-only branch; no hooks here.)
     return (
       <div className="min-h-screen bg-black text-red-100 flex flex-col items-center justify-center gap-6 p-8 text-center">
         <div className="text-7xl">⚰</div>
