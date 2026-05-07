@@ -208,7 +208,7 @@ export default function GameClient({ session }: { session: Session }) {
     (async () => {
       const nowIso = new Date().toISOString();
       // Only show conversations from the moment the player arrived in this room.
-      const [{ data: r }, { data: n }, { data: m }, { data: ev }, { data: dr }] = await Promise.all([
+      const [{ data: r }, { data: nAll }, { data: m }, { data: ev }, { data: dr }, { data: discov }] = await Promise.all([
         supabase.from("rooms").select("*").eq("slug", slug).maybeSingle(),
         supabase.from("npcs").select("*").eq("room", slug)
           .or(`dead_until.is.null,dead_until.lte.${nowIso}`),
@@ -221,7 +221,11 @@ export default function GameClient({ session }: { session: Session }) {
           .or(`decay_at.is.null,decay_at.gte.${nowIso}`)
           .order("created_at", { ascending: false }).limit(5),
         supabase.from("dragons").select("name, epithet, personality").eq("current_room", slug),
+        supabase.from("player_npc_discoveries").select("npc_id").eq("user_id", profile.id),
       ]);
+      const discoveredIds = new Set((discov ?? []).map((d: any) => d.npc_id));
+      // Hide soul/hidden NPCs that this player has not personally uncovered.
+      const n = (nAll ?? []).filter((x: any) => !x.hidden || discoveredIds.has(x.id));
       if (r) setRoom(r as Room);
       setNpcs((n ?? []) as Npc[]);
       setDragons((dr ?? []) as any);
