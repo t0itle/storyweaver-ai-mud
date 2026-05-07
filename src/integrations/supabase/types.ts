@@ -980,6 +980,9 @@ export type Database = {
           dead: boolean
           dead_at: string | null
           death_room: string | null
+          desert_bearing: number
+          desert_depth: number
+          desert_entered_from: string | null
           downed: boolean
           downed_at: string | null
           downed_combat_id: string | null
@@ -1016,6 +1019,9 @@ export type Database = {
           dead?: boolean
           dead_at?: string | null
           death_room?: string | null
+          desert_bearing?: number
+          desert_depth?: number
+          desert_entered_from?: string | null
           downed?: boolean
           downed_at?: string | null
           downed_combat_id?: string | null
@@ -1052,6 +1058,9 @@ export type Database = {
           dead?: boolean
           dead_at?: string | null
           death_room?: string | null
+          desert_bearing?: number
+          desert_depth?: number
+          desert_entered_from?: string | null
           downed?: boolean
           downed_at?: string | null
           downed_combat_id?: string | null
