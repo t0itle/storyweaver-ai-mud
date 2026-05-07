@@ -617,7 +617,20 @@ export default function GameClient({ session }: { session: Session }) {
       const compassWords = ["north","south","east","west","up","down"];
       if (compassWords.includes(dir)) {
         const target = (room.exits as Record<string, string>)[dir];
-        if (!target) {
+        const isDesert = room.kind === "desert";
+        const isCardinal = ["north","south","east","west"].includes(dir);
+        // In the deep desert, every cardinal step is a wander roll, even if a stale exit exists.
+        // In other desert rooms, only directions with no marked road push you off-piste.
+        if (isDesert && isCardinal && (room.slug === "deep-desert" || !target)) {
+          setMessages((m) => [...m, localSys(`*You leave the road and walk ${dir} into the sand.*`)]);
+          try {
+            const { data, error } = await supabase.functions.invoke("desert-wander", { body: { direction: dir } });
+            if (error || data?.error) throw new Error(data?.error ?? error?.message);
+            await reloadProfile();
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "the desert turns you back");
+          }
+        } else if (!target) {
           setMessages((m) => [...m, localSys(`You cannot go ${dir} from here.`)]);
         } else {
           await moveTo(target);
