@@ -5,8 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import logo from "@/assets/everbloom-logo.png";
+import Intro from "./Intro";
+
+const INTRO_KEY = "everbloom-intro-seen";
 
 export default function Landing() {
+  const [showIntro, setShowIntro] = useState(() => {
+    try { return sessionStorage.getItem(INTRO_KEY) !== "1"; } catch { return true; }
+  });
   const [mode, setMode] = useState<"signin" | "signup">("signup");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
