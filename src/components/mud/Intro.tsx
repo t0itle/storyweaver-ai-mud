@@ -94,8 +94,8 @@ export default function Intro({ onDone }: { onDone: () => void }) {
           return (
             <p
               key={i}
-              className="absolute max-w-3xl text-center font-display text-2xl md:text-4xl lg:text-5xl text-parchment leading-relaxed tracking-wide whitespace-pre-line drop-shadow-[0_2px_30px_rgba(0,0,0,0.9)]"
-              style={{ opacity: o, transform: `translateY(${(1 - o) * 8}px)`, transition: "transform 200ms ease-out" }}
+              className="absolute max-w-xl text-center font-display text-lg md:text-2xl lg:text-3xl text-parchment leading-relaxed tracking-wide whitespace-pre-line drop-shadow-[0_2px_30px_rgba(0,0,0,0.9)]"
+              style={{ opacity: o, transform: `translateY(${(1 - o) * 6}px)`, transition: "transform 240ms ease-out" }}
             >
               {v.text}
             </p>
