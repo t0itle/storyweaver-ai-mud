@@ -302,7 +302,11 @@ Deno.serve(async (req) => {
     const { data: combatants } = await admin.from("combatants").select("*").eq("combat_id", combatId);
     const me = (combatants ?? []).find((c: any) => c.user_id === user.id);
     if (!me) throw new Error("You are not in this fight.");
-    if (combat.current_combatant_id !== me.id) throw new Error("It is not your turn.");
+    if (combat.current_combatant_id !== me.id) {
+      // Interrupt is a timer-driven side effect — silently no-op if the turn already moved on.
+      if (body.action === "interrupt") return ok({ ok: true, skipped: true });
+      throw new Error("It is not your turn.");
+    }
 
     const stats = await playerStats(user.id);
 
