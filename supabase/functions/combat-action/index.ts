@@ -119,9 +119,15 @@ Deno.serve(async (req) => {
       const { data: items } = await admin.from("player_items").select("*, items(*), item_runes(*, runes(*))")
         .eq("user_id", uid).not("equipped_slot", "is", null);
       let dmg = 1, armor = 0, hpBonus = 0;
+      let weaponName: string | null = null;
+      const armorPieces: string[] = [];
       for (const pi of (items ?? []) as any[]) {
-        dmg += pi.items.base_damage ?? 0;
-        armor += pi.items.base_armor ?? 0;
+        const slot = pi.equipped_slot;
+        const baseD = pi.items.base_damage ?? 0;
+        const baseA = pi.items.base_armor ?? 0;
+        dmg += baseD; armor += baseA;
+        if ((slot === "main_hand" || slot === "off_hand") && (baseD > 0 || !weaponName)) weaponName = pi.items.name;
+        if (baseA > 0) armorPieces.push(pi.items.name);
         for (const ir of pi.item_runes ?? []) {
           const eff = ir.runes?.effect ?? {};
           if (eff.type === "damage_bonus") dmg += eff.value;
@@ -129,7 +135,7 @@ Deno.serve(async (req) => {
           if (eff.type === "max_hp") hpBonus += eff.value;
         }
       }
-      return { prof, dmg, armor, hpBonus };
+      return { prof, dmg, armor, hpBonus, weaponName, armorName: armorPieces.join(", ") || null };
     };
 
     const pushAction = async (combatId: string, turn: number, actorId: string | null, actorName: string,
