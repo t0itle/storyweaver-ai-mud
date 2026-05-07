@@ -7,14 +7,93 @@ const corsHeaders = {
 const ok = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
+type Pt = [number, number];
 type Body = {
-  action: "start" | "join" | "attack" | "defend" | "cast" | "flee";
-  target_name?: string;          // npc/player name (for start, attack)
+  action: "start" | "join" | "attack" | "defend" | "cast" | "cast_lesser" | "interrupt" | "flee";
+  target_name?: string;
   target_kind?: "npc" | "player";
   combat_id?: string;
-  rune_key?: string;             // for cast
-  cast_item_id?: string;         // which item (focus) to spend a charge from
+  rune_key?: string;
+  cast_item_id?: string;
+  stroke?: Pt[];           // for cast_lesser
+  trace_score?: number;    // optional client-reported score (server re-scores anyway)
 };
+
+// === $1 unistroke (mirrors lesser-rune-cast) ===
+const N = 64; const HALF_DIAGONAL = 0.5 * Math.SQRT2;
+const ANGLE_RANGE = (45 * Math.PI) / 180; const ANGLE_PRECISION = (2 * Math.PI) / 180;
+const PHI = 0.5 * (-1 + Math.sqrt(5));
+const dist = (a: Pt, b: Pt) => Math.hypot(a[0]-b[0], a[1]-b[1]);
+function pathLen(p: Pt[]) { let d=0; for (let i=1;i<p.length;i++) d+=dist(p[i-1],p[i]); return d; }
+function resample(p: Pt[], n: number): Pt[] {
+  if (p.length<2) return p.slice();
+  const I = pathLen(p)/(n-1); let D=0; const out: Pt[]=[p[0]]; const pts=p.slice();
+  for (let i=1;i<pts.length;i++) {
+    const d = dist(pts[i-1], pts[i]);
+    if (D+d>=I) { const qx=pts[i-1][0]+((I-D)/d)*(pts[i][0]-pts[i-1][0]);
+      const qy=pts[i-1][1]+((I-D)/d)*(pts[i][1]-pts[i-1][1]);
+      const q: Pt=[qx,qy]; out.push(q); pts.splice(i,0,q); D=0;
+    } else D+=d;
+  }
+  while (out.length<n) out.push(pts[pts.length-1]); return out;
+}
+function centroid(p: Pt[]): Pt { let x=0,y=0; for (const q of p){x+=q[0];y+=q[1];} return [x/p.length,y/p.length]; }
+function rotateBy(p: Pt[], r: number): Pt[] { const c=centroid(p); const cs=Math.cos(r),sn=Math.sin(r);
+  return p.map(q=>[(q[0]-c[0])*cs-(q[1]-c[1])*sn+c[0],(q[0]-c[0])*sn+(q[1]-c[1])*cs+c[1]] as Pt); }
+function scaleTo(p: Pt[], s: number): Pt[] { let mnX=Infinity,mxX=-Infinity,mnY=Infinity,mxY=-Infinity;
+  for (const q of p){if(q[0]<mnX)mnX=q[0];if(q[0]>mxX)mxX=q[0];if(q[1]<mnY)mnY=q[1];if(q[1]>mxY)mxY=q[1];}
+  const w=mxX-mnX||1,h=mxY-mnY||1; return p.map(q=>[(q[0]-mnX)*(s/w),(q[1]-mnY)*(s/h)] as Pt); }
+function translateTo(p: Pt[], t: Pt): Pt[] { const c=centroid(p); return p.map(q=>[q[0]+t[0]-c[0],q[1]+t[1]-c[1]] as Pt); }
+function pathDistance(a: Pt[], b: Pt[]) { let d=0; const n=Math.min(a.length,b.length);
+  for (let i=0;i<n;i++) d+=dist(a[i],b[i]); return d/n; }
+function distAtAngle(p: Pt[], t: Pt[], r: number) { return pathDistance(rotateBy(p,r),t); }
+function distAtBest(p: Pt[], t: Pt[]) { let a=-ANGLE_RANGE,b=ANGLE_RANGE;
+  let x1=PHI*a+(1-PHI)*b; let f1=distAtAngle(p,t,x1);
+  let x2=(1-PHI)*a+PHI*b; let f2=distAtAngle(p,t,x2);
+  while (Math.abs(b-a)>ANGLE_PRECISION) {
+    if (f1<f2){b=x2;x2=x1;f2=f1;x1=PHI*a+(1-PHI)*b;f1=distAtAngle(p,t,x1);}
+    else {a=x1;x1=x2;f1=f2;x2=(1-PHI)*a+PHI*b;f2=distAtAngle(p,t,x2);}
+  } return Math.min(f1,f2);
+}
+function preprocess(r: Pt[]): Pt[] { let p=resample(r,N);
+  const ang=Math.atan2(centroid(p)[1]-p[0][1], centroid(p)[0]-p[0][0]);
+  p=rotateBy(p,-ang); p=scaleTo(p,1); p=translateTo(p,[0,0]); return p; }
+function scoreStroke(drawn: Pt[], tpl: Pt[]): number {
+  if (drawn.length<4||tpl.length<2) return 0;
+  return Math.max(0, 1 - distAtBest(preprocess(drawn), preprocess(tpl))/HALF_DIAGONAL);
+}
+
+// === AI narration ===
+async function narrateLine(args: {
+  actor: string; verb: "strikes" | "casts" | "defends" | "is_struck"; target?: string;
+  weapon?: string; armor?: string; rune?: string; runeGlyph?: string;
+  damage?: number; outcome?: string; defeated?: boolean;
+}): Promise<string | null> {
+  const key = Deno.env.get("LOVABLE_API_KEY"); if (!key) return null;
+  const sys = `You are a combat narrator for EverBloom — a dying world of Aethers, mouth-bound Veiled, and the silenced Speaker. Output ONE vivid sentence (max 28 words), present tense, third person, no second-person, no game numbers, no quest hooks. Reference the named weapon/armor/rune naturally when given. End with a hard period.`;
+  const lines: string[] = [`${args.actor} ${args.verb}${args.target ? ` ${args.target}` : ""}.`];
+  if (args.weapon) lines.push(`Weapon: ${args.weapon}.`);
+  if (args.armor) lines.push(`Wearing: ${args.armor}.`);
+  if (args.rune) lines.push(`Rune: ${args.runeGlyph ?? ""} ${args.rune}.`);
+  if (typeof args.damage === "number") lines.push(`Damage dealt: ${args.damage}.`);
+  if (args.outcome) lines.push(`Trace outcome: ${args.outcome}.`);
+  if (args.defeated) lines.push(`Result: target falls.`);
+  try {
+    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [{ role: "system", content: sys }, { role: "user", content: lines.join("\n") }],
+      }),
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const t = j.choices?.[0]?.message?.content?.trim();
+    if (!t) return null;
+    return t.replace(/^["'\s]+|["'\s]+$/g, "").slice(0, 240);
+  } catch { return null; }
+}
 
 const SR = (n: number) => Math.floor(Math.random() * n);
 
