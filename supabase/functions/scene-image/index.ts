@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
       ? `Recent events that have visibly altered this place: ${context_extra}. Show those scars on the world — burn marks, broken stone, fresh graves, ash in the air, signs of struggle — woven naturally into the scene.`
       : "";
 
-    const prompt = `Painterly fantasy environment concept art, oil-painted, cinematic wide shot, parchment-and-ember palette (deep crimson, ash gray, candle gold, smoky black), atmospheric volumetric light, no text, no logos, no characters in the foreground.
+    const prompt = `Painterly fantasy environment concept art, oil-painted, cinematic wide shot. Palette: ${mood.palette}. Mood: ${mood.mood}. Atmospheric volumetric light, no text, no logos, no characters in the foreground. Do NOT default to fire, embers, ash, or grimdark unless the scene explicitly calls for it.
 
 Scene: ${room.name}.
 ${room.description}
@@ -101,7 +101,7 @@ ${room.ambience ?? ""}
 ${npcLine}
 ${eventsLine}
 
-Style: Frank Frazetta meets Greg Rutkowski, brooding fantasy, painterly brushwork, slight grain.`;
+Style: painterly brushwork in the spirit of Studio Ghibli backgrounds and Craig Mullins — naturalistic colour, believable light, slight grain. Match the palette and mood above; let the location's true character lead the image.`;
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
