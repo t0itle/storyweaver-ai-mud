@@ -647,6 +647,11 @@ export default function GameClient({ session }: { session: Session }) {
           body: { npc_id: npc.id, room: profile.current_room, player_input: what, player_name: profile.username },
         });
         if (error) throw error;
+        if (data?.silent) {
+          toast.warning("The dead are silent without the Blessing of 💀 Necros.");
+          setMessages((mm) => [...mm, localSys(`*${npc.name}'s mouth moves, but no sound reaches you. You need the Blessing of **💀 Necros** to hear the dead. Seek **Vesha the Tongue-of-Ash** at the Skeleton Kiln.*`)]);
+          return;
+        }
         if (data?.amity?.score !== undefined) {
           setAmityByNpc((prev) => ({ ...prev, [npc.id]: data.amity.score }));
         }
