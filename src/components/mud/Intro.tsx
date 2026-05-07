@@ -1,18 +1,33 @@
 import { useEffect, useRef, useState } from "react";
 import introVideo from "@/assets/intro-creation.mp4.asset.json";
 
-// Sequential creation-myth verses. Each fades in, holds, fades out.
+// Kingdom-Hearts-style intimate lead-in, then the creation myth, then the question.
+// Each line fades in, holds, fades out. Small form, one breath at a time.
 const VERSES: { text: string; at: number; hold: number }[] = [
-  { text: "In the beginning, there was nothing.", at: 600, hold: 3200 },
-  { text: "Then the Light came…", at: 4200, hold: 3200 },
-  { text: "And the Speaker opened its mouth.", at: 7800, hold: 3400 },
-  { text: "From that breath poured the seven Aethers — every spoken thing.", at: 11600, hold: 4200 },
-  { text: "But for every light, a Shadow waits.", at: 16200, hold: 3600 },
-  { text: "The Speaker is silenced now. The maps are eaten. The cities forget their names.", at: 20200, hold: 4600 },
-  { text: "Yet a single pool still blooms in the deep desert —\nand it is asking who you mean to be.", at: 25200, hold: 4800 },
+  // ── Lead-in: the world is asking ──
+  { text: "Close your eyes.", at: 600, hold: 2600 },
+  { text: "Somewhere, a world you have never seen\nis already waiting for you.", at: 3600, hold: 3600 },
+  { text: "It does not know your name yet.", at: 7600, hold: 3000 },
+  { text: "It does not know your face.", at: 10800, hold: 3000 },
+  { text: "Only that you are coming.", at: 14000, hold: 3200 },
+  { text: "And that, when you arrive,\nit would like to ask you something.", at: 17400, hold: 4000 },
+
+  // ── Creation myth ──
+  { text: "But first —\nlisten to how it began.", at: 21800, hold: 3600 },
+  { text: "In the beginning, there was nothing.", at: 25600, hold: 3200 },
+  { text: "Then the Light came…", at: 29200, hold: 3000 },
+  { text: "And the Speaker opened its mouth.", at: 32400, hold: 3200 },
+  { text: "From that breath poured the seven Aethers —\nevery spoken thing.", at: 35800, hold: 4000 },
+  { text: "But for every light, a Shadow waits.", at: 40000, hold: 3400 },
+  { text: "The Speaker is silenced now.\nThe maps are eaten. The cities forget their names.", at: 43600, hold: 4400 },
+
+  // ── The question ──
+  { text: "And yet — a single pool still blooms\nin the deep desert.", at: 48200, hold: 3800 },
+  { text: "It is asking who you mean to be.", at: 52200, hold: 3600 },
+  { text: "Take your time.\nThe answer is yours alone.", at: 56000, hold: 4000 },
 ];
 
-const TOTAL = 30600; // a touch past the last verse exit
+const TOTAL = 60600; // a touch past the last verse exit
 
 export default function Intro({ onDone }: { onDone: () => void }) {
   const [t, setT] = useState(0);
