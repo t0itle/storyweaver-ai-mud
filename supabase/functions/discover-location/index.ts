@@ -150,6 +150,22 @@ Rules:
     });
     if (insErr) throw insErr;
 
+    // Auto-weave: if discovered while standing in a real room, wire bidirectional exits.
+    if (fromRoom && fromRoom !== slug) {
+      const { data: origin } = await admin.from("rooms").select("slug,exits").eq("slug", fromRoom).maybeSingle();
+      if (origin) {
+        const originExits: Record<string, string> = { ...(origin.exits ?? {}) };
+        // Pick a free direction key on the origin so the new place is reachable.
+        const preferred = ["out", "north", "east", "south", "west", "in", "up", "down"];
+        let originKey = preferred.find(k => !originExits[k]);
+        if (!originKey) originKey = slugify(finalName).slice(0, 12) || "path";
+        originExits[originKey] = slug;
+        await admin.from("rooms").update({ exits: originExits }).eq("slug", fromRoom);
+        // The new room always points "back" to where the player came from.
+        await admin.from("rooms").update({ exits: { back: fromRoom } }).eq("slug", slug);
+      }
+    }
+
     // 3. Insert NPCs (resolve "here" to this slug, leave others as-is to be resolved later)
     const npcsIn = Array.isArray(parsed.npcs) ? parsed.npcs.slice(0, 3) : [];
     const bucket = timeBucket();
