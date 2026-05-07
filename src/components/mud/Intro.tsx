@@ -80,6 +80,7 @@ export default function Intro({ onDone }: { onDone: () => void }) {
         muted
         playsInline
         loop
+        onLoadedMetadata={(e) => { (e.currentTarget as HTMLVideoElement).playbackRate = 0.5; }}
         className="absolute inset-0 w-full h-full object-cover"
         style={{ opacity: videoOpacity, transition: "opacity 600ms ease-out" }}
       />
