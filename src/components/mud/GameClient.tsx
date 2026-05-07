@@ -617,8 +617,13 @@ export default function GameClient({ session }: { session: Session }) {
       else if (c === "go") dir = dir.replace(/^to\s+/, "").trim();
 
       const compassWords = ["north","south","east","west","up","down"];
-      if (compassWords.includes(dir)) {
-        const target = (room.exits as Record<string, string>)[dir];
+      const exitsMap = (room.exits as Record<string, string>) ?? {};
+      // Any named exit key on this room (back, out, in, up, down, sanctum, etc.) is a valid move.
+      const namedExitTarget = exitsMap[dir];
+      if (namedExitTarget && !compassWords.includes(dir)) {
+        await moveTo(namedExitTarget);
+      } else if (compassWords.includes(dir)) {
+        const target = exitsMap[dir];
         const isDesert = room.kind === "desert";
         const isCardinal = ["north","south","east","west"].includes(dir);
         // In the deep desert, every cardinal step is a wander roll, even if a stale exit exists.
