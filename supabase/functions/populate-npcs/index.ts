@@ -133,6 +133,9 @@ Generate exactly ${need} NPCs that BELONG here. They live here ("here" in schedu
           schedule: sched,
           current_activity: sched[bucket].activity,
           last_tick_at: new Date().toISOString(),
+          is_soul: isCrypt,
+          hidden: isCrypt,
+          requires_rune_key: isCrypt ? "necros" : null,
         };
       });
     if (rows.length) await admin.from("npcs").insert(rows);
