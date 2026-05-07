@@ -324,8 +324,15 @@ Deno.serve(async (req) => {
       if (target.kind === "player") {
         await admin.from("profiles").update({ hp: newHp }).eq("id", target.user_id);
       }
-      await pushAction(combatId, combat.turn_number, user.id, me.name, "attack", target.name,
-        `${me.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`, final);
+      const targetArmorName = target.kind === "player" ? (await playerStats(target.user_id)).armorName : null;
+      const fallback = `${me.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`;
+      const ai = await narrateLine({
+        actor: me.name, verb: "strikes", target: target.name,
+        weapon: stats.weaponName ?? undefined,
+        armor: targetArmorName ?? undefined,
+        damage: final, defeated,
+      });
+      await pushAction(combatId, combat.turn_number, user.id, me.name, "attack", target.name, ai ?? fallback, final);
       // XP/gold reward on kill (only against NPCs)
       if (defeated && target.kind === "npc") {
         const reward = 8 + SR(8); const goldReward = 3 + SR(8); const meritReward = 1 + SR(2);
