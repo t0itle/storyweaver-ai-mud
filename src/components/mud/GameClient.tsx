@@ -601,17 +601,7 @@ export default function GameClient({ session }: { session: Session }) {
         } else if (matches && matches.length > 1) {
           setMessages((m) => [...m, localSys(`Be more specific — could be: ${matches.map(r => r.name).join(", ")}.`)]);
         } else {
-          setMessages((m) => [...m, localSys(`You search your memory for "${dir}"… the world is shaping it now.`)]);
-          try {
-            const { data, error } = await supabase.functions.invoke("discover-location", {
-              body: { name: dir, from_room: profile.current_room },
-            });
-            if (error || data?.error) throw new Error(data?.error ?? error?.message);
-            setMessages((m) => [...m, localSys(`✦ ${data.name} ${data.created ? "takes shape on the map" : "is already known to you"}. You set out…`)]);
-            await moveTo(data.slug);
-          } catch (e) {
-            toast.error(e instanceof Error ? e.message : "The path refuses to form.");
-          }
+          setMessages((m) => [...m, localSys(`No road leads to "${dir}" from here. Follow exits, ask folk for directions, or hire a wagon.`)]);
         }
       } else {
         setMessages((m) => [...m, localSys(`Go where? Try a direction or "go to <place>".`)]);
@@ -666,24 +656,7 @@ export default function GameClient({ session }: { session: Session }) {
         } else if (data?.quest_resolution?.outcome === "fail") {
           toast.error(`Quest failed: ${data.quest_resolution.title}`);
         }
-        // Auto-discover any places the NPC named, so "go to <place>" works immediately.
-        const places: string[] = data?.mentioned_places ?? [];
-        if (places.length) {
-          (async () => {
-            const learned: string[] = [];
-            for (const p of places.slice(0, 4)) {
-              try {
-                const { data: d } = await supabase.functions.invoke("discover-location", {
-                  body: { name: p, hint: what, from_room: profile.current_room },
-                });
-                if (d?.created && d?.name) learned.push(d.name);
-              } catch { /* ignore */ }
-            }
-            if (learned.length) {
-              setMessages((mm) => [...mm, localSys(`✦ New places stir on the map: ${learned.join(", ")}. (try "go to ${learned[0]}")`)]);
-            }
-          })();
-        }
+        // NPCs may name places — but the world is fixed. We no longer auto-create rooms.
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
       } finally { setThinking(false); }
