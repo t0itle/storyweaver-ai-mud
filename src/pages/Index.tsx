@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import Landing from "@/components/mud/Landing";
 import GameClient from "@/components/mud/GameClient";
 import CharacterCreation from "@/components/mud/CharacterCreation";
+import Intro from "@/components/mud/Intro";
+
+const INTRO_KEY = "everbloom-intro-seen";
 
 const Index = () => {
   const [session, setSession] = useState<Session | null>(null);
