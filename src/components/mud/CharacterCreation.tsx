@@ -3,33 +3,13 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { ChevronRight, Flame, Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
+import desertBackdrop from "@/assets/desert-distant-city.jpg";
 
 interface Race {
   key: string; name: string; flavor: string;
   gain: string; cost: string; hp_mod: number; sort_order: number;
 }
-
-const INTRO_BEATS: { text: string; cta: string }[] = [
-  {
-    text: "First there was the Light.\n\nThen came the Speaker, and the Speaker opened its mouth, and from that mouth poured everything that is — sky, stone, sea, breath, name. The spoken things were called the Aethers, and they were good, and they were many.\n\nBut not all things are spoken. For every light there is a shadow. And the Shadow was already there, waiting, older than any word.",
-    cta: "And then —",
-  },
-  {
-    text: "Somewhere, the Speaker was silenced. Some say its own children stitched its mouth shut, terrified of what it might unspeak. Some say it bit down on a Shadow and could not let go.\n\nNow the Aethers fade like a story half-remembered. The cities forget their names. The desert eats the maps. Only the First City still burns against the dark — guarded by the Veiled, priests who cover their own mouths so they will not finish what the Speaker began.\n\nAnd in the deep desert, where no map remembers, a single pool blooms with flowers that exist nowhere else. The world calls it the EverBloom. The world is mostly wrong about it.",
-    cta: "Go on —",
-  },
-  {
-    text: "You are not from there.\n\nYou are not from anywhere you can remember.\n\nYou are walking. You have been walking for a long time. The sand is in your teeth. Something has been calling, very softly, and you have been answering with your feet.",
-    cta: "Open your eyes →",
-  },
-];
-
-const PROLOGUE = `You crest a dune and the world opens — flat sand to every horizon, a single thread of cracked road unrolling east. Behind you, your footprints have already begun to vanish.
-
-There is no guide. Only the wind, and the silence the Speaker left behind, and the choice of which way to put one foot in front of the other.
-
-But first — before the road, before the city, before the Shadow learns the shape of you — the heat shimmer above the sand catches your reflection. It is asking who you mean to be.`;
 
 type Direction = "north" | "south";
 
