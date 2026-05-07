@@ -1124,6 +1124,10 @@ export default function GameClient({ session }: { session: Session }) {
         />
       )}
       <RuneHub open={tracerOpen} onClose={() => setTracerOpen(false)} onCast={() => reloadProfile()} />
+      <DeathSaveModal
+        open={!!profile.downed && !profile.dead}
+        onResolved={(saved) => { reloadProfile(); if (saved) toast.success("You drag yourself out of the dark."); else toast.error("The dark wins. You are dead."); }}
+      />
       {questsOpen && (
         <QuestsPanel userId={profile.id} onClose={() => setQuestsOpen(false)} onChanged={() => { reloadProfile(); reloadQuestCounts(); }} />
       )}
