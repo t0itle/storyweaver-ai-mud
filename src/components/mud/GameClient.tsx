@@ -878,6 +878,27 @@ export default function GameClient({ session }: { session: Session }) {
     </div>
   );
 
+  // ===== Permadeath screen =====
+  if (profile.dead) {
+    const [reviving, setReviving] = useState(false); // not actually used; kept for clarity
+    return (
+      <div className="min-h-screen bg-black text-red-100 flex flex-col items-center justify-center gap-6 p-8 text-center">
+        <div className="text-7xl">⚰</div>
+        <h1 className="text-3xl tracking-widest text-red-300">YOU ARE DEAD</h1>
+        <p className="max-w-md text-red-200/80">
+          Your corpse lies in <strong className="text-red-300">{profile.death_room ?? "an unmarked place"}</strong>.
+          Only a friend who knows the Blessing of <strong>💀 Necros</strong> can call you back — and you will return <em className="text-red-400">zombified</em>.
+        </p>
+        <p className="text-xs text-red-200/50 max-w-md">
+          (You cannot act. Wait for another player to find your corpse and revive you. This window will refresh when you return.)
+        </p>
+        <Button variant="outline" className="border-red-800 text-red-200 hover:bg-red-950" onClick={() => reloadProfile()}>
+          Listen for the call
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Top bar */}
