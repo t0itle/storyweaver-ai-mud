@@ -1036,11 +1036,15 @@ export default function GameClient({ session }: { session: Session }) {
               <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-ember animate-pulse" />
             )}
           </button>
+          <button onClick={() => setKinOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Kin spirits — friends & private messages">
+            <Users className="w-4 h-4" /><span className="hidden sm:inline">kin</span>
+          </button>
           <button onClick={() => setHelpOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs ml-auto" title="Commands">
             <HelpCircle className="w-4 h-4" /><span className="hidden sm:inline">help</span>
           </button>
         </div>
       </header>
+
 
       <div className="flex-1 flex flex-col md:flex-row min-h-0">
         {/* Main log */}
