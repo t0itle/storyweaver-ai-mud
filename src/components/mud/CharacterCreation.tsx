@@ -258,7 +258,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
               className="text-left p-4 sm:p-5 border-l-2 border-border bg-card/30 hover:border-ember/60 active:scale-[0.98] active:bg-ember/10 transition-all touch-manipulation"
             >
               <div className="font-display text-lg sm:text-xl text-parchment mb-2">South — into the desert →</div>
-              <p className="text-sm te-sm text-ash leading-relaxed">
+              <p className="text-sm text-ash leading-relaxed">
                 The Crescent Verge: last marker before the sand. A caravan road threads south through the dunes — stray off it and the desert keeps you. Few who wander deep ever cross another soul, but those that return speak of buried bells, mirage-wells, and a kiln of bone where the dead are said to remember their own names.
               </p>
             </button>
