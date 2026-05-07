@@ -38,12 +38,12 @@ Deno.serve(async (req) => {
     const { data: race } = await admin.from("races").select("*").eq("key", race_key).maybeSingle();
     if (!race) return json({ error: "Unknown race" }, 400);
 
-    const prompt = `Painterly fantasy character portrait, oil-painted concept art, dramatic warm rim light, parchment-and-ember palette (deep crimson, ash gray, candle gold, smoky black), centered bust composition, character only on a soft dark backdrop, no text, no logo.
+    const prompt = `Painterly fantasy character portrait, oil-painted concept art, soft naturalistic lighting, centered bust composition on a soft neutral backdrop, no text, no logo. Use colour that fits the subject — do NOT default to fire, embers, ash, or grimdark crimson unless the description specifically calls for it.
 
 Subject: a ${race.visual_traits}.
 Player describes themselves as: ${description.trim()}
 
-Style: Frank Frazetta meets Greg Rutkowski, atmospheric, cinematic, painterly brushwork, volumetric light, slight grain.`;
+Style: painterly brushwork in the spirit of Studio Ghibli character art and Craig Mullins — believable light, balanced colour, slight grain.`;
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
