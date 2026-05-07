@@ -553,11 +553,14 @@ export type Database = {
           current_activity: string | null
           dead_until: string | null
           greeting: string | null
+          hidden: boolean
           home_room: string | null
           id: string
+          is_soul: boolean
           last_tick_at: string | null
           name: string
           persona: string
+          requires_rune_key: string | null
           room: string
           schedule: Json
           title: string | null
@@ -566,11 +569,14 @@ export type Database = {
           current_activity?: string | null
           dead_until?: string | null
           greeting?: string | null
+          hidden?: boolean
           home_room?: string | null
           id?: string
+          is_soul?: boolean
           last_tick_at?: string | null
           name: string
           persona: string
+          requires_rune_key?: string | null
           room: string
           schedule?: Json
           title?: string | null
@@ -579,11 +585,14 @@ export type Database = {
           current_activity?: string | null
           dead_until?: string | null
           greeting?: string | null
+          hidden?: boolean
           home_room?: string | null
           id?: string
+          is_soul?: boolean
           last_tick_at?: string | null
           name?: string
           persona?: string
+          requires_rune_key?: string | null
           room?: string
           schedule?: Json
           title?: string | null
@@ -888,6 +897,24 @@ export type Database = {
             referencedColumns: ["slug"]
           },
         ]
+      }
+      player_npc_discoveries: {
+        Row: {
+          discovered_at: string
+          npc_id: string
+          user_id: string
+        }
+        Insert: {
+          discovered_at?: string
+          npc_id: string
+          user_id: string
+        }
+        Update: {
+          discovered_at?: string
+          npc_id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       player_room_cache_claims: {
         Row: {
