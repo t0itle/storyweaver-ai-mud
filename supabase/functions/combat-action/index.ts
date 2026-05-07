@@ -436,9 +436,112 @@ Deno.serve(async (req) => {
         text = `${me.name} hurls ${chosen.ir.runes.glyph} ${chosen.ir.runes.name} at ${target.name} for ${dmg} damage.${defeated ? ` ${target.name} falls!` : ""}`;
       }
       await admin.from("item_runes").update({ charges: chosen.ir.charges - 1 }).eq("id", chosen.ir.id);
-      await pushAction(combatId, combat.turn_number, user.id, me.name, "cast", null, text);
+      const aiCast = await narrateLine({
+        actor: me.name, verb: "casts",
+        rune: chosen.ir.runes.name, runeGlyph: chosen.ir.runes.glyph,
+      });
+      await pushAction(combatId, combat.turn_number, user.id, me.name, "cast", null, aiCast ? `${aiCast} (${text})` : text);
       await advanceTurn(combatId);
       return ok({ ok: true });
+    }
+
+    // ===== CAST_LESSER (timed traced rune in combat) =====
+    if (body.action === "cast_lesser") {
+      if (!body.rune_key || !Array.isArray(body.stroke) || body.stroke.length < 6) {
+        throw new Error("Trace required to weave a lesser rune.");
+      }
+      const { data: rune } = await admin.from("lesser_runes").select("*").eq("key", body.rune_key).maybeSingle();
+      if (!rune) throw new Error("No such rune.");
+      const { data: kn } = await admin.from("player_lesser_rune_knowledge")
+        .select("knows_word, knows_symbol").eq("user_id", user.id).eq("rune_key", body.rune_key).maybeSingle();
+      if (!kn?.knows_word || !kn?.knows_symbol) throw new Error(`You have not yet bound the rune ${rune.latin_name}.`);
+
+      const tpl = rune.template as Pt[];
+      const score = Math.max(scoreStroke(body.stroke as Pt[], tpl), scoreStroke(body.stroke as Pt[], [...tpl].reverse()));
+      const eff = (rune.effect ?? {}) as Record<string, any>;
+      const enemies = (combatants ?? []).filter((c: any) => c.side !== me.side && !c.defeated);
+
+      let text = ""; let damage = 0; let healed = 0;
+      let outcome: "perfect" | "weakened" | "fizzle" | "backfire" = "fizzle";
+      if (score >= 0.85) outcome = "perfect";
+      else if (score >= 0.6) outcome = "weakened";
+      else if (score >= 0.35) outcome = "fizzle";
+      else outcome = "backfire";
+
+      if (eff.type === "heal") {
+        const base = eff.power ?? 6;
+        healed = outcome === "perfect" ? base : outcome === "weakened" ? Math.max(1, Math.round(base * 0.5)) : 0;
+        const newHp = Math.min(me.max_hp, me.hp + healed);
+        await admin.from("combatants").update({ hp: newHp }).eq("id", me.id);
+        await admin.from("profiles").update({ hp: newHp }).eq("id", user.id);
+        text = `${me.name} traces ${rune.glyph} ${rune.latin_name} (${Math.round(score*100)}%). Skin knits — +${healed} HP.`;
+      } else {
+        const target = body.target_name
+          ? (enemies.find((e: any) => e.name.toLowerCase().startsWith(body.target_name!.toLowerCase())) ?? enemies[0])
+          : enemies[0];
+        if (!target && outcome !== "backfire") throw new Error("No target.");
+        const base = eff.power ?? 6;
+        damage = outcome === "perfect" ? base + SR(3)
+               : outcome === "weakened" ? Math.max(1, Math.round(base * 0.5))
+               : 0;
+        if (target && damage > 0) {
+          const newHp = Math.max(0, target.hp - damage);
+          const defeated = newHp <= 0;
+          await admin.from("combatants").update({ hp: newHp, defeated }).eq("id", target.id);
+          if (target.kind === "player") await admin.from("profiles").update({ hp: newHp }).eq("id", target.user_id);
+          text = `${me.name} hurls ${rune.glyph} ${rune.latin_name} at ${target.name} (${Math.round(score*100)}%) — ${damage} damage.${defeated ? ` ${target.name} falls!` : ""}`;
+        } else if (outcome === "backfire") {
+          const back = 2 + SR(3);
+          const newHp = Math.max(0, me.hp - back);
+          await admin.from("combatants").update({ hp: newHp }).eq("id", me.id);
+          await admin.from("profiles").update({ hp: newHp, corruption: (profile.corruption ?? 0) + 1 }).eq("id", user.id);
+          text = `${me.name}'s ${rune.glyph} ${rune.latin_name} unravels and bites back — ${back} damage.`;
+        } else {
+          text = `${me.name}'s ${rune.glyph} ${rune.latin_name} hangs broken in the air, then unravels.`;
+        }
+      }
+
+      const aiLesser = await narrateLine({
+        actor: me.name, verb: "casts", target: body.target_name ?? undefined,
+        rune: rune.latin_name, runeGlyph: rune.glyph,
+        weapon: stats.weaponName ?? undefined,
+        damage: damage || undefined, outcome,
+      });
+      await pushAction(combatId, combat.turn_number, user.id, me.name, "cast_lesser", body.target_name ?? null,
+        aiLesser ? `${aiLesser} (${text})` : text, damage);
+
+      // Mastery
+      await admin.from("player_lesser_runes").upsert({
+        user_id: user.id, rune_key: body.rune_key,
+        best_score: score, cast_count: 1,
+        backfire_count: outcome === "backfire" ? 1 : 0,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id,rune_key" });
+
+      await advanceTurn(combatId);
+      return ok({ ok: true, score: Math.round(score * 100), outcome, damage, healed });
+    }
+
+    // ===== INTERRUPT (player ran out of trace time — foe gets a free swing) =====
+    if (body.action === "interrupt") {
+      const enemies = (combatants ?? []).filter((c: any) => c.side !== me.side && !c.defeated);
+      const foe = enemies[SR(enemies.length)];
+      if (foe) {
+        const dmg = 2 + SR(4);
+        const final = Math.max(1, dmg - stats.armor);
+        const newHp = Math.max(0, me.hp - final);
+        await admin.from("combatants").update({ hp: newHp }).eq("id", me.id);
+        await admin.from("profiles").update({ hp: newHp }).eq("id", user.id);
+        const aiInt = await narrateLine({
+          actor: foe.name, verb: "strikes", target: me.name,
+          armor: stats.armorName ?? undefined,
+          damage: final, outcome: "interrupt",
+        });
+        await pushAction(combatId, combat.turn_number, null, foe.name, "interrupt", me.name,
+          aiInt ?? `${me.name}'s hand falters mid-trace — ${foe.name} drives in for ${final} damage.`, final);
+      }
+      // Player's turn stays open; they may try again or attack/defend.
+      return ok({ ok: true, interrupted: true });
     }
 
     if (body.action === "flee") {
