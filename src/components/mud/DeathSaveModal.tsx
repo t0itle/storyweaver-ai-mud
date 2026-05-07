@@ -79,7 +79,7 @@ export function DeathSaveModal({ open, onResolved }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={() => { /* cannot dismiss */ }}>
-      <DialogContent className="bg-black border-red-900 text-red-100 max-w-md" hideClose>
+      <DialogContent className="bg-black border-red-900 text-red-100 max-w-md [&>button]:hidden">
         <DialogHeader>
           <DialogTitle className="text-red-300 text-xl tracking-wider">⌛ Your blood pools</DialogTitle>
           <DialogDescription className="text-red-200/70">
