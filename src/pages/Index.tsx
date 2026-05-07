@@ -31,6 +31,9 @@ const Index = () => {
   if (!ready) return <div className="min-h-screen flex items-center justify-center text-ash">Kindling the brazier…</div>;
   if (!session) return <Landing />;
   if (created === null) return <div className="min-h-screen flex items-center justify-center text-ash">Walking the road…</div>;
+  if (!created && !introDone) {
+    return <Intro onDone={() => { try { sessionStorage.setItem(INTRO_KEY, "1"); } catch {} setIntroDone(true); }} />;
+  }
   if (!created) return <CharacterCreation session={session} onCreated={() => setCreated(true)} />;
   return <GameClient session={session} />;
 };
