@@ -977,6 +977,12 @@ export type Database = {
           created: boolean
           created_at: string
           current_room: string
+          dead: boolean
+          dead_at: string | null
+          death_room: string | null
+          downed: boolean
+          downed_at: string | null
+          downed_combat_id: string | null
           faction: string | null
           gold: number
           hall_refusals: number
@@ -990,9 +996,12 @@ export type Database = {
           non_serviam_at: string | null
           portrait_url: string | null
           race: string | null
+          revived_at: string | null
+          revived_by: string | null
           updated_at: string
           username: string
           xp: number
+          zombified: boolean
         }
         Insert: {
           aether?: string | null
@@ -1004,6 +1013,12 @@ export type Database = {
           created?: boolean
           created_at?: string
           current_room?: string
+          dead?: boolean
+          dead_at?: string | null
+          death_room?: string | null
+          downed?: boolean
+          downed_at?: string | null
+          downed_combat_id?: string | null
           faction?: string | null
           gold?: number
           hall_refusals?: number
@@ -1017,9 +1032,12 @@ export type Database = {
           non_serviam_at?: string | null
           portrait_url?: string | null
           race?: string | null
+          revived_at?: string | null
+          revived_by?: string | null
           updated_at?: string
           username: string
           xp?: number
+          zombified?: boolean
         }
         Update: {
           aether?: string | null
@@ -1031,6 +1049,12 @@ export type Database = {
           created?: boolean
           created_at?: string
           current_room?: string
+          dead?: boolean
+          dead_at?: string | null
+          death_room?: string | null
+          downed?: boolean
+          downed_at?: string | null
+          downed_combat_id?: string | null
           faction?: string | null
           gold?: number
           hall_refusals?: number
@@ -1044,9 +1068,12 @@ export type Database = {
           non_serviam_at?: string | null
           portrait_url?: string | null
           race?: string | null
+          revived_at?: string | null
+          revived_by?: string | null
           updated_at?: string
           username?: string
           xp?: number
+          zombified?: boolean
         }
         Relationships: [
           {
