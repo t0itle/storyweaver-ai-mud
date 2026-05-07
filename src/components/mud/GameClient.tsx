@@ -11,6 +11,7 @@ import { RuneHub } from "./RuneHub";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import HallOfChoice from "./HallOfChoice";
 import { QuestsPanel } from "./QuestsPanel";
+import { DeathSaveModal } from "./DeathSaveModal";
 
 interface Profile {
   id: string;
