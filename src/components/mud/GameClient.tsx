@@ -206,6 +206,31 @@ export default function GameClient({ session }: { session: Session }) {
     return () => window.clearTimeout(timeout);
   }, [profile]);
 
+  // Corpses in this room (dead players you could potentially revive)
+  useEffect(() => {
+    if (!profile) { setCorpses([]); return; }
+    const load = () => supabase.from("profiles")
+      .select("id,username")
+      .eq("dead", true).eq("death_room", profile.current_room).neq("id", profile.id)
+      .then(({ data }) => setCorpses((data ?? []) as any));
+    load();
+    const ch = supabase.channel(`corpses:${profile.current_room}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [profile?.current_room, profile?.id]);
+
+  const reviveCorpse = async (targetId: string, name: string) => {
+    if (reviving) return;
+    setReviving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("revive-player", { body: { target_user_id: targetId } });
+      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      toast.success(`${name} rises — zombified.`);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "The dead refuse the call."); }
+    finally { setReviving(false); }
+  };
+
   // Load room + npcs + history when room changes
   useEffect(() => {
     if (!profile) return;
