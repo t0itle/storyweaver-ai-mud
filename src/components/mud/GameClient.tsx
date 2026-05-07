@@ -601,17 +601,7 @@ export default function GameClient({ session }: { session: Session }) {
         } else if (matches && matches.length > 1) {
           setMessages((m) => [...m, localSys(`Be more specific — could be: ${matches.map(r => r.name).join(", ")}.`)]);
         } else {
-          setMessages((m) => [...m, localSys(`You search your memory for "${dir}"… the world is shaping it now.`)]);
-          try {
-            const { data, error } = await supabase.functions.invoke("discover-location", {
-              body: { name: dir, from_room: profile.current_room },
-            });
-            if (error || data?.error) throw new Error(data?.error ?? error?.message);
-            setMessages((m) => [...m, localSys(`✦ ${data.name} ${data.created ? "takes shape on the map" : "is already known to you"}. You set out…`)]);
-            await moveTo(data.slug);
-          } catch (e) {
-            toast.error(e instanceof Error ? e.message : "The path refuses to form.");
-          }
+          setMessages((m) => [...m, localSys(`No road leads to "${dir}" from here. Follow exits, ask folk for directions, or hire a wagon.`)]);
         }
       } else {
         setMessages((m) => [...m, localSys(`Go where? Try a direction or "go to <place>".`)]);
