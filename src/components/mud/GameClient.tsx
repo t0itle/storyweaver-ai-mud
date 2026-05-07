@@ -120,6 +120,8 @@ export default function GameClient({ session }: { session: Session }) {
   const [chronicleTab, setChronicleTab] = useState<"journal" | "codex">("journal");
   const [hallOpen, setHallOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [corpses, setCorpses] = useState<{ id: string; username: string }[]>([]);
+  const [reviving, setReviving] = useState(false);
   const [questsOpen, setQuestsOpen] = useState(false);
   const [activeQuestCount, setActiveQuestCount] = useState(0);
   const [offeredQuestCount, setOfferedQuestCount] = useState(0);
