@@ -44,6 +44,10 @@ export default function Landing() {
     }
   };
 
+  if (showIntro) {
+    return <Intro onDone={() => { try { sessionStorage.setItem(INTRO_KEY, "1"); } catch {} setShowIntro(false); }} />;
+  }
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden">
       <div className="absolute inset-0 bg-ember-glow pointer-events-none" />
