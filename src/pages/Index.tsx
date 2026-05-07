@@ -12,6 +12,9 @@ const Index = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [created, setCreated] = useState<boolean | null>(null);
+  const [introDone, setIntroDone] = useState<boolean>(() => {
+    try { return sessionStorage.getItem(INTRO_KEY) === "1"; } catch { return false; }
+  });
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
