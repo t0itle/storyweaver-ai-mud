@@ -52,8 +52,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   const [customGender, setCustomGender] = useState("");
   const [adlib, setAdlib] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState<"intro" | "prologue" | "direction" | "choose">("intro");
-  const [beat, setBeat] = useState(0);
+  const [step, setStep] = useState<"direction" | "choose">("direction");
   const [direction, setDirection] = useState<Direction | null>(null);
 
   const buildDescription = (): string => {
