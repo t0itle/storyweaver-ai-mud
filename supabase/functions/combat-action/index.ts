@@ -198,10 +198,18 @@ Deno.serve(async (req) => {
       if (target.kind === "player") targetGear = await playerStats(target.user_id);
       const final = Math.max(1, dmg - targetGear.armor - (target.defending ? 2 : 0));
       const newHp = Math.max(0, target.hp - final);
-      const defeated = newHp <= 0;
+      const wouldDie = newHp <= 0;
+      // Players don't die on the spot — they're DOWNED and get a death save.
+      // They're still defeated for combat math (no more turns), but their profile stays alive pending the trace.
+      const defeated = wouldDie;
       await admin.from("combatants").update({ hp: newHp, defeated }).eq("id", target.id);
       if (target.kind === "player") {
         await admin.from("profiles").update({ hp: newHp }).eq("id", target.user_id);
+        if (wouldDie) {
+          await admin.from("profiles").update({
+            downed: true, downed_at: new Date().toISOString(), downed_combat_id: combatId,
+          }).eq("id", target.user_id);
+        }
       }
       const fallback = `${npc.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`;
       const ai = await narrateLine({
