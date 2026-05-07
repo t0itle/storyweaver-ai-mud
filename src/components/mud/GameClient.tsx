@@ -919,9 +919,30 @@ export default function GameClient({ session }: { session: Session }) {
         <p className="text-xs text-red-200/50 max-w-md">
           (You cannot act. Wait for another player to find your corpse and revive you. This window will refresh when you return.)
         </p>
-        <Button variant="outline" className="border-red-800 text-red-200 hover:bg-red-950" onClick={() => reloadProfile()}>
-          Listen for the call
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Button variant="outline" className="border-red-800 text-red-200 hover:bg-red-950" onClick={() => reloadProfile()}>
+            Listen for the call
+          </Button>
+          <Button
+            variant="outline"
+            className="border-ember/60 text-ember hover:bg-ember/10"
+            onClick={async () => {
+              try {
+                const { data, error } = await supabase.functions.invoke("restart-character", { body: {} });
+                if (error || data?.error) throw new Error(data?.error ?? error?.message);
+                toast.success("The wind takes your old name. A new road waits.");
+                window.location.reload();
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "The wind refuses.");
+              }
+            }}
+          >
+            Begin a new adventure
+          </Button>
+        </div>
+        <p className="text-[10px] text-red-200/40 max-w-md">
+          Walking away surrenders this corpse forever. A new walker rises at the dunes' edge.
+        </p>
       </div>
     );
   }
