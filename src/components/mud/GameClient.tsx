@@ -3,8 +3,9 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Backpack, Flame, HelpCircle, Loader2, LogOut, ScrollText, Sparkles } from "lucide-react";
+import { Backpack, Flame, HelpCircle, Loader2, LogOut, ScrollText, Sparkles, Users } from "lucide-react";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
+import { KinPanel } from "./KinPanel";
 import { ChronicleModal } from "./ChronicleModal";
 import { CharacterSheet } from "./CharacterSheet";
 import { RuneHub } from "./RuneHub";
@@ -122,6 +123,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [corpses, setCorpses] = useState<{ id: string; username: string }[]>([]);
   const [reviving, setReviving] = useState(false);
+  const [kinOpen, setKinOpen] = useState(false);
   const [questsOpen, setQuestsOpen] = useState(false);
   const [activeQuestCount, setActiveQuestCount] = useState(0);
   const [offeredQuestCount, setOfferedQuestCount] = useState(0);
@@ -1034,11 +1036,15 @@ export default function GameClient({ session }: { session: Session }) {
               <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-ember animate-pulse" />
             )}
           </button>
+          <button onClick={() => setKinOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Kin spirits — friends & private messages">
+            <Users className="w-4 h-4" /><span className="hidden sm:inline">kin</span>
+          </button>
           <button onClick={() => setHelpOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs ml-auto" title="Commands">
             <HelpCircle className="w-4 h-4" /><span className="hidden sm:inline">help</span>
           </button>
         </div>
       </header>
+
 
       <div className="flex-1 flex flex-col md:flex-row min-h-0">
         {/* Main log */}
@@ -1208,6 +1214,7 @@ export default function GameClient({ session }: { session: Session }) {
       {questsOpen && (
         <QuestsPanel userId={profile.id} onClose={() => setQuestsOpen(false)} onChanged={() => { reloadProfile(); reloadQuestCounts(); }} />
       )}
+      {kinOpen && <KinPanel userId={profile.id} onClose={() => setKinOpen(false)} />}
       <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} onRestarted={() => window.location.reload()} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">

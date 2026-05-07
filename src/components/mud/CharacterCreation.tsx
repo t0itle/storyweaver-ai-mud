@@ -3,33 +3,13 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { ChevronRight, Flame, Loader2, Sparkles } from "lucide-react";
+import { Loader2, Sparkles } from "lucide-react";
+import desertBackdrop from "@/assets/desert-distant-city.jpg";
 
 interface Race {
   key: string; name: string; flavor: string;
   gain: string; cost: string; hp_mod: number; sort_order: number;
 }
-
-const INTRO_BEATS: { text: string; cta: string }[] = [
-  {
-    text: "First there was the Light.\n\nThen came the Speaker, and the Speaker opened its mouth, and from that mouth poured everything that is — sky, stone, sea, breath, name. The spoken things were called the Aethers, and they were good, and they were many.\n\nBut not all things are spoken. For every light there is a shadow. And the Shadow was already there, waiting, older than any word.",
-    cta: "And then —",
-  },
-  {
-    text: "Somewhere, the Speaker was silenced. Some say its own children stitched its mouth shut, terrified of what it might unspeak. Some say it bit down on a Shadow and could not let go.\n\nNow the Aethers fade like a story half-remembered. The cities forget their names. The desert eats the maps. Only the First City still burns against the dark — guarded by the Veiled, priests who cover their own mouths so they will not finish what the Speaker began.\n\nAnd in the deep desert, where no map remembers, a single pool blooms with flowers that exist nowhere else. The world calls it the EverBloom. The world is mostly wrong about it.",
-    cta: "Go on —",
-  },
-  {
-    text: "You are not from there.\n\nYou are not from anywhere you can remember.\n\nYou are walking. You have been walking for a long time. The sand is in your teeth. Something has been calling, very softly, and you have been answering with your feet.",
-    cta: "Open your eyes →",
-  },
-];
-
-const PROLOGUE = `You crest a dune and the world opens — flat sand to every horizon, a single thread of cracked road unrolling east. Behind you, your footprints have already begun to vanish.
-
-There is no guide. Only the wind, and the silence the Speaker left behind, and the choice of which way to put one foot in front of the other.
-
-But first — before the road, before the city, before the Shadow learns the shape of you — the heat shimmer above the sand catches your reflection. It is asking who you mean to be.`;
 
 type Direction = "north" | "south";
 
@@ -72,8 +52,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   const [customGender, setCustomGender] = useState("");
   const [adlib, setAdlib] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const [step, setStep] = useState<"intro" | "prologue" | "direction" | "choose">("intro");
-  const [beat, setBeat] = useState(0);
+  const [step, setStep] = useState<"direction" | "choose">("direction");
   const [direction, setDirection] = useState<Direction | null>(null);
 
   const buildDescription = (): string => {
@@ -135,136 +114,50 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
     } finally { setBusy(false); }
   };
 
-  if (step === "intro") {
-    const b = INTRO_BEATS[beat];
-    const last = beat === INTRO_BEATS.length - 1;
-    const advance = () => (last ? setStep("prologue") : setBeat(beat + 1));
-    return (
-      <div className="min-h-screen flex items-center justify-center px-4 sm:px-5 py-8 sm:py-12 bg-background">
-        <div className="max-w-2xl w-full space-y-6 sm:space-y-8 animate-fade-in" key={beat}>
-          <div className="flex items-center gap-3 animate-fade-in" style={{ animationDelay: "100ms", animationFillMode: "backwards" }}>
-            <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-ember ember-flicker shrink-0" />
-            <h1 className="font-display text-2xl sm:text-3xl text-parchment leading-tight">
-              {beat === 0 ? "When the Gods Stopped Speaking" : beat === 1 ? "The Last Burning City" : "A Walker on the Sand"}
-            </h1>
-          </div>
-          <p
-            className="font-body text-parchment text-base sm:text-lg leading-relaxed whitespace-pre-line animate-fade-in"
-            style={{ animationDelay: "350ms", animationDuration: "900ms", animationFillMode: "backwards" }}
-          >
-            {b.text}
-          </p>
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-            <Button
-              onClick={advance}
-              className="bg-ember hover:bg-ember/90 active:scale-95 text-background font-display group transition-transform touch-manipulation"
-            >
-              <span>{b.cta}</span>
-              <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" />
-            </Button>
-            <div className="flex items-center gap-1.5">
-              {INTRO_BEATS.map((_, i) => (
-                <span
-                  key={i}
-                  className={`h-1 rounded-full transition-all duration-300 ${
-                    i === beat ? "w-6 bg-ember" : i < beat ? "w-3 bg-ember/40" : "w-3 bg-ash/20"
-                  }`}
-                />
-              ))}
-            </div>
-            {!last && (
-              <button
-                onClick={() => setStep("prologue")}
-                className="font-mono text-[10px] text-whisper hover:text-ash underline underline-offset-4 sm:ml-auto transition-colors touch-manipulation"
-              >
-                skip the telling
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-  if (step === "prologue") {
-    return (
-      <div className="min-h-screen flex items-start md:items-center justify-center px-4 sm:px-5 py-8 sm:py-10 bg-background overflow-y-auto">
-        <div className="max-w-2xl w-full space-y-6 pb-32">
-          <div className="flex items-center gap-3 animate-fade-in" style={{ animationDelay: "100ms", animationFillMode: "backwards" }}>
-            <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-ember ember-flicker shrink-0" />
-            <h1 className="font-display text-2xl sm:text-3xl text-parchment leading-tight">Before You Were Anyone</h1>
-          </div>
-          <p
-            className="font-body text-parchment text-base sm:text-lg leading-relaxed whitespace-pre-line animate-fade-in"
-            style={{ animationDelay: "350ms", animationDuration: "1000ms", animationFillMode: "backwards" }}
-          >
-            {PROLOGUE}
-          </p>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 border-t border-border/70 pt-4">
-            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-whisper">
-              The road waits ahead
-            </p>
-            <Button
-              onClick={() => setStep("direction")}
-              className="bg-ember hover:bg-ember/90 active:scale-95 text-background font-display group shrink-0 self-start sm:self-auto transition-transform touch-manipulation"
-            >
-              <span>Next</span>
-              <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" />
-            </Button>
-          </div>
-
-          <div className="sticky bottom-4 z-10">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border border-border/80 bg-card/90 px-4 py-3 shadow-[0_12px_40px_-24px_hsl(var(--foreground)/0.75)] backdrop-blur-sm">
-              <div className="min-w-0">
-                <p className="font-display text-sm text-parchment">Ready to choose your path?</p>
-                <p className="font-body text-xs text-ash">Toward the First City, or away into the dunes.</p>
-              </div>
-              <Button
-                onClick={() => setStep("direction")}
-                className="bg-ember hover:bg-ember/90 active:scale-95 text-background font-display group shrink-0 self-start sm:self-auto transition-transform touch-manipulation"
-              >
-                <span>Choose your road</span>
-                <ChevronRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (step === "direction") {
     return (
-      <div className="min-h-screen flex items-start md:items-center justify-center px-4 sm:px-5 py-8 sm:py-10 bg-background overflow-y-auto">
-        <div className="max-w-3xl w-full space-y-5 sm:space-y-6 animate-in fade-in duration-1000 pb-24">
-          <div className="flex items-center gap-3">
-            <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-ember ember-flicker shrink-0" />
-            <h1 className="font-display text-2xl sm:text-3xl text-parchment leading-tight">Which Way Do You Walk?</h1>
-          </div>
-          <p className="font-body text-ash italic text-sm sm:text-base">No guide. Only the wind, and a road that runs north.</p>
+      <div className="min-h-screen relative overflow-hidden bg-background">
+        {/* Mysterious backdrop: desert, distant unnamed city on the horizon */}
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: `url(${desertBackdrop})` }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/20 to-background/95" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,hsl(var(--background))_95%)]" />
 
-          <div className="grid sm:grid-cols-2 gap-3 sm:gap-4">
-            <button
-              onClick={() => { setDirection("north"); setStep("choose"); }}
-              className="text-left p-4 sm:p-5 border-l-2 border-border bg-card/30 hover:border-ember/60 active:scale-[0.98] active:bg-ember/10 transition-all touch-manipulation"
-            >
-              <div className="font-display text-lg sm:text-xl text-parchment mb-2">North — toward the First City →</div>
-              <p className="text-sm text-ash leading-relaxed">
-                Watch-fires burn on its high walls across the heat-shimmer. A cracked road runs to its gates,
-                where the Veiled stand with cloth bound across their mouths, keeping vigil for a Speaker that no longer speaks.
+        <div className="relative min-h-screen flex flex-col justify-end px-5 py-10 sm:py-14">
+          <div className="max-w-2xl mx-auto w-full space-y-6 animate-fade-in">
+            <div className="space-y-3">
+              <p className="font-mono text-[10px] uppercase tracking-[0.5em] text-ember/80">— A wind crosses your back —</p>
+              <h1 className="font-display text-3xl sm:text-4xl text-parchment leading-tight drop-shadow-[0_2px_18px_hsl(var(--background))]">
+                There is sand in your teeth and you cannot remember the road behind you.
+              </h1>
+              <p className="font-body text-parchment/90 text-base sm:text-lg leading-relaxed drop-shadow-[0_2px_12px_hsl(var(--background))]">
+                Far ahead, something is burning on the horizon — towers, watch-fires, you cannot say.
+                Behind you the dunes have already closed over your tracks.
+                Whichever way you go, you will go without a name.
               </p>
-            </button>
-            <button
-              onClick={() => { setDirection("south"); setStep("choose"); }}
-              className="text-left p-4 sm:p-5 border-l-2 border-border bg-card/30 hover:border-ember/60 active:scale-[0.98] active:bg-ember/10 transition-all touch-manipulation"
-            >
-              <div className="font-display text-lg sm:text-xl text-parchment mb-2">South — into the desert →</div>
-              <p className="text-sm text-ash leading-relaxed">
-                The Crescent Verge: last marker before the sand. A caravan road threads south through the dunes — stray off it and the desert keeps you. Few who wander deep ever cross another soul, but those that return speak of buried bells, mirage-wells, and a kiln of bone where the dead are said to remember their own names.
-              </p>
-            </button>
-          </div>
+            </div>
 
-          <p className="font-mono text-[10px] text-whisper text-center">tap a road to walk it</p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <button
+                onClick={() => { setDirection("north"); setStep("choose"); }}
+                className="group text-left p-4 border-l-2 border-ember/40 bg-background/60 backdrop-blur-sm hover:border-ember active:scale-[0.98] transition-all touch-manipulation"
+              >
+                <div className="font-display text-lg text-parchment group-hover:text-ember mb-1">Walk toward the fires →</div>
+                <p className="text-sm text-ash italic">Whatever burns out there has not gone out yet. It might be a city. It might be a warning.</p>
+              </button>
+              <button
+                onClick={() => { setDirection("south"); setStep("choose"); }}
+                className="group text-left p-4 border-l-2 border-ember/40 bg-background/60 backdrop-blur-sm hover:border-ember active:scale-[0.98] transition-all touch-manipulation"
+              >
+                <div className="font-display text-lg text-parchment group-hover:text-ember mb-1">Turn from them →</div>
+                <p className="text-sm text-ash italic">The deeper desert is silent and unmapped. No one out here will know your face. Maybe that is what you need.</p>
+              </button>
+            </div>
+
+            <p className="font-mono text-[10px] text-whisper text-center tracking-widest">choose, then the pool will draw your face</p>
+          </div>
         </div>
       </div>
     );
