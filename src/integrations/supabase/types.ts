@@ -1463,7 +1463,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      are_friends: { Args: { _a: string; _b: string }; Returns: boolean }
       level_for_xp: { Args: { _xp: number }; Returns: number }
       quest_reward_caps: { Args: { _severity: string }; Returns: Json }
     }
