@@ -251,7 +251,10 @@ export default function GameClient({ session }: { session: Session }) {
               setTimeout(async () => {
                 const { data: n2 } = await supabase.from("npcs").select("*").eq("room", slug)
                   .or(`dead_until.is.null,dead_until.lte.${new Date().toISOString()}`);
-                setNpcs((n2 ?? []) as Npc[]);
+                const { data: d2 } = await supabase.from("player_npc_discoveries")
+                  .select("npc_id").eq("user_id", profile.id);
+                const found = new Set((d2 ?? []).map((d: any) => d.npc_id));
+                setNpcs(((n2 ?? []) as any[]).filter((x: any) => !x.hidden || found.has(x.id)) as Npc[]);
               }, 400);
             }
           })
