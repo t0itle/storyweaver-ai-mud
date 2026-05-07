@@ -33,7 +33,9 @@ Deno.serve(async (req) => {
     if (!race_key || typeof description !== "string" || description.trim().length < 8) {
       return json({ error: "Provide race and a description (min 8 chars)" }, 400);
     }
-    const startRoom = direction === "south" ? "sand-bloom-hollow" : "crescent-shore";
+    // North → caravan road to the First City. South → the Crescent Verge,
+    // the threshold of the deep desert wander system.
+    const startRoom = direction === "south" ? "desert-verge" : "crescent-shore";
 
     const { data: race } = await admin.from("races").select("*").eq("key", race_key).maybeSingle();
     if (!race) return json({ error: "Unknown race" }, 400);

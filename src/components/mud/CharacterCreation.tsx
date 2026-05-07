@@ -257,9 +257,9 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
               onClick={() => { setDirection("south"); setStep("choose"); }}
               className="text-left p-4 sm:p-5 border-l-2 border-border bg-card/30 hover:border-ember/60 active:scale-[0.98] active:bg-ember/10 transition-all touch-manipulation"
             >
-              <div className="font-display text-lg sm:text-xl text-parchment mb-2">South — deeper into the dunes →</div>
-              <p className="text-sm text-ash leading-relaxed">
-                No road. No bells. Only sand that goes on and on — and somewhere out there, the deep dunes where no map remembers, and a pool that blooms with flowers that exist nowhere else.
+              <div className="font-display text-lg sm:text-xl text-parchment mb-2">South — into the desert →</div>
+              <p className="text-sm te-sm text-ash leading-relaxed">
+                The Crescent Verge: last marker before the sand. A caravan road threads south through the dunes — stray off it and the desert keeps you. Few who wander deep ever cross another soul, but those that return speak of buried bells, mirage-wells, and a kiln of bone where the dead are said to remember their own names.
               </p>
             </button>
           </div>
@@ -271,10 +271,10 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   }
 
   const isNorth = direction === "north";
-  const headline = isNorth ? "At the Roadside Well" : "At the Wind-Cut Stone";
+  const headline = isNorth ? "At the Roadside Well" : "At the Crescent Verge";
   const leadIn = isNorth
     ? "You step off the cracked road. A shallow well at the verge has caught a hand's-breadth of clear water — the first you have seen since the dunes. The watch-fires of the First City flicker in the heat-shimmer to the north. The Veiled will ask your name at the gate. Better to know it before they do."
-    : "The wind has carved a stone hollow into a basin, and last night's rain still clings inside. The dunes roll endlessly south, toward places no map remembers. Out here there is no one to name you — only the wind, and the face the rain will see when you finally turn around. Better to know it first.";
+    : "The last cairn of the Ash Road leans crooked behind you. South of here the maps go blank — only the caravan road and, beyond it, dunes that fold over themselves until even the sun gets the directions wrong. Travellers who stray off-road have been known to walk for days without crossing a single footprint but their own. Out here there is no one to name you. Better to know your own face before the desert rearranges it.";
   const submitLabel = isNorth ? "Walk to the Gate →" : "Step into the Dunes →";
   const submitWaiting = isNorth ? "the gate-bells are ringing…" : "the wind takes your shape…";
 
