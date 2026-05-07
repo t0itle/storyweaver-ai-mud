@@ -194,15 +194,22 @@ Deno.serve(async (req) => {
       if (enemies.length === 0) { await advanceTurn(combatId); return; }
       const target = enemies[SR(enemies.length)];
       const dmg = 2 + SR(4);
-      const final = Math.max(1, dmg - (target.kind === "player" ? (await playerStats(target.user_id)).armor : 0) - (target.defending ? 2 : 0));
+      let targetGear: { armor: number; weaponName: string | null; armorName: string | null } = { armor: 0, weaponName: null, armorName: null };
+      if (target.kind === "player") targetGear = await playerStats(target.user_id);
+      const final = Math.max(1, dmg - targetGear.armor - (target.defending ? 2 : 0));
       const newHp = Math.max(0, target.hp - final);
       const defeated = newHp <= 0;
       await admin.from("combatants").update({ hp: newHp, defeated }).eq("id", target.id);
       if (target.kind === "player") {
         await admin.from("profiles").update({ hp: newHp }).eq("id", target.user_id);
       }
-      await pushAction(combatId, combat!.turn_number, null, npc.name, "attack", target.name,
-        `${npc.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`, final);
+      const fallback = `${npc.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`;
+      const ai = await narrateLine({
+        actor: npc.name, verb: "strikes", target: target.name,
+        armor: targetGear.armorName ?? undefined,
+        damage: final, defeated,
+      });
+      await pushAction(combatId, combat!.turn_number, null, npc.name, "attack", target.name, ai ?? fallback, final);
       await advanceTurn(combatId);
     };
 
