@@ -1121,7 +1121,7 @@ export default function GameClient({ session }: { session: Session }) {
 
         {/* Sidebar */}
         <aside className="md:w-72 border-t md:border-t-0 md:border-l border-border bg-card/40 p-4 space-y-5 text-sm">
-          <div>
+          <div className="hidden md:block">
             <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Exits</h3>
             <div className="flex flex-wrap gap-1.5">
               {Object.keys(room.exits).length === 0 && <span className="text-ash italic">none</span>}
