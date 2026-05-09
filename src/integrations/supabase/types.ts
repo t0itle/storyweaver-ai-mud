@@ -344,6 +344,135 @@ export type Database = {
         }
         Relationships: []
       }
+      guild_chapters: {
+        Row: {
+          flavor_blurb: string
+          guild_key: string
+          guildmaster_npc_id: string | null
+          hall_room: string
+          town_key: string
+        }
+        Insert: {
+          flavor_blurb?: string
+          guild_key: string
+          guildmaster_npc_id?: string | null
+          hall_room: string
+          town_key: string
+        }
+        Update: {
+          flavor_blurb?: string
+          guild_key?: string
+          guildmaster_npc_id?: string | null
+          hall_room?: string
+          town_key?: string
+        }
+        Relationships: []
+      }
+      guild_quest_templates: {
+        Row: {
+          description: string
+          guild_key: string
+          id: string
+          objective: string
+          rank_required: number
+          reward_gold: number
+          reward_item_key: string | null
+          reward_rune_key: string | null
+          reward_xp: number
+          target_kind: string
+          target_ref: string | null
+          title: string
+          town_key: string
+        }
+        Insert: {
+          description?: string
+          guild_key: string
+          id?: string
+          objective: string
+          rank_required?: number
+          reward_gold?: number
+          reward_item_key?: string | null
+          reward_rune_key?: string | null
+          reward_xp?: number
+          target_kind?: string
+          target_ref?: string | null
+          title: string
+          town_key: string
+        }
+        Update: {
+          description?: string
+          guild_key?: string
+          id?: string
+          objective?: string
+          rank_required?: number
+          reward_gold?: number
+          reward_item_key?: string | null
+          reward_rune_key?: string | null
+          reward_xp?: number
+          target_kind?: string
+          target_ref?: string | null
+          title?: string
+          town_key?: string
+        }
+        Relationships: []
+      }
+      guild_stock: {
+        Row: {
+          blurb: string
+          guild_key: string
+          id: string
+          kind: string
+          price_gold: number
+          rank_required: number
+          ref_key: string
+          town_key: string
+        }
+        Insert: {
+          blurb?: string
+          guild_key: string
+          id?: string
+          kind: string
+          price_gold?: number
+          rank_required?: number
+          ref_key: string
+          town_key: string
+        }
+        Update: {
+          blurb?: string
+          guild_key?: string
+          id?: string
+          kind?: string
+          price_gold?: number
+          rank_required?: number
+          ref_key?: string
+          town_key?: string
+        }
+        Relationships: []
+      }
+      guilds: {
+        Row: {
+          blurb: string
+          glyph: string
+          key: string
+          name: string
+          specialty: string
+        }
+        Insert: {
+          blurb?: string
+          glyph?: string
+          key: string
+          name: string
+          specialty?: string
+        }
+        Update: {
+          blurb?: string
+          glyph?: string
+          key?: string
+          name?: string
+          specialty?: string
+        }
+        Relationships: []
+      }
       item_runes: {
         Row: {
           charges: number
@@ -718,10 +847,13 @@ export type Database = {
           current_activity: string | null
           dead_until: string | null
           greeting: string | null
+          guild_key: string | null
+          guild_town: string | null
           hidden: boolean
           home_room: string | null
           id: string
           is_aether: boolean
+          is_guildmaster: boolean
           is_merchant: boolean
           is_soul: boolean
           is_warden: boolean
@@ -741,10 +873,13 @@ export type Database = {
           current_activity?: string | null
           dead_until?: string | null
           greeting?: string | null
+          guild_key?: string | null
+          guild_town?: string | null
           hidden?: boolean
           home_room?: string | null
           id?: string
           is_aether?: boolean
+          is_guildmaster?: boolean
           is_merchant?: boolean
           is_soul?: boolean
           is_warden?: boolean
@@ -764,10 +899,13 @@ export type Database = {
           current_activity?: string | null
           dead_until?: string | null
           greeting?: string | null
+          guild_key?: string | null
+          guild_town?: string | null
           hidden?: boolean
           home_room?: string | null
           id?: string
           is_aether?: boolean
+          is_guildmaster?: boolean
           is_merchant?: boolean
           is_soul?: boolean
           is_warden?: boolean
@@ -791,6 +929,39 @@ export type Database = {
             referencedColumns: ["slug"]
           },
         ]
+      }
+      player_guild_membership: {
+        Row: {
+          guild_key: string
+          initiation_quest_id: string | null
+          joined_at: string | null
+          quests_completed: number
+          rank: number
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          guild_key: string
+          initiation_quest_id?: string | null
+          joined_at?: string | null
+          quests_completed?: number
+          rank?: number
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          guild_key?: string
+          initiation_quest_id?: string | null
+          joined_at?: string | null
+          quests_completed?: number
+          rank?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       player_items: {
         Row: {
@@ -1430,6 +1601,7 @@ export type Database = {
           giver_npc_id: string
           giver_npc_name: string
           id: string
+          is_initiation: boolean
           kind: string
           objective: string
           offered_room: string | null
@@ -1440,6 +1612,8 @@ export type Database = {
           reward_rune_key: string | null
           reward_xp: number
           severity: string
+          source_guild: string | null
+          source_guild_town: string | null
           status: string
           target_kind: string | null
           target_ref: string | null
@@ -1457,6 +1631,7 @@ export type Database = {
           giver_npc_id: string
           giver_npc_name: string
           id?: string
+          is_initiation?: boolean
           kind?: string
           objective?: string
           offered_room?: string | null
@@ -1467,6 +1642,8 @@ export type Database = {
           reward_rune_key?: string | null
           reward_xp?: number
           severity?: string
+          source_guild?: string | null
+          source_guild_town?: string | null
           status?: string
           target_kind?: string | null
           target_ref?: string | null
@@ -1484,6 +1661,7 @@ export type Database = {
           giver_npc_id?: string
           giver_npc_name?: string
           id?: string
+          is_initiation?: boolean
           kind?: string
           objective?: string
           offered_room?: string | null
@@ -1494,6 +1672,8 @@ export type Database = {
           reward_rune_key?: string | null
           reward_xp?: number
           severity?: string
+          source_guild?: string | null
+          source_guild_town?: string | null
           status?: string
           target_kind?: string | null
           target_ref?: string | null
