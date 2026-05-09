@@ -111,7 +111,9 @@ Rules:
 - Each NPC's home is THIS location. In their schedule, use the literal string "here" for this room. Other entries may say "here" too — most NPCs do not wander far.
 - Activities must be short, present-tense, in-world (e.g. "lighting the hearth lanterns", "haggling over salt", "asleep beneath a grey cloak").
 - "kind" must be from the allowed list. "label" is what we'd call this kind of place in one word.
-- No mechanics, no quest text. Pure prose.`;
+- No mechanics, no quest text. Pure prose.
+
+NAMING — CRITICAL. NPC names must be ORIGINAL. NEVER use generic fantasy filler (Aerys, Eldra, Kael, Lysander, Thorne, Marcus, Elara, Seraphina). Prefer working-class, occupational, or earned-nickname names (Tibb Quarrelsmith, Old Marrow, Six-Finger Doss, Vetch, Mother Cricket). About 1 in 3 should be a single word or nickname only. Names in the same room must not share prefixes, suffixes, or rhythm.`;
 
     const userMsg = `Generate the location called "${name}".${hint ? `\n\nContext from the rumor: ${hint}` : ""}`;
 

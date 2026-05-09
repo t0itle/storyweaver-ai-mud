@@ -81,19 +81,30 @@ Deno.serve(async (req) => {
 
     const isCrypt = room.kind === "crypt";
 
+    const NAMING_RULES = `
+NAMING — CRITICAL. Names must be ORIGINAL and unforgettable. NEVER use generic fantasy filler like Aerys, Aerion, Eldra, Eldara, Lysander, Lyra, Kael, Kaelen, Thorne, Thalia, Marcus, Elara, Seraphina, Cassius. AVOID names ending in -ion, -ara, -wyn, -iel that sound auto-generated.
+Instead, draw on:
+  • working-class, occupational, or place-rooted names (Tibb Quarrelsmith, Hoss-on-the-Steps, Old Marrow, Vetch, Brindle Sump, Senna Two-Knives)
+  • compound nicknames earned by deed or defect (Six-Finger Doss, Mother Cricket, The Knot, Pell Half-Penny)
+  • regional flavors that feel lived-in: short blunt syllables for desert/wild folk (Jek, Hara, Vos), liquid syllables for coast (Mirelle, Asaph), iron syllables for the Bastion (Krell, Borst)
+  • give roughly 1 in 3 NPCs a SINGLE-WORD name or nickname only (no surname)
+Each name in this batch must feel like it came from a different mouth — no shared prefixes, suffixes, or rhythm.`;
+
     const system = isCrypt
       ? `You populate a tomb in EverBloom with **lingering souls** — the dead who never left. They are not living people. Each is a memory bound to bone, dust, or a relic in this place.
+${NAMING_RULES}
 
 Return STRICT JSON:
 {"npcs":[{"name":"","title":"","persona":"","greeting":"","schedule":{"dawn":{"room":"here","activity":""},"morning":{...},"midday":{...},"dusk":{...},"night":{...}}}]}
 
 Generate exactly ${need} souls. Each persona (2-3 sentences) describes WHO THEY WERE in life, HOW they died, and what unfinished thing keeps them tethered here. Title should be a death-epithet ("the Drowned Scribe", "the Last Coin-Counter"). Greeting is what they would whisper IF a living tongue could hear them — a fragment, a grievance, a name. Activities are present-tense but ghostly ("rearranging coins that no longer exist", "weeping over a sealed jar", "counting the seams in the wall").`
       : `You add residents to a location in EverBloom (the dying world; First City; seven Aethers; mouth-bound Veiled).
+${NAMING_RULES}
 
 Return STRICT JSON:
 {"npcs":[{"name":"","title":"","persona":"","greeting":"","schedule":{"dawn":{"room":"here","activity":""},"morning":{...},"midday":{...},"dusk":{...},"night":{...}}}]}
 
-Generate exactly ${need} NPCs that BELONG here. They live here ("here" in schedule). Each must be DISTINCT — different names, different roles, different voices (e.g. for a market: a vendor, a haggler, a child sweep, a guard, a beggar). Persona 2-3 sentences. Greeting may include *brief action*. Activities are short, present-tense, in-world.`;
+Generate exactly ${need} NPCs that BELONG here. They live here ("here" in schedule). Each must be DISTINCT — different names, different roles, different voices, different speech rhythms (e.g. for a market: a one-eyed spice-seller, a child running tabs, a deserter pretending to be a guard, a widow selling her late husband's tools). Persona 2-3 sentences with at least one specific physical detail (a scar, a limp, missing teeth, a stained apron). Greeting may include *brief action* and a verbal tic. Activities are short, present-tense, in-world.`;
 
     const userMsg = `Location: ${room.name} (${room.kind}). ${room.description}\nAmbience: ${room.ambience ?? ""}`;
 
