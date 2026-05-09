@@ -1,42 +1,45 @@
+# World-map consistency check
+
 ## Goal
-Reshape the world so the route is always: **Road → Gate → City Streets → Gate → Road → (long walk) → next City**, with players starting on the road just outside the First City.
+Catch broken map wiring before it ships. Whenever rooms or exits change, an automated test should fail loudly if a player can't walk from `gates-approach` to every road, every capital gate, and every desert room.
 
-## What changes
+## What to build
 
-### 1. New starting point
-- New room `gates-approach` (kind=`road`, "The Approach of Seven Sigils") sits one step south of `first-city-gate`.
-- `create-character` edge function starts every new player here regardless of north/south choice.
-- From `gates-approach` players see the gate looming north, the Crescent Shore behind them (south), the desert (east) and the wilds (west) — the three "outside" zones still reachable but no longer the starting point.
+A single Deno test file: `supabase/functions/_tests/world_map_test.ts`
 
-### 2. Long roads between cities
-Each of the 7 capitals currently has a 2-room road. Extend every corridor to **5 road rooms + 1 entry-gate room** between the First City Gate and the capital, so the walk is meaningful.
+The test:
+1. Connects to the project DB using `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` (already available in the test env, same pattern other edge functions use).
+2. Loads every row from `rooms` (slug, kind, exits).
+3. Builds an adjacency map from `exits` JSON (values are target slugs; ignore keys — direction names don't matter for reachability).
+4. BFS from `gates-approach`.
+5. Asserts:
+   - **Every `kind = 'road'` room is reachable.**
+   - **Every `kind = 'gate'` room is reachable.**
+   - **Every `kind = 'desert'` room is reachable** (this is the regression that just bit us — the wilds→desert link).
+   - No exit points to a missing slug (dangling reference).
+6. On failure, prints the unreachable slugs grouped by kind so the fix is obvious.
 
-```text
-first-city-gate
-  ├─ pilgrim-causeway → sun-blanched-mile → ember-mile → pilgrim-rise → solar-foothills → sanctum-gate → high-sanctum
-  ├─ ironroad → slag-mile → cinder-mile → forge-rise → slag-flats → bastion-gate → iron-bastion
-  ├─ mirror-pass → veil-mile → glass-mile → reflection-rise → glassmere → mirror-gate → mirrorlands-court
-  ├─ caravan-spur → coin-mile → spice-mile → broker-rise → goldwash → bazaar-gate → gilded-bazaar
-  ├─ star-stairs → hush-mile → ink-mile → archive-rise → hush-pines → horizon-gate → silent-horizon
-  ├─ vow-walk-road → vigil-mile → silver-mile → mourner-rise → silver-pines → vow-gate → evershade-court
-  └─ hearth-road → grain-mile → orchard-mile → harvest-rise → barley-flats → keep-gate → feastlands-keep
+Optional extra assertions (cheap, worth including):
+- Every capital-gate room (`sanctum-gate`, `bastion-gate`, `mirror-gate`, `bazaar-gate`, `horizon-gate`, `vow-gate`, `keep-gate`) is reachable AND each of the 7 capital rooms (`high-sanctum`, `iron-bastion`, `mirrorlands-court`, `gilded-bazaar`, `silent-horizon`, `evershade-court`, `feastlands-keep`) is reachable.
+- Symmetric-exit warning (non-fatal log): if room A → B but B has no exit back to A, print it. Useful for catching the `red-haze-road`/`wilderness-edge` style bugs without forcing every link to be two-way (some intentional one-way drops exist, e.g. desert wander, hidden tomb).
+
+## How to run
+
+`supabase--test_edge_functions` already runs `*_test.ts` files under `supabase/functions/`. The new file lives at `supabase/functions/_tests/world_map_test.ts` and runs alongside the rest. No config changes needed.
+
+Manual run from anywhere:
+```
+deno test --allow-net --allow-env supabase/functions/_tests/world_map_test.ts
 ```
 
-That's **3 new road-rooms + 1 new gate-room per route × 7 routes = 28 new rooms**, plus the new starting room (29 total). Each capital's "south" exit now goes to its gate room instead of the first road room.
-
-### 3. Capital ↔ road wiring
-- Every capital's outer-most exit (currently `south: <first road>`) becomes `south: <capital-gate>`.
-- Every capital-gate room links `in: <capital>` and `out: <last road room before gate>`.
-- The road chain uses `north`/`south` so movement is intuitive instead of `in`/`out`.
-
-### 4. Cleanup
-- Remove the legacy direct named exits from `first-city-gate` to capitals (`sanctum`, `bastion`, etc. already point at road heads — keep them, they're fine).
-- Update wagon hub list so wagonmasters only sit at the First City Gate and each capital-gate (not mid-road).
-- `crescent-shore`, `desert-verge`, wilderness, tomb — all left alone, just no longer the spawn point.
-
 ## Technical notes
-- One migration inserts the 29 new rooms and rewires the relevant exits via `INSERT … ON CONFLICT DO NOTHING` and targeted `UPDATE rooms SET exits = …` for each capital + each existing road head.
-- One small edit to `supabase/functions/create-character/index.ts` to set `startRoom = 'gates-approach'` for both directions.
-- Memory file `mem://lore/crescent-kingdoms` updated to describe the road→gate→street→gate→road grammar.
 
-No edge-function or UI changes beyond the start-room constant.
+- Read-only — no migrations, no edge-function code changes.
+- Uses the same `@supabase/supabase-js@2.45.0` ESM import other functions use.
+- Treats every value in `exits` as a target slug. If we ever introduce richer exit objects (`{to, locked}`), the test will need a tiny adapter — flagged in a code comment.
+- Skips rooms with `hidden = true` from the *reachability* requirement (hidden rooms like `unspoken-hollow` and the Tomb-Below entrance are intentionally gated), but still checks their exits don't dangle.
+- Skips `requires_faction` rooms from reachability (Chaos-only rooms can be unreachable for a vanilla player).
+
+## Out of scope
+- Auto-fixing broken links. The test only reports.
+- UI surfacing. This is a developer-time check, not a runtime warning.
