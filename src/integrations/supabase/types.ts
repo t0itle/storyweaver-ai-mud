@@ -1322,6 +1322,38 @@ export type Database = {
           },
         ]
       }
+      player_speaker_artifacts: {
+        Row: {
+          acquired_at: string
+          artifact_key: string
+          charges_remaining: number
+          source: string
+          user_id: string
+        }
+        Insert: {
+          acquired_at?: string
+          artifact_key: string
+          charges_remaining?: number
+          source?: string
+          user_id: string
+        }
+        Update: {
+          acquired_at?: string
+          artifact_key?: string
+          charges_remaining?: number
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_speaker_artifacts_artifact_key_fkey"
+            columns: ["artifact_key"]
+            isOneToOne: false
+            referencedRelation: "speaker_artifacts"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       player_town_rep: {
         Row: {
           score: number
@@ -1842,6 +1874,60 @@ export type Database = {
           name?: string
           rarity?: string
           teacher_npc?: string | null
+        }
+        Relationships: []
+      }
+      speaker_artifacts: {
+        Row: {
+          active_blurb: string
+          active_name: string
+          blurb: string
+          charges_max: number
+          created_at: string
+          glyph: string
+          holder_kind: string
+          holder_ref: string | null
+          home_room: string
+          key: string
+          lore: string
+          merit_required_earn: number
+          name: string
+          passive_blurb: string
+          rep_penalty_steal: number
+        }
+        Insert: {
+          active_blurb?: string
+          active_name?: string
+          blurb?: string
+          charges_max?: number
+          created_at?: string
+          glyph?: string
+          holder_kind: string
+          holder_ref?: string | null
+          home_room: string
+          key: string
+          lore?: string
+          merit_required_earn?: number
+          name: string
+          passive_blurb?: string
+          rep_penalty_steal?: number
+        }
+        Update: {
+          active_blurb?: string
+          active_name?: string
+          blurb?: string
+          charges_max?: number
+          created_at?: string
+          glyph?: string
+          holder_kind?: string
+          holder_ref?: string | null
+          home_room?: string
+          key?: string
+          lore?: string
+          merit_required_earn?: number
+          name?: string
+          passive_blurb?: string
+          rep_penalty_steal?: number
         }
         Relationships: []
       }
