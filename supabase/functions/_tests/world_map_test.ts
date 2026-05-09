@@ -52,7 +52,12 @@ function extractTargets(exits: Record<string, unknown> | null): string[] {
   return out;
 }
 
-Deno.test("world map: every road, gate, and desert room is reachable from gates-approach", async () => {
+Deno.test({
+  name: "world map: every road, gate, and desert room is reachable from gates-approach",
+  // supabase-js spins up a realtime heartbeat interval we don't use; ignore leaks.
+  sanitizeOps: false,
+  sanitizeResources: false,
+  fn: async () => {
   if (!SUPABASE_URL || !SERVICE_KEY) {
     throw new Error(
       "Missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY (or anon/publishable fallback). " +
