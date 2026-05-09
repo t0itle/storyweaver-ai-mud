@@ -156,4 +156,5 @@ Deno.test({
 
   // Sanity: the required hubs are present and reached.
   assertEquals(namedMissing.length, 0);
+  },
 });
