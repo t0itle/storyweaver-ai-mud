@@ -33,6 +33,9 @@ interface Profile {
   chaos_pressure: number;
   non_serviam_at: string | null;
   companion_npc_id: string | null;
+  escortee_npc_id: string | null;
+  escortee_destination: string | null;
+  escortee_destination_name: string | null;
   downed: boolean; downed_at: string | null; downed_combat_id: string | null;
   dead: boolean; dead_at: string | null; death_room: string | null;
   zombified: boolean; revived_by: string | null; revived_at: string | null;
@@ -549,10 +552,25 @@ export default function GameClient({ session }: { session: Session }) {
       }
     }
 
+    // Escortee tags along (non-combatant) — they MUST survive to be delivered.
+    let escorteeName: string | null = null;
+    if (profile.escortee_npc_id) {
+      const { data: esc } = await supabase.from("npcs")
+        .select("name").eq("id", profile.escortee_npc_id).maybeSingle();
+      if (esc) {
+        escorteeName = esc.name;
+        await supabase.from("npcs").update({ room: slug }).eq("id", profile.escortee_npc_id);
+        await supabase.from("messages").insert({
+          room: profile.current_room, author_name: "—", kind: "ambient",
+          content: `*${esc.name} hurries after ${profile.username}, keeping close.*`, user_id: null,
+        });
+      }
+    }
+
     const { error } = await supabase.from("profiles").update({ current_room: slug }).eq("id", profile.id);
     if (error) { toast.error(error.message); return; }
     setProfile({ ...profile, current_room: slug });
-    // Quest auto-resolution: any active "visit" quest targeting this room completes.
+    // Quest auto-resolution: any active "visit" or "escort" quest targeting this room completes.
     supabase.functions.invoke("quest-auto-resolve", {
       body: { event: { kind: "visit", room: slug } },
     }).then(({ data }) => {
@@ -570,7 +588,32 @@ export default function GameClient({ session }: { session: Session }) {
           content: `*${companionName} arrives alongside ${profile.username}.*`, user_id: null,
         });
       }
+      if (escorteeName) {
+        supabase.from("messages").insert({
+          room: slug, author_name: "—", kind: "ambient",
+          content: `*${escorteeName} steps in behind ${profile.username}, breathing easier.*`, user_id: null,
+        });
+      }
     }, 300);
+
+    // Travel encounters: roll on road / desert / wilds / hollow / grove rooms.
+    // Server enforces cooldown + 15% trigger chance, so we always call it.
+    supabase.functions.invoke("random-encounter", { body: { room: slug } })
+      .then(({ data }) => {
+        if (!data?.ok) return;
+        if (data.kind === "ambush") {
+          toast.error(`⚔ Ambush! ${data.npc_name} blocks the way.`);
+        } else if (data.kind === "traveler") {
+          toast(`✉ ${data.npc_name} asks for safe passage to ${data.destination_name}. Open Quests to accept.`);
+        } else if (data.kind === "discovery") {
+          if (data.reward?.kind === "gold") toast.success(`+${data.reward.amount}g (roadside find)`);
+          else if (data.reward?.kind === "xp") toast.success(`+${data.reward.amount}xp (you take it in)`);
+          reloadProfile();
+        } else if (data.kind === "patrol") {
+          toast(`${data.npc_name} flags you down on the road.`);
+        }
+      })
+      .catch(() => null);
   };
 
   const followNpc = async (targetName: string) => {

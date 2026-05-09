@@ -1040,12 +1040,16 @@ export type Database = {
           downed: boolean
           downed_at: string | null
           downed_combat_id: string | null
+          escortee_destination: string | null
+          escortee_destination_name: string | null
+          escortee_npc_id: string | null
           faction: string | null
           gold: number
           hall_refusals: number
           hp: number
           id: string
           in_combat_id: string | null
+          last_encounter_at: string | null
           level: number
           max_hp: number
           max_weight: number
@@ -1079,12 +1083,16 @@ export type Database = {
           downed?: boolean
           downed_at?: string | null
           downed_combat_id?: string | null
+          escortee_destination?: string | null
+          escortee_destination_name?: string | null
+          escortee_npc_id?: string | null
           faction?: string | null
           gold?: number
           hall_refusals?: number
           hp?: number
           id: string
           in_combat_id?: string | null
+          last_encounter_at?: string | null
           level?: number
           max_hp?: number
           max_weight?: number
@@ -1118,12 +1126,16 @@ export type Database = {
           downed?: boolean
           downed_at?: string | null
           downed_combat_id?: string | null
+          escortee_destination?: string | null
+          escortee_destination_name?: string | null
+          escortee_npc_id?: string | null
           faction?: string | null
           gold?: number
           hall_refusals?: number
           hp?: number
           id?: string
           in_combat_id?: string | null
+          last_encounter_at?: string | null
           level?: number
           max_hp?: number
           max_weight?: number
@@ -1161,6 +1173,7 @@ export type Database = {
           completed_at: string | null
           created_at: string
           description: string
+          escort_npc_id: string | null
           expires_at: string | null
           giver_npc_id: string
           giver_npc_name: string
@@ -1187,6 +1200,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           description?: string
+          escort_npc_id?: string | null
           expires_at?: string | null
           giver_npc_id: string
           giver_npc_name: string
@@ -1213,6 +1227,7 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           description?: string
+          escort_npc_id?: string | null
           expires_at?: string | null
           giver_npc_id?: string
           giver_npc_name?: string

@@ -1,0 +1,207 @@
+// Random travel encounters. Called by the client after a player moves into a
+// road / desert / wild room. Server-authoritative: enforces a per-player
+// cooldown and a base trigger chance, then weighted-picks an encounter type.
+//
+// Encounter types:
+//   ambush      - spawns a hostile NPC; player must `attack` to fight back.
+//   traveler    - spawns a friendly NPC and creates an OFFERED escort quest.
+//   discovery   - flavor beat + small reward (gold or xp). No spawn.
+//   patrol      - spawns a faction patrol NPC; greeting depends on alignment.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+const json = (b: unknown, s = 200) =>
+  new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
+
+const COOLDOWN_SECONDS = 90;
+const TRIGGER_CHANCE = 0.15;
+
+const ELIGIBLE_KINDS = new Set(["road", "desert", "wilds", "hollow", "grove"]);
+
+const CAPITAL_DESTINATIONS = [
+  { slug: "high-sanctum", name: "The High Sanctum" },
+  { slug: "iron-bastion", name: "The Iron Bastion" },
+  { slug: "mirrorlands-court", name: "The Mirrorlands Court" },
+  { slug: "gilded-bazaar", name: "The Gilded Bazaar" },
+  { slug: "silent-horizon", name: "The Silent Horizon" },
+  { slug: "evershade-court", name: "The Evershade Court" },
+  { slug: "feastlands-keep", name: "The Feastlands Keep" },
+  { slug: "first-city", name: "The First City" },
+];
+
+const AMBUSH_NPCS = [
+  { name: "Crook-Nose Vell", title: "road bandit", greeting: "Coin or blood, traveler. I'll take either." },
+  { name: "Ash-Mouth Korin", title: "highwayman", greeting: "Wrong road, friend. Wrong day." },
+  { name: "Sister Veiled-Iron", title: "Speaker zealot", greeting: "*She lifts a strip of cloth from her mouth — only to draw a blade.*" },
+  { name: "The Burnt Wolf", title: "feral hound", greeting: "*A low, wet growl. The thing was once a wolf.*" },
+  { name: "Greel of the Cinders", title: "deserter", greeting: "I'm done running. Hand it over." },
+];
+
+const TRAVELERS = [
+  { name: "Mira Lensbinder", title: "wandering scribe", plea: "Please — my satchel is full of letters that must reach %DEST%. The road is not safe alone." },
+  { name: "Old Bavren", title: "limping pilgrim", plea: "These bones won't carry me much further. Take me to %DEST% and I'll see you fed." },
+  { name: "Liss the Sparrow", title: "courier child", plea: "My master is at %DEST%. If I don't get there by dusk he'll lose his contract — and me." },
+  { name: "Goodman Tarn", title: "wagonless trader", plea: "Bandits took my mule outside %DEST%. I just need to make the gate — please." },
+  { name: "Wren Hollowstep", title: "novice diviner", plea: "The road bends wrong here. Walk with me to %DEST% and I'll teach you a sign." },
+];
+
+const PATROLS = [
+  { name: "Captain Ortha", title: "kingdom marshal", greeting: "State your business on this road, walker." },
+  { name: "Lay-Brother Finn", title: "Veiled outrider", greeting: "*He nods through his linen mask. The Speaker's silence rides with him.*" },
+  { name: "Sergeant Wek", title: "border watch", greeting: "Keep moving. The dunes ate three travelers this week." },
+];
+
+const DISCOVERIES = [
+  { line: "*A flock of bone-ash starlings burst from a thornbush, wheeling once before vanishing west.*", reward: { kind: "xp", amount: 4 } },
+  { line: "*Half-buried in the dust: a copper coin with a face worn smooth.*", reward: { kind: "gold", amount: 8 } },
+  { line: "*A weathered shrine-stone leans by the path. Someone has left a fresh sprig of thyme on it.*", reward: { kind: "xp", amount: 6 } },
+  { line: "*The wind shifts and for a heartbeat you swear you hear a bell, very far off.*", reward: { kind: "xp", amount: 3 } },
+  { line: "*A merchant's dropped purse-string lies coiled like a snake. A few coins still cling to it.*", reward: { kind: "gold", amount: 12 } },
+  { line: "*The sky goes briefly bronze. A storm is walking somewhere over the Crescent.*", reward: { kind: "xp", amount: 4 } },
+  { line: "*A lone crow follows you for three steps, drops a scrap of bright cloth, and is gone.*", reward: { kind: "xp", amount: 5 } },
+];
+
+function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+function weightedKind(): "ambush" | "traveler" | "discovery" | "patrol" {
+  const r = Math.random();
+  if (r < 0.35) return "ambush";
+  if (r < 0.60) return "traveler";
+  if (r < 0.85) return "discovery";
+  return "patrol";
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+  try {
+    const auth = req.headers.get("Authorization");
+    if (!auth) return json({ error: "Unauthorized" }, 401);
+    const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: auth } } });
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: { user } } = await supa.auth.getUser();
+    if (!user) return json({ error: "Unauthorized" }, 401);
+
+    const { room } = await req.json();
+    if (!room || typeof room !== "string") return json({ error: "room required" }, 400);
+
+    const { data: roomRow } = await admin.from("rooms").select("slug, kind, name").eq("slug", room).maybeSingle();
+    if (!roomRow) return json({ ok: false, reason: "no-room" });
+    if (!ELIGIBLE_KINDS.has(roomRow.kind)) return json({ ok: false, reason: "biome" });
+
+    const { data: profile } = await admin.from("profiles")
+      .select("username, last_encounter_at, in_combat_id, downed, dead, gold, xp")
+      .eq("id", user.id).maybeSingle();
+    if (!profile) return json({ ok: false, reason: "no-profile" });
+    if (profile.in_combat_id || profile.downed || profile.dead) return json({ ok: false, reason: "busy" });
+
+    if (profile.last_encounter_at) {
+      const since = (Date.now() - new Date(profile.last_encounter_at).getTime()) / 1000;
+      if (since < COOLDOWN_SECONDS) return json({ ok: false, reason: "cooldown" });
+    }
+
+    if (Math.random() > TRIGGER_CHANCE) {
+      // Still bump the timestamp lightly so we don't roll every single step.
+      // Half-cooldown so it can fire fairly soon.
+      const half = new Date(Date.now() - (COOLDOWN_SECONDS * 500)).toISOString();
+      await admin.from("profiles").update({ last_encounter_at: half }).eq("id", user.id);
+      return json({ ok: false, reason: "no-roll" });
+    }
+
+    const kind = weightedKind();
+    const now = new Date().toISOString();
+
+    if (kind === "ambush") {
+      const t = pick(AMBUSH_NPCS);
+      const { data: npc } = await admin.from("npcs").insert({
+        name: t.name, title: t.title, persona: "ambusher",
+        greeting: t.greeting, room, home_room: room,
+      }).select("id, name").single();
+      await admin.from("messages").insert({
+        room, author_name: "—", kind: "ambient",
+        content: `*${t.name}, ${t.title}, steps from cover, blocking the road.* "${t.greeting}"`,
+        user_id: null,
+      });
+      await admin.from("profiles").update({ last_encounter_at: now }).eq("id", user.id);
+      return json({ ok: true, kind, npc_id: npc?.id, npc_name: npc?.name });
+    }
+
+    if (kind === "traveler") {
+      const t = pick(TRAVELERS);
+      const dest = pick(CAPITAL_DESTINATIONS);
+      const plea = t.plea.replace("%DEST%", dest.name);
+      const { data: npc } = await admin.from("npcs").insert({
+        name: t.name, title: t.title, persona: "traveler",
+        greeting: plea, room, home_room: dest.slug,
+      }).select("id, name").single();
+      // Create the offered escort quest so the player accepts/declines via the journal UI.
+      const { data: quest } = await admin.from("quests").insert({
+        user_id: user.id,
+        giver_npc_id: npc!.id,
+        giver_npc_name: t.name,
+        title: `Escort ${t.name} to ${dest.name}`,
+        description: plea,
+        objective: `Reach ${dest.name} with ${t.name} alive.`,
+        status: "offered",
+        severity: "minor",
+        kind: "escort",
+        target_kind: "room",
+        target_ref: dest.slug,
+        reward_gold: 30 + Math.floor(Math.random() * 30),
+        reward_xp: 60,
+        reward_amity: 8,
+        offered_room: room,
+        escort_npc_id: npc!.id,
+      }).select("id").single();
+      await admin.from("messages").insert({
+        room, author_name: "—", kind: "ambient",
+        content: `*${t.name}, a ${t.title}, hails you from the roadside.* "${plea}"`,
+        user_id: null,
+      });
+      await admin.from("profiles").update({ last_encounter_at: now }).eq("id", user.id);
+      return json({
+        ok: true, kind, npc_id: npc?.id, npc_name: t.name,
+        destination: dest.slug, destination_name: dest.name, quest_id: quest?.id,
+      });
+    }
+
+    if (kind === "patrol") {
+      const t = pick(PATROLS);
+      const { data: npc } = await admin.from("npcs").insert({
+        name: t.name, title: t.title, persona: "patrol",
+        greeting: t.greeting, room, home_room: room,
+      }).select("id, name").single();
+      await admin.from("messages").insert({
+        room, author_name: "—", kind: "ambient",
+        content: `*${t.name}, ${t.title}, reins up beside you.* "${t.greeting}"`,
+        user_id: null,
+      });
+      await admin.from("profiles").update({ last_encounter_at: now }).eq("id", user.id);
+      return json({ ok: true, kind, npc_id: npc?.id, npc_name: t.name });
+    }
+
+    // discovery
+    const d = pick(DISCOVERIES);
+    await admin.from("messages").insert({
+      room, author_name: "—", kind: "ambient",
+      content: d.line, user_id: null,
+    });
+    if (d.reward.kind === "gold") {
+      await admin.from("profiles").update({
+        gold: (profile.gold ?? 0) + d.reward.amount,
+        last_encounter_at: now,
+      }).eq("id", user.id);
+    } else {
+      await admin.from("profiles").update({
+        xp: (profile.xp ?? 0) + d.reward.amount,
+        last_encounter_at: now,
+      }).eq("id", user.id);
+    }
+    return json({ ok: true, kind, reward: d.reward });
+  } catch (e) {
+    console.error("random-encounter error", e);
+    return json({ error: e instanceof Error ? e.message : "error" }, 500);
+  }
+});
