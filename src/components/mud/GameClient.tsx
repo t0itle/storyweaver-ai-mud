@@ -10,6 +10,7 @@ import { ChronicleModal } from "./ChronicleModal";
 import { BoardModal } from "./BoardModal";
 import { MarketModal } from "./MarketModal";
 import { GuildModal } from "./GuildModal";
+import { ArtifactsPanel } from "./ArtifactsPanel";
 import { CharacterSheet } from "./CharacterSheet";
 import { RuneHub } from "./RuneHub";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -136,6 +137,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [offeredQuestCount, setOfferedQuestCount] = useState(0);
   const [wagonOpen, setWagonOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
+  const [artifactsOpen, setArtifactsOpen] = useState(false);
   const [marketMerchant, setMarketMerchant] = useState<string | null>(null);
   const [guildmaster, setGuildmaster] = useState<string | null>(null);
   const [wagonRoutes, setWagonRoutes] = useState<{ destination: string; cost_gold: number; flavor: string; name?: string; visited?: boolean }[]>([]);
@@ -1124,6 +1126,9 @@ export default function GameClient({ session }: { session: Session }) {
           <button onClick={() => setKinOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Kin spirits — friends & private messages">
             <Users className="w-4 h-4" /><span className="hidden sm:inline">kin</span>
           </button>
+          <button onClick={() => setArtifactsOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-accent hover:border-accent transition-colors text-xs" title="Speaker's Artifacts">
+            <span className="text-accent">☩</span><span className="hidden sm:inline">relics</span>
+          </button>
           <button onClick={() => setHelpOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs ml-auto" title="Commands">
             <HelpCircle className="w-4 h-4" /><span className="hidden sm:inline">help</span>
           </button>
@@ -1329,6 +1334,7 @@ export default function GameClient({ session }: { session: Session }) {
       <BoardModal open={boardOpen} onClose={() => setBoardOpen(false)} userId={profile.id} onProfileChange={() => reloadProfile()} />
       <MarketModal open={!!marketMerchant} merchantId={marketMerchant} onClose={() => setMarketMerchant(null)} onChanged={() => { reloadProfile(); reloadInventory(); }} />
       <GuildModal open={!!guildmaster} guildmasterId={guildmaster} onClose={() => setGuildmaster(null)} onChanged={() => { reloadProfile(); reloadInventory(); reloadRunes(); reloadQuestCounts(); }} />
+      <ArtifactsPanel open={artifactsOpen} onClose={() => setArtifactsOpen(false)} onChanged={() => { reloadProfile(); }} />
       <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} onRestarted={() => window.location.reload()} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
