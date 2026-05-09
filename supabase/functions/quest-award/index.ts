@@ -22,7 +22,7 @@ export async function completeQuest(admin: any, questId: string, note = "") {
 
   // Apply gold + xp.
   const { data: profile } = await admin.from("profiles")
-    .select("gold, xp, username, current_room").eq("id", quest.user_id).maybeSingle();
+    .select("gold, xp, username, current_room, merit").eq("id", quest.user_id).maybeSingle();
   await admin.from("profiles").update({
     gold: (profile?.gold ?? 0) + gold,
     xp: (profile?.xp ?? 0) + xp,
