@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.react_market_to_world_event() FROM PUBLIC, anon, authenticated;
