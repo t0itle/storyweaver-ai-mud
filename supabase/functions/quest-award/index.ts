@@ -91,6 +91,18 @@ export async function completeQuest(admin: any, questId: string, note = "") {
     completed_at: new Date().toISOString(),
   }).eq("id", questId);
 
+  // Escort completed: free the traveler and clear escortee fields, plus a small merit bump.
+  if (quest.kind === "escort" && quest.escort_npc_id) {
+    await admin.from("profiles").update({
+      escortee_npc_id: null,
+      escortee_destination: null,
+      escortee_destination_name: null,
+      merit: (profile?.merit ?? 0) + 2,
+    }).eq("id", quest.user_id);
+    // Retire the traveler NPC so they don't linger forever.
+    await admin.from("npcs").update({ hidden: true }).eq("id", quest.escort_npc_id);
+  }
+
   // Journal-yielding event.
   await admin.from("world_events").insert({
     kind: "quest_completed",
