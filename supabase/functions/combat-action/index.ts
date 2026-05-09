@@ -344,6 +344,40 @@ Deno.serve(async (req) => {
         await advanceTurn(combatId);
         return ok({ ok: true, saved: true, hp: reviveHp });
       } else {
+        // Permadeath — UNLESS the player is aligned to a still-living Aether.
+        // Aligned faithful are carried to their Aether's city well at half HP.
+        let alignedRescue: { well: string; aether: string; aetherName: string } | null = null;
+        if (profile.aether) {
+          const { data: aeRow } = await admin
+            .from("aethers")
+            .select("key, name, alive, well_room")
+            .eq("key", profile.aether)
+            .maybeSingle();
+          if (aeRow?.alive && aeRow.well_room) {
+            alignedRescue = { well: aeRow.well_room as string, aether: aeRow.key as string, aetherName: (aeRow.name as string) ?? aeRow.key };
+          }
+        }
+
+        if (alignedRescue) {
+          const halfHp = Math.max(1, Math.floor((profile.max_hp ?? 20) / 2));
+          await admin.from("profiles").update({
+            downed: false, downed_at: null, downed_combat_id: null,
+            dead: false, dead_at: null, death_room: null,
+            hp: halfHp, in_combat_id: null,
+            current_room: alignedRescue.well,
+          }).eq("id", user.id);
+          await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
+          await pushAction(combatId, combat.turn_number, user.id, me.name, "death_save", null,
+            `${me.name}'s breath fails (${Math.round(score * 100)}%) — but ${alignedRescue.aetherName} answers. They wake at the city well, half their strength returned.`);
+          await admin.from("world_events").insert({
+            kind: "aether_rescued", actor_id: user.id, actor_name: me.name,
+            room: alignedRescue.well, target_kind: "aether", target_name: alignedRescue.aether,
+            details: { from: profile.current_room, aether: alignedRescue.aether },
+          });
+          await advanceTurn(combatId);
+          return ok({ ok: true, saved: true, rescued: true, hp: halfHp, room: alignedRescue.well });
+        }
+
         // Permadeath
         await admin.from("profiles").update({
           downed: false, downed_at: null, downed_combat_id: null,
