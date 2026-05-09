@@ -102,16 +102,40 @@ Deno.serve(async (req) => {
       if (since < COOLDOWN_SECONDS) return json({ ok: false, reason: "cooldown" });
     }
 
-    if (Math.random() > TRIGGER_CHANCE) {
-      // Still bump the timestamp lightly so we don't roll every single step.
-      // Half-cooldown so it can fire fairly soon.
+    // Cargo-aware risk: heavy / valuable trade cargo attracts bandits.
+    const { data: cargo } = await admin
+      .from("player_items")
+      .select("quantity, trade_goods!inner(base_price)")
+      .eq("user_id", user.id);
+    const cargoValue = (cargo ?? []).reduce(
+      (s, r: any) => s + r.quantity * Number(r.trade_goods?.base_price ?? 0), 0);
+    // Up to +0.30 above 1000g of cargo.
+    const cargoBoost = Math.min(0.30, cargoValue / 3500);
+    const triggerChance = TRIGGER_CHANCE + cargoBoost;
+
+    if (Math.random() > triggerChance) {
       const half = new Date(Date.now() - (COOLDOWN_SECONDS * 500)).toISOString();
       await admin.from("profiles").update({ last_encounter_at: half }).eq("id", user.id);
       return json({ ok: false, reason: "no-roll" });
     }
 
-    const kind = weightedKind();
+    // If you carry serious cargo, ambushes become much more likely.
+    function pickKind(): "ambush" | "traveler" | "discovery" | "patrol" {
+      if (cargoValue > 200) {
+        const r = Math.random();
+        if (r < 0.65) return "ambush";
+        if (r < 0.80) return "patrol";
+        if (r < 0.92) return "traveler";
+        return "discovery";
+      }
+      return weightedKind();
+    }
+    const kind = pickKind();
     const now = new Date().toISOString();
+
+    // Brief flavor when cargo provoked the encounter.
+    const cargoFlavor = cargoValue > 200 && kind === "ambush"
+      ? " *Your cargo's weight has marked you on this road.*" : "";
 
     if (kind === "ambush") {
       const t = pick(AMBUSH_NPCS);
@@ -121,7 +145,7 @@ Deno.serve(async (req) => {
       }).select("id, name").single();
       await admin.from("messages").insert({
         room, author_name: "—", kind: "ambient",
-        content: `*${t.name}, ${t.title}, steps from cover, blocking the road.* "${t.greeting}"`,
+        content: `*${t.name}, ${t.title}, steps from cover, blocking the road.*${cargoFlavor} "${t.greeting}"`,
         user_id: null,
       });
       await admin.from("profiles").update({ last_encounter_at: now }).eq("id", user.id);
