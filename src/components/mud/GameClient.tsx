@@ -9,6 +9,7 @@ import { KinPanel } from "./KinPanel";
 import { ChronicleModal } from "./ChronicleModal";
 import { BoardModal } from "./BoardModal";
 import { MarketModal } from "./MarketModal";
+import { GuildModal } from "./GuildModal";
 import { CharacterSheet } from "./CharacterSheet";
 import { RuneHub } from "./RuneHub";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -49,7 +50,7 @@ interface Room {
   kind?: string; label?: string;
   town_key?: string | null;
 }
-interface Npc { id: string; room: string; name: string; title: string | null; greeting: string | null; current_activity?: string | null; is_merchant?: boolean | null; merchant_town?: string | null; }
+interface Npc { id: string; room: string; name: string; title: string | null; greeting: string | null; current_activity?: string | null; is_merchant?: boolean | null; merchant_town?: string | null; is_guildmaster?: boolean | null; guild_key?: string | null; }
 interface Message {
   id: string; room: string; author_name: string;
   kind: string; content: string; created_at: string;
@@ -136,6 +137,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [wagonOpen, setWagonOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
   const [marketMerchant, setMarketMerchant] = useState<string | null>(null);
+  const [guildmaster, setGuildmaster] = useState<string | null>(null);
   const [wagonRoutes, setWagonRoutes] = useState<{ destination: string; cost_gold: number; flavor: string; name?: string; visited?: boolean }[]>([]);
   const [hasCache, setHasCache] = useState(false);
   const [cacheClaimed, setCacheClaimed] = useState(false);
@@ -1258,13 +1260,17 @@ export default function GameClient({ session }: { session: Session }) {
                   <button key={n.id}
                     onClick={() => {
                       if (n.is_merchant) { setMarketMerchant(n.id); }
+                      else if (n.is_guildmaster) { setGuildmaster(n.id); }
                       else { setInput(`ask ${n.name.split(" ")[0]} `); inputRef.current?.focus(); }
                     }}
                     className="block text-left w-full font-body text-parchment hover:text-ember transition-colors">
-                    <span className={n.is_merchant ? "text-ember" : "text-accent"}>{n.is_merchant ? "⚖" : "●"}</span> {n.name}
+                    <span className={n.is_merchant ? "text-ember" : n.is_guildmaster ? "text-accent" : "text-accent"}>
+                      {n.is_merchant ? "⚖" : n.is_guildmaster ? (n.guild_key === "warriors" ? "⚔" : n.guild_key === "traders" ? "⚖" : "✶") : "●"}
+                    </span> {n.name}
                     {n.title && <span className="text-ash italic"> — {n.title}</span>}
                     {word && <span className={`text-[10px] italic ml-1 ${tone}`}> ({word})</span>}
                     {n.is_merchant && <span className="text-[10px] text-ember/70 ml-1">[trade]</span>}
+                    {n.is_guildmaster && <span className="text-[10px] text-accent/70 ml-1">[guild]</span>}
                   </button>
                 );
               })}
@@ -1322,6 +1328,7 @@ export default function GameClient({ session }: { session: Session }) {
       {kinOpen && <KinPanel userId={profile.id} onClose={() => setKinOpen(false)} />}
       <BoardModal open={boardOpen} onClose={() => setBoardOpen(false)} userId={profile.id} onProfileChange={() => reloadProfile()} />
       <MarketModal open={!!marketMerchant} merchantId={marketMerchant} onClose={() => setMarketMerchant(null)} onChanged={() => { reloadProfile(); reloadInventory(); }} />
+      <GuildModal open={!!guildmaster} guildmasterId={guildmaster} onClose={() => setGuildmaster(null)} onChanged={() => { reloadProfile(); reloadInventory(); reloadRunes(); reloadQuestCounts(); }} />
       <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} onRestarted={() => window.location.reload()} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
