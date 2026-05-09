@@ -578,6 +578,42 @@ export type Database = {
         }
         Relationships: []
       }
+      market_events: {
+        Row: {
+          category: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          item_key: string | null
+          multiplier: number
+          reason: string
+          source: string
+          town_key: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          item_key?: string | null
+          multiplier?: number
+          reason?: string
+          source?: string
+          town_key?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          item_key?: string | null
+          multiplier?: number
+          reason?: string
+          source?: string
+          town_key?: string | null
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           addressed_to: string | null
@@ -686,9 +722,12 @@ export type Database = {
           home_room: string | null
           id: string
           is_aether: boolean
+          is_merchant: boolean
           is_soul: boolean
           is_warden: boolean
           last_tick_at: string | null
+          merchant_categories: string[]
+          merchant_town: string | null
           name: string
           persona: string
           requires_rune_key: string | null
@@ -706,9 +745,12 @@ export type Database = {
           home_room?: string | null
           id?: string
           is_aether?: boolean
+          is_merchant?: boolean
           is_soul?: boolean
           is_warden?: boolean
           last_tick_at?: string | null
+          merchant_categories?: string[]
+          merchant_town?: string | null
           name: string
           persona: string
           requires_rune_key?: string | null
@@ -726,9 +768,12 @@ export type Database = {
           home_room?: string | null
           id?: string
           is_aether?: boolean
+          is_merchant?: boolean
           is_soul?: boolean
           is_warden?: boolean
           last_tick_at?: string | null
+          merchant_categories?: string[]
+          merchant_town?: string | null
           name?: string
           persona?: string
           requires_rune_key?: string | null
@@ -1667,6 +1712,33 @@ export type Database = {
           key?: string
           name?: string
           sort_order?: number
+        }
+        Relationships: []
+      }
+      trade_goods: {
+        Row: {
+          base_price: number
+          blurb: string
+          category: string
+          demand_phase: number
+          item_key: string
+          origin_town_key: string
+        }
+        Insert: {
+          base_price: number
+          blurb?: string
+          category: string
+          demand_phase?: number
+          item_key: string
+          origin_town_key: string
+        }
+        Update: {
+          base_price?: number
+          blurb?: string
+          category?: string
+          demand_phase?: number
+          item_key?: string
+          origin_town_key?: string
         }
         Relationships: []
       }
