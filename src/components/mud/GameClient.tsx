@@ -10,6 +10,7 @@ import { ChronicleModal } from "./ChronicleModal";
 import { BoardModal } from "./BoardModal";
 import { MarketModal } from "./MarketModal";
 import { GuildModal } from "./GuildModal";
+import { ArtifactsPanel } from "./ArtifactsPanel";
 import { CharacterSheet } from "./CharacterSheet";
 import { RuneHub } from "./RuneHub";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
