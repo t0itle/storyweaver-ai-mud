@@ -63,6 +63,10 @@ Deno.serve(async (req) => {
     if (action === "decline") {
       if (quest.status !== "offered") return json({ error: "this quest is not on offer" }, 400);
       await admin.from("quests").update({ status: "declined" }).eq("id", quest_id);
+      // Declining an escort dismisses the spawned traveler.
+      if (quest.kind === "escort" && quest.escort_npc_id) {
+        await admin.from("npcs").update({ hidden: true }).eq("id", quest.escort_npc_id);
+      }
       return json({ ok: true, status: "declined" });
     }
 
@@ -76,6 +80,16 @@ Deno.serve(async (req) => {
       await admin.from("npc_amity").upsert({
         npc_id: quest.giver_npc_id, user_id: user.id, score: next, updated_at: new Date().toISOString(),
       }, { onConflict: "npc_id,user_id" });
+
+      // Abandoning an escort frees the player and retires the traveler.
+      if (quest.kind === "escort" && quest.escort_npc_id) {
+        await admin.from("profiles").update({
+          escortee_npc_id: null,
+          escortee_destination: null,
+          escortee_destination_name: null,
+        }).eq("id", user.id);
+        await admin.from("npcs").update({ hidden: true }).eq("id", quest.escort_npc_id);
+      }
 
       await admin.from("world_events").insert({
         kind: "quest_abandoned",
