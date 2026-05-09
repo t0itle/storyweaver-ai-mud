@@ -1474,3 +1474,165 @@ function formatRoom(room: Room, npcs: Npc[], events: { kind: string; actor_name:
   }
   return lines.join("\n");
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Living scene ambience — sensory flavor lines keyed by room kind.
+// Local-only; the world feels alive without spamming the database.
+// ─────────────────────────────────────────────────────────────────
+const AMBIENCE_BY_KIND: Record<string, string[]> = {
+  market: [
+    "a copper bell over a stall clinks as someone elbows past",
+    "the smell of cumin and singed hair drifts through the lane",
+    "a child slips a fig from a vendor's basket and is gone",
+    "two cats yowl over a fishhead in the gutter",
+    "somewhere a hammer falls — once, twice, then nothing",
+  ],
+  square: [
+    "a flock of grey pigeons lifts at once and resettles",
+    "a beggar coughs into the hem of his cloak",
+    "the fountain swallows a tossed coin without sound",
+    "an old woman is feeding crusts to a one-legged dove",
+    "wind drags a torn proclamation along the flagstones",
+  ],
+  tavern: [
+    "a stool scrapes; someone laughs too loud and stops short",
+    "the fire spits a green spark that no one comments on",
+    "a wet rag slaps the bar; mugs rearrange themselves",
+    "a fly is drowning slowly in someone's abandoned ale",
+    "the door creaks open — only the wind comes in",
+  ],
+  hall: [
+    "a candle gutters and a shadow leans across the wall",
+    "somewhere above, a long bell tolls a single note",
+    "dust falls in a slow rope of light from the high windows",
+    "a guard shifts his weight; mail whispers against stone",
+  ],
+  gate: [
+    "a horsefly hums in slow circles around the post",
+    "a banner snaps once in a gust and slumps again",
+    "a guard hawks and spits into the dust",
+    "wagon-wheels grind somewhere out beyond the wall",
+  ],
+  road: [
+    "a beetle the size of a thumbnail scurries across a wagon-rut",
+    "wind moves through the long grass like a sigh",
+    "a single crow watches you from a leaning post",
+    "the dust settles, then lifts again",
+    "somewhere far off, a dog is barking and barking",
+  ],
+  shore: [
+    "a wave comes in, paws at the stones, and recedes",
+    "a gull screams once and is answered by another, closer",
+    "a small crab sidles out of a half-buried boot",
+    "salt crusts on the rope coiled by the dock",
+  ],
+  grove: [
+    "a thrush trills three notes from somewhere above",
+    "a leaf detaches itself and spirals down without hurry",
+    "a fat bee blunders past your ear",
+    "something small moves through the undergrowth — a hare, perhaps",
+    "the wind in the high branches sounds like distant water",
+  ],
+  garden: [
+    "a bee staggers drunk from a foxglove",
+    "a butterfly opens and closes its wings on a sun-warm stone",
+    "somewhere unseen, water is dripping into water",
+    "a cat noses through the rosemary and is gone",
+  ],
+  wilds: [
+    "a twig snaps somewhere behind you; nothing follows",
+    "a hawk's shadow crosses the ground and is gone",
+    "burrs catch on your hem with small, dry sounds",
+    "the wind changes direction without explanation",
+  ],
+  desert: [
+    "the sand whispers along the dune crest",
+    "a black beetle scurries across a half-buried corpse",
+    "a thermal lifts somewhere — three vultures wheeling",
+    "the wind takes a handful of grit and flings it sideways",
+    "a lizard freezes on a rock and watches you with one eye",
+  ],
+  cave: [
+    "water drips, three beats apart, somewhere deeper in",
+    "a pebble dislodges and rolls a long way before silence",
+    "your breath comes back to you off the stone",
+    "something pale skitters into a crack and is gone",
+  ],
+  ruin: [
+    "a chunk of mortar sighs loose and clatters down the wall",
+    "ivy creaks against stone in a slow, patient grip",
+    "a rat regards you from atop a fallen capital",
+    "the wind moves through an empty window and makes a low note",
+  ],
+  crypt: [
+    "the air is colder by one breath than it was a moment ago",
+    "dust shifts in a corner where no draft should reach",
+    "a scarab the colour of old gold creeps along a sarcophagus seam",
+    "you hear, very faintly, what could be weeping or could be wind",
+  ],
+  tower: [
+    "the wind bullies the shutters and lets them go",
+    "a pigeon flusters in the rafters and resettles",
+    "below, a door closes that no one was near",
+  ],
+  temple: [
+    "incense thickens the air; your eyes water briefly",
+    "a brass bowl rings, untouched, and goes still",
+    "somewhere out of sight, slow footsteps cross stone and stop",
+  ],
+  bridge: [
+    "the boards creak underfoot in a rhythm not your own",
+    "below, the water drags something dark and slow past",
+    "a fishhawk drops, takes nothing, and climbs again",
+  ],
+  dock: [
+    "a rope groans against a bollard as the tide shifts",
+    "a fishhead rolls off the planks and is taken in a small splash",
+    "gulls bicker over something pink at the waterline",
+  ],
+  camp: [
+    "a fire pops and someone, unseen, swears softly",
+    "a horse blows out, stamps once, settles",
+    "the smell of burnt onions drifts past",
+  ],
+  hollow: [
+    "wind moves in the high reeds with a dry, ticking sound",
+    "a frog calls once, decides better, falls silent",
+    "midges rise in a thin column over standing water",
+  ],
+  clearing: [
+    "a finch lands on a low branch and tilts its head at you",
+    "sunlight shifts as a cloud passes, and shifts back",
+    "something shakes the long grass at the edge — and is still",
+  ],
+  loft: [
+    "a beam settles with a long, considered creak",
+    "moths blunder against the lantern and fall away",
+  ],
+  room: [
+    "a draft moves through; the lamp-flame leans, then straightens",
+    "somewhere in the building, a door closes",
+    "a moth circles the light in slow, patient orbits",
+  ],
+};
+
+// NPC-aware flavor: occasionally weave a present NPC into the line.
+const NPC_FLAVOR: ((name: string) => string)[] = [
+  (n) => `${n} mutters something to themselves and falls quiet`,
+  (n) => `${n} glances toward the door, then back`,
+  (n) => `${n} cracks a knuckle, slowly, one finger at a time`,
+  (n) => `${n} scratches at an old stain on their sleeve`,
+  (n) => `${n} catches your eye for a beat, then looks away`,
+  (n) => `${n} hums two bars of a song you almost know`,
+];
+
+function pickAmbience(kind: string, npcNames: string[]): string | null {
+  const pool = AMBIENCE_BY_KIND[kind] ?? AMBIENCE_BY_KIND.room;
+  // 1-in-3 chance: if NPCs are present, attribute a small bit of business to one of them.
+  if (npcNames.length && Math.random() < 0.34) {
+    const who = npcNames[Math.floor(Math.random() * npcNames.length)];
+    const fn = NPC_FLAVOR[Math.floor(Math.random() * NPC_FLAVOR.length)];
+    return fn(who);
+  }
+  return pool[Math.floor(Math.random() * pool.length)];
+}
