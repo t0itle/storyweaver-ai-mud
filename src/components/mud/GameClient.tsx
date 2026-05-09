@@ -3,7 +3,7 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Backpack, Flame, HelpCircle, Loader2, LogOut, ScrollText, Sparkles, Users } from "lucide-react";
+import { Backpack, Flame, HelpCircle, Landmark, Loader2, LogOut, ScrollText, Sparkles, Users } from "lucide-react";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
 import { KinPanel } from "./KinPanel";
 import { ChronicleModal } from "./ChronicleModal";
@@ -1112,6 +1112,11 @@ export default function GameClient({ session }: { session: Session }) {
               <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-ember animate-pulse" />
             )}
           </button>
+          {room?.town_key && (
+            <button onClick={() => setBoardOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Town board — quests, bounties, bank">
+              <Landmark className="w-4 h-4" /><span className="hidden sm:inline">board</span>
+            </button>
+          )}
           <button onClick={() => setKinOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Kin spirits — friends & private messages">
             <Users className="w-4 h-4" /><span className="hidden sm:inline">kin</span>
           </button>
@@ -1308,6 +1313,7 @@ export default function GameClient({ session }: { session: Session }) {
         <QuestsPanel userId={profile.id} onClose={() => setQuestsOpen(false)} onChanged={() => { reloadProfile(); reloadQuestCounts(); }} />
       )}
       {kinOpen && <KinPanel userId={profile.id} onClose={() => setKinOpen(false)} />}
+      <BoardModal open={boardOpen} onClose={() => setBoardOpen(false)} userId={profile.id} onProfileChange={() => reloadProfile()} />
       <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} onRestarted={() => window.location.reload()} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
