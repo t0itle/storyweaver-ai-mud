@@ -39,6 +39,17 @@ Deno.serve(async (req) => {
         accepted_at: new Date().toISOString(),
       }).eq("id", quest_id);
 
+      // Escort quests: bind the traveler to the player so they follow.
+      if (quest.kind === "escort" && quest.escort_npc_id && quest.target_ref) {
+        const { data: destRoom } = await admin.from("rooms")
+          .select("name").eq("slug", quest.target_ref).maybeSingle();
+        await admin.from("profiles").update({
+          escortee_npc_id: quest.escort_npc_id,
+          escortee_destination: quest.target_ref,
+          escortee_destination_name: destRoom?.name ?? quest.target_ref,
+        }).eq("id", user.id);
+      }
+
       await admin.from("world_events").insert({
         kind: "quest_accepted",
         actor_id: user.id,
