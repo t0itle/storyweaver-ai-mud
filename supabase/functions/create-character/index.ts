@@ -33,9 +33,11 @@ Deno.serve(async (req) => {
     if (!race_key || typeof description !== "string" || description.trim().length < 8) {
       return json({ error: "Provide race and a description (min 8 chars)" }, 400);
     }
-    // North → caravan road to the First City. South → the Crescent Verge,
-    // the threshold of the deep desert wander system.
-    const startRoom = direction === "south" ? "desert-verge" : "crescent-shore";
+    // Every player wakes on the road just outside the First City's great gate.
+    // The chosen direction colours their first journal entry but no longer
+    // changes the spawn point.
+    const startRoom = "gates-approach";
+    void direction;
 
     const { data: race } = await admin.from("races").select("*").eq("key", race_key).maybeSingle();
     if (!race) return json({ error: "Unknown race" }, 400);
