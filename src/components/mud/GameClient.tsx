@@ -296,6 +296,31 @@ export default function GameClient({ session }: { session: Session }) {
     })();
   }, [profile?.current_room]);
 
+  // Living scene: post a sensory ambient line on entry and every 45-90s while present.
+  // Local-only (atmospheric flavor — not persisted, only the current player sees it).
+  useEffect(() => {
+    if (!profile || !room) return;
+    const slug = profile.current_room;
+    const kind = (room.kind ?? "room") as string;
+    let cancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const fire = (delay: number) => {
+      const t = setTimeout(() => {
+        if (cancelled) return;
+        const line = pickAmbience(kind, npcs.map(n => n.name));
+        if (line) setMessages((m) => [...m, {
+          id: crypto.randomUUID(), room: slug, author_name: "—",
+          kind: "ambient", content: `*${line}*`, created_at: new Date().toISOString(),
+          user_id: null, npc_id: null,
+        } as Message]);
+        fire(45000 + Math.floor(Math.random() * 45000));
+      }, delay);
+      timers.push(t);
+    };
+    fire(2200 + Math.floor(Math.random() * 2000));
+    return () => { cancelled = true; timers.forEach(clearTimeout); };
+  }, [profile?.current_room, room?.slug]);
+
   // Wagon routes & cache info for the current room
   useEffect(() => {
     if (!profile) return;
