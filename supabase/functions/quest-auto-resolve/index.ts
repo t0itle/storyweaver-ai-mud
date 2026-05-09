@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
         const tid = String(ev.target_id ?? "").toLowerCase();
         const tname = String(ev.target_name ?? "").toLowerCase();
         if (ref && (ref === tid || (tname && (tname.includes(ref) || ref.includes(tname))))) match = true;
-      } else if (ev.kind === "visit" && q.kind === "visit" && q.target_kind === "room") {
+      } else if (ev.kind === "visit" && (q.kind === "visit" || q.kind === "escort") && q.target_kind === "room") {
         const ref = (q.target_ref ?? "").toLowerCase();
         const rm = String(ev.room ?? "").toLowerCase();
         if (ref && rm && ref === rm) match = true;
