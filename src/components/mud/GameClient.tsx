@@ -7,6 +7,7 @@ import { Backpack, Flame, HelpCircle, Loader2, LogOut, ScrollText, Sparkles, Use
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
 import { KinPanel } from "./KinPanel";
 import { ChronicleModal } from "./ChronicleModal";
+import { BoardModal } from "./BoardModal";
 import { CharacterSheet } from "./CharacterSheet";
 import { RuneHub } from "./RuneHub";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -132,6 +133,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [activeQuestCount, setActiveQuestCount] = useState(0);
   const [offeredQuestCount, setOfferedQuestCount] = useState(0);
   const [wagonOpen, setWagonOpen] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
   const [wagonRoutes, setWagonRoutes] = useState<{ destination: string; cost_gold: number; flavor: string; name?: string; visited?: boolean }[]>([]);
   const [hasCache, setHasCache] = useState(false);
   const [cacheClaimed, setCacheClaimed] = useState(false);
