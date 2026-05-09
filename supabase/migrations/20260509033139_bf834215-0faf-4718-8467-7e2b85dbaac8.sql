@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.maybe_post_auto_bounty() FROM PUBLIC, anon, authenticated;
