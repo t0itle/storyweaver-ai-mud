@@ -33,6 +33,9 @@ interface Profile {
   chaos_pressure: number;
   non_serviam_at: string | null;
   companion_npc_id: string | null;
+  escortee_npc_id: string | null;
+  escortee_destination: string | null;
+  escortee_destination_name: string | null;
   downed: boolean; downed_at: string | null; downed_combat_id: string | null;
   dead: boolean; dead_at: string | null; death_room: string | null;
   zombified: boolean; revived_by: string | null; revived_at: string | null;
