@@ -14,33 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      aether_loyalty: {
+        Row: {
+          aether_key: string
+          completed_at: string | null
+          status: string
+          step: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          aether_key: string
+          completed_at?: string | null
+          status?: string
+          step?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          aether_key?: string
+          completed_at?: string | null
+          status?: string
+          step?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       aethers: {
         Row: {
+          alive: boolean
           domain: string
+          fallen_at: string | null
           gift: string
           glyph: string
           key: string
           name: string
           sort_order: number
+          throne_room: string | null
           vow: string
+          wardens_killed: number
+          well_room: string | null
         }
         Insert: {
+          alive?: boolean
           domain: string
+          fallen_at?: string | null
           gift: string
           glyph?: string
           key: string
           name: string
           sort_order?: number
+          throne_room?: string | null
           vow: string
+          wardens_killed?: number
+          well_room?: string | null
         }
         Update: {
+          alive?: boolean
           domain?: string
+          fallen_at?: string | null
           gift?: string
           glyph?: string
           key?: string
           name?: string
           sort_order?: number
+          throne_room?: string | null
           vow?: string
+          wardens_killed?: number
+          well_room?: string | null
         }
         Relationships: []
       }
@@ -636,13 +678,16 @@ export type Database = {
       }
       npcs: {
         Row: {
+          aether_key: string | null
           current_activity: string | null
           dead_until: string | null
           greeting: string | null
           hidden: boolean
           home_room: string | null
           id: string
+          is_aether: boolean
           is_soul: boolean
+          is_warden: boolean
           last_tick_at: string | null
           name: string
           persona: string
@@ -650,15 +695,19 @@ export type Database = {
           room: string
           schedule: Json
           title: string | null
+          warden_index: number | null
         }
         Insert: {
+          aether_key?: string | null
           current_activity?: string | null
           dead_until?: string | null
           greeting?: string | null
           hidden?: boolean
           home_room?: string | null
           id?: string
+          is_aether?: boolean
           is_soul?: boolean
+          is_warden?: boolean
           last_tick_at?: string | null
           name: string
           persona: string
@@ -666,15 +715,19 @@ export type Database = {
           room: string
           schedule?: Json
           title?: string | null
+          warden_index?: number | null
         }
         Update: {
+          aether_key?: string | null
           current_activity?: string | null
           dead_until?: string | null
           greeting?: string | null
           hidden?: boolean
           home_room?: string | null
           id?: string
+          is_aether?: boolean
           is_soul?: boolean
+          is_warden?: boolean
           last_tick_at?: string | null
           name?: string
           persona?: string
@@ -682,6 +735,7 @@ export type Database = {
           room?: string
           schedule?: Json
           title?: string | null
+          warden_index?: number | null
         }
         Relationships: [
           {
