@@ -44,6 +44,65 @@ export type Database = {
         }
         Relationships: []
       }
+      bounties: {
+        Row: {
+          alive_bonus_gold: number
+          claim_kind: string | null
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          id: string
+          posted_by: string | null
+          posted_by_name: string
+          reason: string
+          reward_gold: number
+          status: string
+          target_name: string
+          target_user_id: string
+          town_key: string
+        }
+        Insert: {
+          alive_bonus_gold?: number
+          claim_kind?: string | null
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          id?: string
+          posted_by?: string | null
+          posted_by_name: string
+          reason?: string
+          reward_gold?: number
+          status?: string
+          target_name: string
+          target_user_id: string
+          town_key: string
+        }
+        Update: {
+          alive_bonus_gold?: number
+          claim_kind?: string | null
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          id?: string
+          posted_by?: string | null
+          posted_by_name?: string
+          reason?: string
+          reward_gold?: number
+          status?: string
+          target_name?: string
+          target_user_id?: string
+          town_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bounties_town_key_fkey"
+            columns: ["town_key"]
+            isOneToOne: false
+            referencedRelation: "towns"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       combat_actions: {
         Row: {
           action: string
@@ -993,6 +1052,100 @@ export type Database = {
           },
         ]
       }
+      player_town_rep: {
+        Row: {
+          score: number
+          town_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          score?: number
+          town_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          score?: number
+          town_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_town_rep_town_key_fkey"
+            columns: ["town_key"]
+            isOneToOne: false
+            referencedRelation: "towns"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      posted_quests: {
+        Row: {
+          author_name: string
+          author_user_id: string | null
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          description: string
+          expires_at: string | null
+          id: string
+          objective: string
+          reward_gold: number
+          reward_xp: number
+          status: string
+          target_kind: string
+          target_ref: string | null
+          title: string
+          town_key: string
+        }
+        Insert: {
+          author_name: string
+          author_user_id?: string | null
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          description?: string
+          expires_at?: string | null
+          id?: string
+          objective?: string
+          reward_gold?: number
+          reward_xp?: number
+          status?: string
+          target_kind?: string
+          target_ref?: string | null
+          title: string
+          town_key: string
+        }
+        Update: {
+          author_name?: string
+          author_user_id?: string | null
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          description?: string
+          expires_at?: string | null
+          id?: string
+          objective?: string
+          reward_gold?: number
+          reward_xp?: number
+          status?: string
+          target_kind?: string
+          target_ref?: string | null
+          title?: string
+          town_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posted_quests_town_key_fkey"
+            columns: ["town_key"]
+            isOneToOne: false
+            referencedRelation: "towns"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       private_messages: {
         Row: {
           content: string
@@ -1346,6 +1499,7 @@ export type Database = {
           name: string
           requires_faction: string | null
           slug: string
+          town_key: string | null
         }
         Insert: {
           ambience?: string | null
@@ -1357,6 +1511,7 @@ export type Database = {
           name: string
           requires_faction?: string | null
           slug: string
+          town_key?: string | null
         }
         Update: {
           ambience?: string | null
@@ -1368,6 +1523,7 @@ export type Database = {
           name?: string
           requires_faction?: string | null
           slug?: string
+          town_key?: string | null
         }
         Relationships: []
       }
@@ -1407,6 +1563,56 @@ export type Database = {
           name?: string
           rarity?: string
           teacher_npc?: string | null
+        }
+        Relationships: []
+      }
+      town_bank_accounts: {
+        Row: {
+          balance: number
+          opened_at: string
+          town_key: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          opened_at?: string
+          town_key: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          opened_at?: string
+          town_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "town_bank_accounts_town_key_fkey"
+            columns: ["town_key"]
+            isOneToOne: false
+            referencedRelation: "towns"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
+      towns: {
+        Row: {
+          blurb: string
+          key: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          blurb?: string
+          key: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          blurb?: string
+          key?: string
+          name?: string
+          sort_order?: number
         }
         Relationships: []
       }
