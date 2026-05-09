@@ -137,6 +137,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [wagonOpen, setWagonOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
   const [marketMerchant, setMarketMerchant] = useState<string | null>(null);
+  const [guildmaster, setGuildmaster] = useState<string | null>(null);
   const [wagonRoutes, setWagonRoutes] = useState<{ destination: string; cost_gold: number; flavor: string; name?: string; visited?: boolean }[]>([]);
   const [hasCache, setHasCache] = useState(false);
   const [cacheClaimed, setCacheClaimed] = useState(false);
