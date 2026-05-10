@@ -152,11 +152,24 @@ export function CharacterSheet({
         <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr] gap-5">
           {/* Portrait */}
           <div className="space-y-2">
-            <div className="aspect-[3/4] w-40 sm:w-full mx-auto bg-card border border-ember/40 overflow-hidden">
-              {profile.portrait_url ? (
-                <img src={profile.portrait_url} alt={profile.username} className="w-full h-full object-cover" />
+            <div className="relative aspect-[3/4] w-40 sm:w-full mx-auto bg-card border border-ember/40 overflow-hidden">
+              {shownPortrait ? (
+                <img src={shownPortrait} alt={profile.username} className="w-full h-full object-cover transition-opacity duration-500" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-ash text-xs italic">no likeness</div>
+              )}
+              {variantLoading && (
+                <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center gap-1 text-ash">
+                  <Loader2 className="w-4 h-4 animate-spin text-ember" />
+                  <span className="font-mono text-[9px] uppercase tracking-widest">painting wounds…</span>
+                </div>
+              )}
+              {state !== "healthy" && (
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-background/95 to-transparent px-2 py-1.5 flex items-center gap-1.5">
+                  <Droplet className={`w-3 h-3 ${STATE_TONE[state]}`} />
+                  <span className={`font-mono text-[10px] uppercase tracking-widest ${STATE_TONE[state]}`}>{STATE_LABEL[state]}</span>
+                  <span className="font-mono text-[9px] text-ash ml-auto">by {KIND_LABEL[kind] ?? kind}</span>
+                </div>
               )}
             </div>
             <button
