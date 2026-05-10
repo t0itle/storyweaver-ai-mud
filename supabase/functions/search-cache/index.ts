@@ -52,7 +52,6 @@ Deno.serve(async (req) => {
 
     const { data: cache } = await admin.from("room_caches").select("*").eq("room", room).maybeSingle();
     if (!cache) {
-      // Soft fail: still post a message so the player knows nothing is here
       await admin.from("messages").insert({
         room, author_name: "—", kind: "ambient",
         content: `*${profile.username} searches, but finds only dust and disappointment.*`,
@@ -61,6 +60,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, found: false }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Has THIS player already claimed it personally?
     const { data: existing } = await admin.from("player_room_cache_claims")
       .select("room").eq("user_id", user.id).eq("room", room).maybeSingle();
     if (existing) {
@@ -72,6 +72,46 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, found: false, already: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Roll a 12-sided die; must meet or beat the cache's find_dc.
+    const roll = 1 + Math.floor(Math.random() * 12);
+    const dc = cache.find_dc ?? 7;
+    const success = roll >= dc;
+
+    // Cache already uncovered by someone before this player?
+    if (cache.revealed_at) {
+      if (!success) {
+        await admin.from("messages").insert({
+          room, author_name: "—", kind: "ambient",
+          content: `*${profile.username} searches around (rolled **${roll}** vs **${dc}**) — they sense something was here, but the moment slips past them.*`,
+          user_id: null,
+        });
+        return new Response(JSON.stringify({ ok: true, found: false, roll, dc }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      // Success but the cache is already empty — record the claim so they don't keep finding nothing.
+      await admin.from("player_room_cache_claims").insert({ user_id: user.id, room });
+      const finder = cache.revealed_by_name ?? "someone";
+      await admin.from("messages").insert({
+        room, author_name: "—", kind: "ambient",
+        content: `*${profile.username} uncovers the hiding place (rolled **${roll}** vs **${dc}**) — but the chest lies open and looted clean. ${finder} got here first.*`,
+        user_id: null,
+      });
+      return new Response(JSON.stringify({ ok: true, found: true, empty: true, roll, dc }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Cache is still hidden — must succeed on the roll to find it.
+    if (!success) {
+      await admin.from("messages").insert({
+        room, author_name: "—", kind: "ambient",
+        content: `*${profile.username} searches the area (rolled **${roll}** vs **${dc}**) but turns up nothing.*`,
+        user_id: null,
+      });
+      return new Response(JSON.stringify({ ok: true, found: false, roll, dc }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // First successful find — claim, award, and reveal the cache to the room forever.
     await admin.from("player_room_cache_claims").insert({ user_id: user.id, room });
     if (cache.gold) {
       await admin.from("profiles").update({ gold: (profile.gold ?? 0) + cache.gold }).eq("id", user.id);
@@ -79,20 +119,24 @@ Deno.serve(async (req) => {
     if (cache.item_key) {
       await admin.from("player_items").insert({ user_id: user.id, item_key: cache.item_key, quantity: 1 });
     }
+    await admin.from("room_caches").update({
+      revealed_at: new Date().toISOString(),
+      revealed_by_name: profile.username,
+    }).eq("room", room);
 
     await admin.from("messages").insert({
       room, author_name: "—", kind: "ambient",
-      content: `*${cache.reveal_text}* (+${cache.gold}g${cache.item_key ? `, ${cache.item_key}` : ""})`,
+      content: `*${profile.username} rolled **${roll}** vs **${dc}** — ${cache.reveal_text}* (+${cache.gold}g${cache.item_key ? `, ${cache.item_key}` : ""})`,
       user_id: null,
     });
     await admin.from("world_events").insert({
       kind: "cache_found",
       actor_name: profile.username, actor_id: user.id,
       target_name: room, room,
-      details: { gold: cache.gold, item: cache.item_key },
+      details: { gold: cache.gold, item: cache.item_key, roll, dc },
     });
 
-    return new Response(JSON.stringify({ ok: true, found: true, gold: cache.gold, item: cache.item_key }),
+    return new Response(JSON.stringify({ ok: true, found: true, gold: cache.gold, item: cache.item_key, roll, dc }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
