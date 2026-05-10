@@ -2094,6 +2094,27 @@ export type Database = {
         }
         Relationships: []
       }
+      scene_music: {
+        Row: {
+          audio_base64: string
+          created_at: string
+          prompt: string | null
+          scene_key: string
+        }
+        Insert: {
+          audio_base64: string
+          created_at?: string
+          prompt?: string | null
+          scene_key: string
+        }
+        Update: {
+          audio_base64?: string
+          created_at?: string
+          prompt?: string | null
+          scene_key?: string
+        }
+        Relationships: []
+      }
       speaker_artifacts: {
         Row: {
           active_blurb: string
