@@ -51,7 +51,7 @@ interface Room {
   kind?: string; label?: string;
   town_key?: string | null;
 }
-interface Npc { id: string; room: string; name: string; title: string | null; greeting: string | null; current_activity?: string | null; is_merchant?: boolean | null; merchant_town?: string | null; is_guildmaster?: boolean | null; guild_key?: string | null; is_soul?: boolean | null; }
+interface Npc { id: string; room: string; name: string; title: string | null; greeting: string | null; current_activity?: string | null; is_merchant?: boolean | null; merchant_town?: string | null; is_guildmaster?: boolean | null; guild_key?: string | null; is_soul?: boolean | null; is_fence?: boolean | null; }
 interface Message {
   id: string; room: string; author_name: string;
   kind: string; content: string; created_at: string;
