@@ -560,21 +560,38 @@ export default function GameClient({ session }: { session: Session }) {
     return () => window.removeEventListener("shadow-act", handler);
   }, [profile?.current_room]);
 
-  // Realtime: messages in current room + presence
+  // Realtime: messages in current room + presence + DB-backed roommates
   useEffect(() => {
     if (!profile) return;
     const slug = profile.current_room;
+    let cancelled = false;
+    let pending: ReturnType<typeof setTimeout> | null = null;
+
+    const loadRoommates = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, username, portrait_url, level, aether, faction, downed, dead")
+        .eq("current_room", slug)
+        .neq("id", profile.id)
+        .limit(50);
+      if (!cancelled) setRoommates((data ?? []) as any);
+    };
+    const scheduleReload = () => {
+      if (pending) return;
+      pending = setTimeout(() => { pending = null; loadRoommates(); }, 250);
+    };
+    loadRoommates();
 
     const ch = supabase.channel(`room:${slug}`, { config: { presence: { key: profile.id } } })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.${slug}` },
         (p) => {
           const msg = p.new as Message & { addressed_to?: string | null };
-          // Show: anything not addressed to a specific player, OR addressed to me.
-          // Hides only NPC replies meant for someone else.
           if (!msg.addressed_to || msg.addressed_to === profile.id) {
             setMessages((prev) => [...prev, msg]);
           }
         })
+      // Any profile move/state change triggers a refresh — covers arrivals AND departures.
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, scheduleReload)
       .on("presence", { event: "sync" }, () => {
         const state = ch.presenceState() as Record<string, { username: string }[]>;
         const users = Object.values(state).flat();
@@ -584,7 +601,16 @@ export default function GameClient({ session }: { session: Session }) {
         if (status === "SUBSCRIBED") await ch.track({ username: profile.username });
       });
 
-    return () => { supabase.removeChannel(ch); };
+    // Safety net: window-focus refresh in case realtime missed an event.
+    const onFocus = () => loadRoommates();
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      cancelled = true;
+      if (pending) clearTimeout(pending);
+      window.removeEventListener("focus", onFocus);
+      supabase.removeChannel(ch);
+    };
   }, [profile?.current_room, profile?.id, profile?.username]);
 
   // autoscroll
