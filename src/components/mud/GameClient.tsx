@@ -282,6 +282,7 @@ export default function GameClient({ session }: { session: Session }) {
       }
       // Show a faint hint about environmental tags the first time you see them this visit
       const tagList = (envTags ?? []).map((t: any) => t.tag);
+      let hintMsg: Message | null = null;
       if (tagList.length) {
         const hintMap: Record<string, string> = {
           dark: "It is very dark here.",
@@ -292,14 +293,13 @@ export default function GameClient({ session }: { session: Session }) {
           hallowed: "The air feels older than the stones.",
         };
         const lines = tagList.map((t) => hintMap[t]).filter(Boolean);
-        if (lines.length) {
-          setMessages((mm) => [...mm, localSys(lines.map((l) => `*${l}*`).join("  "))]);
-        }
+        if (lines.length) hintMsg = localSys(lines.map((l) => `*${l}*`).join("  "));
       }
       setNpcs((n ?? []) as Npc[]);
       setDragons((dr ?? []) as any);
       setRoomEvents((ev ?? []) as any);
-      setMessages(((m ?? []) as Message[]).reverse());
+      const baseMsgs = ((m ?? []) as Message[]).reverse();
+      setMessages(hintMsg ? [...baseMsgs, hintMsg] : baseMsgs);
 
       // Load amity scores for the NPCs in this room
       const npcIds = (n ?? []).map((x: any) => x.id);
