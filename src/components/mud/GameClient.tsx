@@ -144,8 +144,30 @@ export default function GameClient({ session }: { session: Session }) {
   const [hasCache, setHasCache] = useState(false);
   const [cacheClaimed, setCacheClaimed] = useState(false);
   const [roomLoot, setRoomLoot] = useState<{ id: string; gold: number; item_key: string | null; quantity: number; placed_by_name: string | null }[]>([]);
+  const [bucket, setBucket] = useState<TimeBucket>(getTimeBucket());
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Tick a world clock once a minute. When the time-of-day bucket flips,
+  // emit a system note in the current room so players feel the day pass.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const next = getTimeBucket();
+      setBucket((prev) => {
+        if (prev === next) return prev;
+        if (profile && room) {
+          const note = TIME_TRANSITIONS[next];
+          setMessages((m) => [...m, {
+            id: crypto.randomUUID(), room: room.slug, author_name: "—",
+            kind: "ambient", content: `*${note} over ${room.name}.*`,
+            created_at: new Date().toISOString(), user_id: null, npc_id: null,
+          } as Message]);
+        }
+        return next;
+      });
+    }, 60000);
+    return () => clearInterval(id);
+  }, [profile, room]);
 
   const reloadInventory = async () => {
     const { data } = await supabase.from("player_items")
