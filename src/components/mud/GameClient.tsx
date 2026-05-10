@@ -996,6 +996,22 @@ export default function GameClient({ session }: { session: Session }) {
         });
         if (error || data?.error) throw new Error(data?.error ?? error?.message);
       } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "search" || c === "look around" || c === "scour" || c === "rummage") {
+      // Forcibly hunt for a hidden cache in the current room.
+      try {
+        const { data, error } = await supabase.functions.invoke("search-cache");
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        if (data?.found) {
+          toast.success(`Rolled ${data.roll}/${data.dc} — you uncover something! Use TAKE.`);
+          setCacheClaimed(true);
+        } else if (data?.already) {
+          setMessages((m) => [...m, localSys("You've already picked this place clean.")]);
+        } else if (data?.none) {
+          setMessages((m) => [...m, localSys("Nothing here rewards your searching.")]);
+        } else if (data?.roll !== undefined) {
+          toast.message(`Rolled ${data.roll}/${data.dc} — nothing this time.`);
+        }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
     } else if (c === "take" || c === "get" || c === "loot" || c === "grab") {
       // `take` (or `take all`) — claim everything in this room's loot pile.
       try {
@@ -1370,33 +1386,12 @@ export default function GameClient({ session }: { session: Session }) {
             </div>
           </div>
 
-          {(wagonRoutes.length > 0 || hasCache || roomLoot.length > 0) && (
+          {(wagonRoutes.length > 0 || roomLoot.length > 0) && (
             <div className="flex flex-col gap-1.5">
               {wagonRoutes.length > 0 && (
                 <button onClick={() => setWagonOpen(true)}
                   className="w-full text-left font-mono text-[11px] px-2 py-1.5 border border-border hover:border-ember hover:text-ember transition-colors uppercase tracking-widest text-parchment">
                   ⛟ Hire Wagon
-                </button>
-              )}
-              {hasCache && (
-                <button
-                  disabled={cacheClaimed}
-                  onClick={async () => {
-                    try {
-                      const { data, error } = await supabase.functions.invoke("search-cache");
-                      if (error || data?.error) throw new Error(data?.error ?? error?.message);
-                      if (data?.found) {
-                        toast.success(`Rolled ${data.roll}/${data.dc} — treasure revealed! Use TAKE.`);
-                        setCacheClaimed(true);
-                      } else if (data?.already) {
-                        setCacheClaimed(true);
-                      } else if (data?.roll !== undefined) {
-                        toast.message(`Rolled ${data.roll}/${data.dc} — nothing this time.`);
-                      }
-                    } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
-                  }}
-                  className="w-full text-left font-mono text-[11px] px-2 py-1.5 border border-border hover:border-ember hover:text-ember transition-colors uppercase tracking-widest text-parchment disabled:opacity-40 disabled:cursor-not-allowed">
-                  ⌖ {cacheClaimed ? "Searched" : "Search Here"}
                 </button>
               )}
               {roomLoot.length > 0 && (
