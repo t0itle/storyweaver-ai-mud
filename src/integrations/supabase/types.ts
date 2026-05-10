@@ -846,6 +846,7 @@ export type Database = {
           aether_key: string | null
           current_activity: string | null
           dead_until: string | null
+          fence_rate: number
           greeting: string | null
           guild_key: string | null
           guild_town: string | null
@@ -853,6 +854,7 @@ export type Database = {
           home_room: string | null
           id: string
           is_aether: boolean
+          is_fence: boolean
           is_guildmaster: boolean
           is_merchant: boolean
           is_soul: boolean
@@ -873,6 +875,7 @@ export type Database = {
           aether_key?: string | null
           current_activity?: string | null
           dead_until?: string | null
+          fence_rate?: number
           greeting?: string | null
           guild_key?: string | null
           guild_town?: string | null
@@ -880,6 +883,7 @@ export type Database = {
           home_room?: string | null
           id?: string
           is_aether?: boolean
+          is_fence?: boolean
           is_guildmaster?: boolean
           is_merchant?: boolean
           is_soul?: boolean
@@ -900,6 +904,7 @@ export type Database = {
           aether_key?: string | null
           current_activity?: string | null
           dead_until?: string | null
+          fence_rate?: number
           greeting?: string | null
           guild_key?: string | null
           guild_town?: string | null
@@ -907,6 +912,7 @@ export type Database = {
           home_room?: string | null
           id?: string
           is_aether?: boolean
+          is_fence?: boolean
           is_guildmaster?: boolean
           is_merchant?: boolean
           is_soul?: boolean
@@ -1006,6 +1012,7 @@ export type Database = {
           id: string
           item_key: string
           quantity: number
+          stolen: boolean
           user_id: string
         }
         Insert: {
@@ -1015,6 +1022,7 @@ export type Database = {
           id?: string
           item_key: string
           quantity?: number
+          stolen?: boolean
           user_id: string
         }
         Update: {
@@ -1024,6 +1032,7 @@ export type Database = {
           id?: string
           item_key?: string
           quantity?: number
+          stolen?: boolean
           user_id?: string
         }
         Relationships: [
@@ -1595,6 +1604,7 @@ export type Database = {
           hp: number
           id: string
           in_combat_id: string | null
+          infamy: number
           last_encounter_at: string | null
           level: number
           max_hp: number
@@ -1638,6 +1648,7 @@ export type Database = {
           hp?: number
           id: string
           in_combat_id?: string | null
+          infamy?: number
           last_encounter_at?: string | null
           level?: number
           max_hp?: number
@@ -1681,6 +1692,7 @@ export type Database = {
           hp?: number
           id?: string
           in_combat_id?: string | null
+          infamy?: number
           last_encounter_at?: string | null
           level?: number
           max_hp?: number
