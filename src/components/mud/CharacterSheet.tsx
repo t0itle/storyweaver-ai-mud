@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem, Wand2, Loader2, Skull } from "lucide-react";
+import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem, Wand2, Loader2, Skull, Droplet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { InvItem } from "./Panels";
@@ -18,7 +18,28 @@ interface SheetProfile {
   aether: string | null;
   portrait_url: string | null;
   char_description: string | null;
+  portrait_variants?: Record<string, string> | null;
+  last_damage_kind?: string | null;
 }
+
+type WoundState = "healthy" | "scratched" | "wounded" | "bloodied";
+function woundStateFor(hp: number, maxHp: number): WoundState {
+  const pct = maxHp > 0 ? hp / maxHp : 1;
+  if (pct >= 0.75) return "healthy";
+  if (pct >= 0.5) return "scratched";
+  if (pct >= 0.25) return "wounded";
+  return "bloodied";
+}
+const STATE_LABEL: Record<WoundState, string> = {
+  healthy: "Unharmed", scratched: "Scratched", wounded: "Wounded", bloodied: "Bloodied",
+};
+const STATE_TONE: Record<WoundState, string> = {
+  healthy: "text-moss", scratched: "text-parchment", wounded: "text-ember", bloodied: "text-destructive",
+};
+const KIND_LABEL: Record<string, string> = {
+  physical: "blade & fist", fire: "flame", cold: "frost", arcane: "rune-burn",
+  shadow: "shadow", holy: "searing light", poison: "venom",
+};
 
 // Cumulative XP needed to reach level N (N>=2) is fib(N+1) * 10
 // fib(2)=1, fib(3)=2, fib(4)=3, fib(5)=5, fib(6)=8, fib(7)=13 → thresholds 20, 30, 50, 80, 130 …
