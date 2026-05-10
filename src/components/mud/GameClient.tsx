@@ -1153,7 +1153,10 @@ export default function GameClient({ session }: { session: Session }) {
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
+  const combatBusyRef = useRef(false);
   const combatAct = async (kind: string, args: Record<string, unknown> = {}) => {
+    if (combatBusyRef.current) return;
+    combatBusyRef.current = true;
     try {
       if (kind === "trace_lesser") {
         // Open the rune hub for live tracing; start a 10s timer that
