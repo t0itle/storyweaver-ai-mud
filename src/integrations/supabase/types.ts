@@ -930,6 +930,38 @@ export type Database = {
           },
         ]
       }
+      player_artifact_rumors: {
+        Row: {
+          artifact_key: string
+          heard_at: string
+          snippet: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          artifact_key: string
+          heard_at?: string
+          snippet?: string
+          source?: string
+          user_id: string
+        }
+        Update: {
+          artifact_key?: string
+          heard_at?: string
+          snippet?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_artifact_rumors_artifact_key_fkey"
+            columns: ["artifact_key"]
+            isOneToOne: false
+            referencedRelation: "speaker_artifacts"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       player_guild_membership: {
         Row: {
           guild_key: string
