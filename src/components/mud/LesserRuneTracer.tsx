@@ -146,6 +146,18 @@ export function LesserRuneTracer({ open, onClose, onCast, inline }: Props) {
     if (data.symbol_just_learned) toast.success(`The shape of ${selected.latin_name} is yours.`);
     else toast.message(`${selected.glyph} ${selected.latin_name} — ${data.outcome} (${data.score}%)`,
       { description: data.narrative.replace(/\*/g, "") });
+    if (data.utility?.applied) {
+      const r = data.utility.reward ?? {};
+      const bits: string[] = [];
+      if (r.gold) bits.push(`+${r.gold}g`);
+      if (r.xp) bits.push(`+${r.xp}xp`);
+      if (r.merit) bits.push(`+${r.merit} merit`);
+      if (r.exit) bits.push(`way ${r.exit.dir} opens`);
+      toast.success("The rune answers the place itself.", {
+        description: data.utility.flavor.replace(/\*/g, "") + (bits.length ? `  (${bits.join(", ")})` : ""),
+        duration: 7000,
+      });
+    }
     onCast?.(data);
     setStroke([]); setLiveScore(null); setTarget("");
     await reload();
