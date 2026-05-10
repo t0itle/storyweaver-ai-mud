@@ -1838,24 +1838,33 @@ export type Database = {
       }
       room_caches: {
         Row: {
+          find_dc: number
           gold: number
           hint: string
           item_key: string | null
           reveal_text: string
+          revealed_at: string | null
+          revealed_by_name: string | null
           room: string
         }
         Insert: {
+          find_dc?: number
           gold?: number
           hint?: string
           item_key?: string | null
           reveal_text?: string
+          revealed_at?: string | null
+          revealed_by_name?: string | null
           room: string
         }
         Update: {
+          find_dc?: number
           gold?: number
           hint?: string
           item_key?: string | null
           reveal_text?: string
+          revealed_at?: string | null
+          revealed_by_name?: string | null
           room?: string
         }
         Relationships: []
