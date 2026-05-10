@@ -85,23 +85,54 @@ Deno.serve(async (req) => {
     const pct = 0.05 + Math.random() * 0.20;
     const taken = Math.max(1, Math.min(30, Math.floor(purse * pct)));
     await admin.from("npcs").update({ purse_gold: purse - taken }).eq("id", npc.id);
-    await admin.from("profiles").update({ gold: (profile.gold ?? 0) + taken }).eq("id", user.id);
+
+    // Roughly 1-in-3 successful pickpockets on a merchant also lift a small item
+    // from their stock — flagged STOLEN, sellable only to a fence (or risky to use).
+    let stolenItem: { key: string; name: string } | null = null;
+    if ((npc as any).is_merchant && Math.random() < 0.34) {
+      const cats: string[] = ((npc as any).merchant_categories ?? []) as string[];
+      // pick a cheap pocketable item to steal
+      let q = admin.from("items").select("key, name, value, slot")
+        .lte("value", 40).gte("value", 3)
+        .in("slot", ["misc", "consumable", "focus"])
+        .limit(40);
+      const { data: pool } = await q;
+      const filtered = (pool ?? []).filter((it: any) => {
+        if (!cats.length) return true;
+        return cats.some((c) => it.key.includes(c) || it.name.toLowerCase().includes(c));
+      });
+      const pick = (filtered.length ? filtered : (pool ?? []))[Math.floor(Math.random() * Math.max(1, (filtered.length ? filtered.length : (pool ?? []).length)))];
+      if (pick) {
+        await admin.from("player_items").insert({
+          user_id: user.id, item_key: pick.key, quantity: 1, stolen: true,
+        });
+        stolenItem = { key: pick.key, name: pick.name };
+      }
+    }
+
+    // Every successful theft bumps infamy slightly. Wardens/aethers count for more.
+    const infamyDelta = 1 + (npc.is_warden ? 2 : 0) + (npc.is_aether ? 6 : 0) + (stolenItem ? 1 : 0);
+    await admin.from("profiles").update({
+      gold: (profile.gold ?? 0) + taken,
+      infamy: (profile.infamy ?? 0) + infamyDelta,
+    }).eq("id", user.id);
 
     // Quiet success — only the thief sees the result clearly.
+    const lifted = stolenItem ? `, plus a *${stolenItem.name}* tucked from their stock` : "";
     await admin.from("messages").insert({
       room, author_name: "—", kind: "ambient",
-      content: `*${profile.username} slips a hand past ${npc.name} — unseen (rolled **${roll}** vs **${dc}**). +${taken}g.*`,
+      content: `*${profile.username} slips a hand past ${npc.name} — unseen (rolled **${roll}** vs **${dc}**). +${taken}g${lifted}.*`,
       user_id: null,
     });
     await admin.from("world_events").insert({
       kind: "steal_success",
       actor_name: profile.username, actor_id: user.id,
       target_name: npc.name, target_id: npc.id, room,
-      details: { gold: taken, dc, roll },
+      details: { gold: taken, dc, roll, item: stolenItem?.key ?? null },
       decay_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
     });
 
-    return new Response(JSON.stringify({ ok: true, success: true, gold: taken, roll, dc }),
+    return new Response(JSON.stringify({ ok: true, success: true, gold: taken, item: stolenItem, roll, dc }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);

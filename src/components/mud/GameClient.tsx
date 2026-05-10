@@ -51,7 +51,7 @@ interface Room {
   kind?: string; label?: string;
   town_key?: string | null;
 }
-interface Npc { id: string; room: string; name: string; title: string | null; greeting: string | null; current_activity?: string | null; is_merchant?: boolean | null; merchant_town?: string | null; is_guildmaster?: boolean | null; guild_key?: string | null; is_soul?: boolean | null; }
+interface Npc { id: string; room: string; name: string; title: string | null; greeting: string | null; current_activity?: string | null; is_merchant?: boolean | null; merchant_town?: string | null; is_guildmaster?: boolean | null; guild_key?: string | null; is_soul?: boolean | null; is_fence?: boolean | null; }
 interface Message {
   id: string; room: string; author_name: string;
   kind: string; content: string; created_at: string;
@@ -1011,6 +1011,28 @@ export default function GameClient({ session }: { session: Session }) {
           toast.error(`Caught! (rolled ${data.roll}/${data.dc})`);
         }
       } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "fence") {
+      const fence = npcs.find(n => n.is_fence);
+      if (!fence) { setMessages((m) => [...m, localSys("No fence here. Find one in a back-room of certain town inns.")]); return; }
+      try {
+        if (!args || args.toLowerCase() === "list") {
+          const { data, error } = await supabase.functions.invoke("fence-item", { body: { action: "list", fence_id: fence.id } });
+          if (error || data?.error) throw new Error(data?.error ?? error?.message);
+          const items = (data?.items ?? []) as any[];
+          if (!items.length) { setMessages((m) => [...m, localSys(`*${fence.name} looks at your empty hands and shrugs.* "Bring me something that isn't yours."`)]); return; }
+          const lines = items.map((it) => `  • ${it.name}${it.quantity > 1 ? ` ×${it.quantity}` : ""} — ${it.fence_total}g  (${it.fence_each}g/ea, full ${it.full_value}g)`);
+          setMessages((m) => [...m, localSys(`*${fence.name} eyes your goods at ${Math.round((data.fence.rate ?? 0.55) * 100)}% of value:*\n${lines.join("\n")}\n\nUse: fence sell <item name>`)]);
+        } else if (args.toLowerCase().startsWith("sell ")) {
+          const want = args.slice(5).toLowerCase().trim();
+          const { data: list } = await supabase.functions.invoke("fence-item", { body: { action: "list", fence_id: fence.id } });
+          const target = (list?.items ?? []).find((it: any) => it.name.toLowerCase().includes(want));
+          if (!target) { setMessages((m) => [...m, localSys(`No stolen "${want}" on you.`)]); return; }
+          const { data, error } = await supabase.functions.invoke("fence-item", { body: { action: "sell", fence_id: fence.id, player_item_id: target.player_item_id } });
+          if (error || data?.error) throw new Error(data?.error ?? error?.message);
+          toast.success(`+${data.gold}g`);
+          reloadProfile(); reloadInventory();
+        }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
     } else if (c === "join" && !args) {
       try {
         const { data, error } = await supabase.functions.invoke("combat-action", { body: { action: "join" } });
@@ -1393,13 +1415,14 @@ export default function GameClient({ session }: { session: Session }) {
                         else { setInput(`ask ${n.name.split(" ")[0]} `); inputRef.current?.focus(); }
                       }}
                       className="flex-1 text-left font-body text-parchment hover:text-ember transition-colors">
-                      <span className={n.is_merchant ? "text-ember" : n.is_guildmaster ? "text-accent" : "text-accent"}>
-                        {n.is_merchant ? "⚖" : n.is_guildmaster ? (n.guild_key === "warriors" ? "⚔" : n.guild_key === "traders" ? "⚖" : "✶") : "●"}
+                      <span className={n.is_fence ? "text-whisper" : n.is_merchant ? "text-ember" : n.is_guildmaster ? "text-accent" : "text-accent"}>
+                        {n.is_fence ? "✥" : n.is_merchant ? "⚖" : n.is_guildmaster ? (n.guild_key === "warriors" ? "⚔" : n.guild_key === "traders" ? "⚖" : "✶") : "●"}
                       </span> {n.name}
                       {n.title && <span className="text-ash italic"> — {n.title}</span>}
                       {word && <span className={`text-[10px] italic ml-1 ${tone}`}> ({word})</span>}
                       {n.is_merchant && <span className="text-[10px] text-ember/70 ml-1">[trade]</span>}
-                      {n.is_guildmaster && <span className="text-[10px] text-accent/70 ml-1">[guild]</span>}
+                      {n.is_fence && <span className="text-[10px] text-whisper/80 ml-1">[fence]</span>}
+                      {n.is_guildmaster && !n.is_fence && <span className="text-[10px] text-accent/70 ml-1">[guild]</span>}
                     </button>
                     {!n.is_soul && (
                       <button
