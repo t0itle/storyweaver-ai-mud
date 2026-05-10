@@ -1467,14 +1467,6 @@ export default function GameClient({ session }: { session: Session }) {
                       {n.is_fence && <span className="text-[10px] text-whisper/80 ml-1">[fence]</span>}
                       {n.is_guildmaster && !n.is_fence && <span className="text-[10px] text-accent/70 ml-1">[guild]</span>}
                     </button>
-                    {!n.is_soul && (
-                      <button
-                        title={`Pickpocket ${n.name}`}
-                        onClick={() => handleCommand(`steal ${n.name.split(" ")[0]}`)}
-                        className="font-mono text-[10px] text-ash hover:text-ember px-1.5 py-0.5 border border-border hover:border-ember rounded transition-colors">
-                        ✋
-                      </button>
-                    )}
                   </div>
                 );
               })}
