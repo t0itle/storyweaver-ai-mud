@@ -705,6 +705,29 @@ export default function GameClient({ session }: { session: Session }) {
       }
     }, 300);
 
+    // First arrival at the First City: deliver the mortality / Aether-vow truth, once.
+    if (slug === "first-city-gate" || slug === "first-city") {
+      (async () => {
+        const { data: prior } = await supabase
+          .from("player_journal_entries")
+          .select("id").eq("user_id", profile.id).eq("kind", "first_city_arrival").maybeSingle();
+        if (prior) return;
+        const body =
+          "The Veiled at the gate watch you with quiet, knowing eyes. One of them lifts the linen from their lips just enough to murmur:\n\n" +
+          "*\"Walker — know this before you pass under the seven sigils. You are mortal. The years will take you as they take all unbound things.*\n" +
+          "*But should you kneel before an Aether and swear true, their breath will lengthen yours. Their followers do not age as you age. They do not fall as you fall. To bend the knee is to step out of time's current.*\n" +
+          "*Or walk on, and burn briefly, and bright, and yours.\"*";
+        await supabase.from("player_journal_entries").insert({
+          user_id: profile.id, kind: "first_city_arrival",
+          title: "The Veiled told me the truth at the gate", body, room: slug,
+        });
+        await supabase.from("messages").insert({
+          room: slug, author_name: "A Veiled gatekeeper", kind: "system",
+          addressed_to: profile.id, user_id: null, content: body,
+        });
+      })();
+    }
+
     // Travel encounters: roll on road / desert / wilds / hollow / grove rooms.
     // Server enforces cooldown + 15% trigger chance, so we always call it.
     supabase.functions.invoke("random-encounter", { body: { room: slug } })
