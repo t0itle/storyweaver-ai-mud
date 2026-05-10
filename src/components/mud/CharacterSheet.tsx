@@ -102,6 +102,32 @@ export function CharacterSheet({
     } finally { setRestyling(false); }
   };
 
+  // Wound state portrait variant
+  const state = woundStateFor(profile.hp, profile.max_hp);
+  const kind = profile.last_damage_kind ?? "physical";
+  const cacheKey = `${state}:${kind}`;
+  const cachedVariant = useMemo(
+    () => (profile.portrait_variants ?? {})[cacheKey] ?? null,
+    [profile.portrait_variants, cacheKey],
+  );
+  const [variantUrl, setVariantUrl] = useState<string | null>(cachedVariant);
+  const [variantLoading, setVariantLoading] = useState(false);
+
+  useEffect(() => { setVariantUrl(cachedVariant); }, [cachedVariant]);
+
+  useEffect(() => {
+    if (!open || state === "healthy" || !profile.portrait_url || variantUrl || variantLoading) return;
+    setVariantLoading(true);
+    supabase.functions.invoke("portrait-state-variant", { body: { state, kind } })
+      .then(({ data, error }) => {
+        if (error || data?.error) return;
+        if (data?.portrait_url) setVariantUrl(data.portrait_url);
+      })
+      .finally(() => setVariantLoading(false));
+  }, [open, state, kind, profile.portrait_url, variantUrl, variantLoading]);
+
+  const shownPortrait = state === "healthy" ? profile.portrait_url : (variantUrl ?? profile.portrait_url);
+
   const armor = equipped.reduce((s, i) => s + (i.items.base_armor ?? 0), 0);
   const weapon = findSlot("main_hand");
   const dmg = weapon ? weapon.items.base_damage : 1;
