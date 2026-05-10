@@ -501,29 +501,24 @@ Do not mention these tags in your prose.`;
       rumorPersisted = { artifact_key: a.key, name: a.name, glyph: a.glyph, snippet: snip };
     }
 
-    // Lesser rune WORD discovery: if the NPC mentions a Latin rune name, the player learns its WORD.
-    const { data: allLesser } = await admin.from("lesser_runes").select("key, latin_name, english_meaning");
-    const lesserLearned: { key: string; latin_name: string; english_meaning: string }[] = [];
-    for (const r of (allLesser ?? []) as Array<{ key: string; latin_name: string; english_meaning: string }>) {
-      const re = new RegExp(`\\b${r.latin_name}\\b`, "i");
-      if (re.test(content)) lesserLearned.push(r);
-    }
-    if (lesserLearned.length) {
-      const { data: known } = await admin.from("player_lesser_rune_knowledge")
-        .select("rune_key").eq("user_id", user.id).in("rune_key", lesserLearned.map(r => r.key));
-      const knownSet = new Set((known ?? []).map((r: any) => r.rune_key));
-      const fresh = lesserLearned.filter(r => !knownSet.has(r.key));
-      if (fresh.length) {
-        await admin.from("player_lesser_rune_knowledge").upsert(
-          fresh.map(r => ({
+    // Lesser rune WORD discovery — ONLY when the NPC explicitly emits <<TEACH_RUNE>>.
+    // Additional gates: NPC amity ≥ 20 (Friendly+) AND persona must be plausibly learned.
+    const personaText = ((npc.persona ?? "") + " " + (npc.title ?? "")).toLowerCase();
+    const isLearned = /mage|witch|scribe|monk|veiled|priest|scholar|wizard|sage|loremaster|hermit|seer|warden|acolyte|oracle|sorcer|enchanter|cleric|bard|elder/.test(personaText);
+    if (teachRuneRaw?.latin_name && currentScore >= 20 && isLearned) {
+      const { data: r } = await admin.from("lesser_runes")
+        .select("key, latin_name, english_meaning")
+        .ilike("latin_name", teachRuneRaw.latin_name).maybeSingle();
+      if (r) {
+        const { data: known } = await admin.from("player_lesser_rune_knowledge")
+          .select("rune_key,knows_word").eq("user_id", user.id).eq("rune_key", r.key).maybeSingle();
+        if (!known?.knows_word) {
+          await admin.from("player_lesser_rune_knowledge").upsert({
             user_id: user.id, rune_key: r.key,
-            knows_word: true, knows_symbol: false,
+            knows_word: true, knows_symbol: known ? undefined : false,
             learned_word_at: new Date().toISOString(),
             word_source: `npc:${npc.name}`,
-          })),
-          { onConflict: "user_id,rune_key" },
-        );
-        for (const r of fresh) {
+          }, { onConflict: "user_id,rune_key" });
           await admin.from("world_events").insert({
             room, kind: "rune_word_learned",
             actor_name: player_name, actor_id: user.id,
@@ -534,29 +529,22 @@ Do not mention these tags in your prose.`;
       }
     }
 
-    // Greater Rune (kanji) MEANING discovery: NPC mentioning a kanji glyph or romaji teaches its meaning.
-    const { data: allKanji } = await admin.from("kanji_runes").select("key, kanji, romaji, english_meaning");
-    const kanjiLearned: { key: string; kanji: string; romaji: string; english_meaning: string }[] = [];
-    for (const k of (allKanji ?? []) as Array<{ key: string; kanji: string; romaji: string; english_meaning: string }>) {
-      const reRomaji = new RegExp(`\\b${k.romaji}\\b`, "i");
-      if (content.includes(k.kanji) || reRomaji.test(content)) kanjiLearned.push(k);
-    }
-    if (kanjiLearned.length) {
-      const { data: knownK } = await admin.from("player_kanji_knowledge")
-        .select("kanji_key,knows_meaning").eq("user_id", user.id).in("kanji_key", kanjiLearned.map(k => k.key));
-      const knownMap = new Map((knownK ?? []).map((r: any) => [r.kanji_key, r.knows_meaning]));
-      const fresh = kanjiLearned.filter(k => !knownMap.get(k.key));
-      if (fresh.length) {
-        await admin.from("player_kanji_knowledge").upsert(
-          fresh.map(k => ({
+    // Greater Rune (kanji) MEANING discovery — ONLY when the NPC explicitly emits <<TEACH_KANJI>>.
+    if ((teachKanjiRaw?.kanji || teachKanjiRaw?.romaji) && currentScore >= 30 && isLearned) {
+      let q = admin.from("kanji_runes").select("key, kanji, romaji, english_meaning");
+      if (teachKanjiRaw.kanji) q = q.eq("kanji", teachKanjiRaw.kanji);
+      else q = q.ilike("romaji", teachKanjiRaw.romaji!);
+      const { data: k } = await q.maybeSingle();
+      if (k) {
+        const { data: known } = await admin.from("player_kanji_knowledge")
+          .select("kanji_key,knows_meaning").eq("user_id", user.id).eq("kanji_key", k.key).maybeSingle();
+        if (!known?.knows_meaning) {
+          await admin.from("player_kanji_knowledge").upsert({
             user_id: user.id, kanji_key: k.key,
-            knows_meaning: true, knows_stroke: false,
+            knows_meaning: true, knows_stroke: known ? undefined : false,
             learned_meaning_at: new Date().toISOString(),
             meaning_source: `npc:${npc.name}`,
-          })),
-          { onConflict: "user_id,kanji_key" },
-        );
-        for (const k of fresh) {
+          }, { onConflict: "user_id,kanji_key" });
           await admin.from("world_events").insert({
             room, kind: "kanji_meaning_learned",
             actor_name: player_name, actor_id: user.id,
