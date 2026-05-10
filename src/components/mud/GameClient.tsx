@@ -101,6 +101,18 @@ const INTERACT_VERBS = new Set([
   "shake","rub","scratch","poke","hold","lift","carry","drop","place","write","sing","whistle","dance","sleep","rest","meditate",
 ]);
 
+type TimeBucket = "night" | "dawn" | "morning" | "midday" | "dusk" | "deepnight";
+
+function getTimeBucket(d: Date = new Date()): TimeBucket {
+  const h = d.getUTCHours();
+  if (h < 5) return "deepnight";
+  if (h < 8) return "dawn";
+  if (h < 12) return "morning";
+  if (h < 16) return "midday";
+  if (h < 20) return "dusk";
+  return "night";
+}
+
 export default function GameClient({ session }: { session: Session }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoadFailed, setProfileLoadFailed] = useState(false);
@@ -1899,17 +1911,6 @@ function pickAmbience(kind: string, npcNames: string[]): string | null {
 // and each room kind gets its own atmospheric tint per bucket so
 // the same place reads differently at dawn vs deep night.
 // ─────────────────────────────────────────────────────────────────
-type TimeBucket = "night" | "dawn" | "morning" | "midday" | "dusk" | "deepnight";
-
-function getTimeBucket(d: Date = new Date()): TimeBucket {
-  const h = d.getUTCHours();
-  if (h < 5) return "deepnight";
-  if (h < 8) return "dawn";
-  if (h < 12) return "morning";
-  if (h < 16) return "midday";
-  if (h < 20) return "dusk";
-  return "night";
-}
 
 const TIME_LABEL: Record<TimeBucket, string> = {
   deepnight: "the small hours",
