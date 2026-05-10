@@ -808,6 +808,10 @@ export default function GameClient({ session }: { session: Session }) {
         } else if (data?.quest_resolution?.outcome === "fail") {
           toast.error(`Quest failed: ${data.quest_resolution.title}`);
         }
+        if (data?.artifact_rumor) {
+          const r = data.artifact_rumor;
+          toast(`${r.glyph} A whisper of ${r.name}…`, { description: r.snippet });
+        }
         // NPCs may name places — but the world is fixed. We no longer auto-create rooms.
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");

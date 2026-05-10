@@ -128,6 +128,46 @@ Deno.serve(async (req) => {
       `- **${k.kanji}** (${k.romaji}, ${k.element}): ${k.english_meaning}`
     ).join("\n");
 
+    // ── Speaker's Artifacts: surface oblique rumors only when the player asks the right questions ──
+    const inputLower = String(player_input || "").toLowerCase();
+    const rumorTriggerRe = /\b(relic|relics|artifact|artifacts|speaker|silenced|hidden|lost|sacred|holy|treasure|forbidden|shrine|reliqu|word of power|first city.*relic|veil|tongue|seal|crown|chalice|mirror|key|bell|shard|ember|coin|veil|veil|cup|stone|tablet|sigil|mask|ring|horn|lantern)\b/;
+    let artifactWhispers: Array<{ key: string; name: string; glyph: string; blurb: string; lore: string; holder_kind: string; home_room: string }> = [];
+    let alreadyHeardKeys: string[] = [];
+    if (rumorTriggerRe.test(inputLower)) {
+      const { data: allArt } = await supabase.from("speaker_artifacts")
+        .select("key,name,glyph,blurb,lore,holder_kind,home_room");
+      const { data: heard } = await supabase.from("player_artifact_rumors")
+        .select("artifact_key").eq("user_id", user.id);
+      alreadyHeardKeys = (heard ?? []).map((h: any) => h.artifact_key);
+      const heardSet = new Set(alreadyHeardKeys);
+
+      // Score artifacts: name match in input > holder/home overlap with this NPC > random
+      const persona = (npc.persona ?? "") + " " + (npc.title ?? "");
+      const personaLow = persona.toLowerCase();
+      const scored = (allArt ?? []).map((a: any) => {
+        let score = 0;
+        const nameWords = a.name.toLowerCase().replace(/^the\s+/, "").split(/\s+/);
+        for (const w of nameWords) if (w.length > 3 && inputLower.includes(w)) score += 5;
+        if (a.home_room === room) score += 3;
+        if (a.holder_kind === "veiled" && /veiled|priest|silent/.test(personaLow)) score += 2;
+        if (a.holder_kind === "aether" && /aether|warden|seven|throne/.test(personaLow)) score += 2;
+        if (a.holder_kind === "wild" && /hermit|wanderer|drunk|scavenger|ranger|nomad/.test(personaLow)) score += 2;
+        if (heardSet.has(a.key)) score -= 3; // prefer fresh rumors
+        score += Math.random() * 0.5;
+        return { a, score };
+      }).sort((x, y) => y.score - x.score).slice(0, 3);
+      artifactWhispers = scored.filter(s => s.score > -2).map(s => s.a);
+    }
+    const artifactBlock = artifactWhispers.length
+      ? artifactWhispers.map((a) => {
+          const where = a.holder_kind === "aether" ? `held by an Aether at ${a.home_room}`
+            : a.holder_kind === "veiled" ? `kept by the Veiled near ${a.home_room}`
+            : `lost somewhere out by ${a.home_room}`;
+          const fresh = alreadyHeardKeys.includes(a.key) ? " (player already heard a half-rumor of this — vary it, do not repeat verbatim)" : "";
+          return `- ${a.glyph} **${a.name}** — ${where}. Lore: ${a.lore} Whisper: ${a.blurb}${fresh}`;
+        }).join("\n")
+      : "";
+
     // Adaptive storytelling: recent unresolved world events in this room (and recent global ones)
     const nowIso = new Date().toISOString();
     const { data: localEvents } = await supabase
@@ -304,6 +344,13 @@ RULES:
 - Reference world details naturally — the seven Aethers, the Veiled, the EverBloom in the deep dunes, the Ash Road, the Whispering Wastes — when it fits the conversation.
 - React to what ${player_name} just said or did. Lean on YOUR MEMORIES and YOUR FEELING. Pick up old threads, hold grudges, warm to friends.
 - If recent events make you wary of ${player_name}'s race or kind, show it — but stay true to your persona.
+${artifactBlock ? `
+WHISPERS OF THE SPEAKER'S RELICS — ${player_name} has asked something that brushes near the old, dangerous topic of the Speaker's lost artifacts. Most folk pretend these don't exist. If your persona would plausibly know even half-rumors (Veiled, scholars, drunkards, hermits, wandering monks, old soldiers, thieves), you MAY drop ONE oblique, partial hint — never the full location, never the active power, just a fragment: a name half-spoken, a place gestured at, a story your grandmother told. If your persona would NOT know (a child, a foreign trader, a market hand), deflect or change the subject. Candidates you might know:
+${artifactBlock}
+
+If — and ONLY if — you actually drop such a hint in your reply, append on its own line:
+<<RUMOR>>{"artifact_key":"the-key-from-above","snippet":"the half-line you whispered, ≤140 chars"}<<END>>
+` : ""}
 - AFTER your in-character reply, append hidden tags on their own lines, in this order:
 <<PLACES>>["The Archive of Echoes","The Ash Road"]<<END>>
 <<MEMORY>>{"summary":"# Encounter\\n- **What happened:** brief account\\n- **They said/did:** key claims\\n- **What I noticed:** tells, mood\\n- **Promises/debts:** anything owed, or null\\n- **Tags:** #keywords","emotion":"warm|wary|grateful|angry|amused|curious|indifferent","importance":1}<<END>>
@@ -381,12 +428,20 @@ Do not mention these tags in your prose.`;
       try { questResolveRaw = JSON.parse(questResolveMatch[1]); } catch { /* ignore */ }
     }
 
+    // Strip and parse hidden <<RUMOR>>{...}<<END>> tag (artifact whisper)
+    const rumorMatch = rawContent.match(/<<RUMOR>>\s*(\{[\s\S]*?\})\s*<<END>>/);
+    let rumorRaw: { artifact_key?: string; snippet?: string } | null = null;
+    if (rumorMatch) {
+      try { rumorRaw = JSON.parse(rumorMatch[1]); } catch { /* ignore */ }
+    }
+
     content = rawContent
       .replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<MEMORY>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<AMITY>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<QUEST_OFFER>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<QUEST_RESOLVE>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<RUMOR>>[\s\S]*?<<END>>\s*/g, "")
       .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
@@ -415,6 +470,18 @@ Do not mention these tags in your prose.`;
 
     // Persist NPC's memory and amity (service role bypasses RLS).
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // Persist artifact rumor if NPC dropped one and it matches a real candidate.
+    let rumorPersisted: { artifact_key: string; name: string; glyph: string; snippet: string } | null = null;
+    if (rumorRaw?.artifact_key && artifactWhispers.some(a => a.key === rumorRaw!.artifact_key)) {
+      const a = artifactWhispers.find(x => x.key === rumorRaw!.artifact_key)!;
+      const snip = String(rumorRaw.snippet ?? "").slice(0, 200) || a.blurb;
+      await admin.from("player_artifact_rumors").upsert({
+        user_id: user.id, artifact_key: a.key, snippet: snip,
+        source: `npc:${npc.name}`, heard_at: new Date().toISOString(),
+      }, { onConflict: "user_id,artifact_key" });
+      rumorPersisted = { artifact_key: a.key, name: a.name, glyph: a.glyph, snippet: snip };
+    }
 
     // Lesser rune WORD discovery: if the NPC mentions a Latin rune name, the player learns its WORD.
     const { data: allLesser } = await admin.from("lesser_runes").select("key, latin_name, english_meaning");
@@ -559,6 +626,7 @@ Do not mention these tags in your prose.`;
       content, discovered, mentioned_places: mentionedPlaces,
       amity: { score: newScore, word: amityWord(newScore) },
       quest_offer: offeredQuest, quest_resolution: questResolution,
+      artifact_rumor: rumorPersisted,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);

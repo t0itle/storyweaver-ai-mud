@@ -23,6 +23,7 @@ export function ChronicleModal({
   initialTab?: "journal" | "codex";
 }) {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [rumors, setRumors] = useState<Array<{ artifact_key: string; snippet: string; source: string; heard_at: string; name: string; glyph: string; holder_kind: string; home_room: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<"journal" | "codex">(initialTab);
 
@@ -31,9 +32,20 @@ export function ChronicleModal({
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    supabase.from("player_journal_entries")
-      .select("*").order("created_at", { ascending: false }).limit(200)
-      .then(({ data }) => { setEntries((data ?? []) as any); setLoading(false); });
+    Promise.all([
+      supabase.from("player_journal_entries").select("*").order("created_at", { ascending: false }).limit(200),
+      supabase.from("player_artifact_rumors").select("artifact_key, snippet, source, heard_at, speaker_artifacts(name, glyph, holder_kind, home_room)").order("heard_at", { ascending: false }),
+    ]).then(([j, r]) => {
+      setEntries((j.data ?? []) as any);
+      setRumors(((r.data ?? []) as any[]).map((row) => ({
+        artifact_key: row.artifact_key, snippet: row.snippet, source: row.source, heard_at: row.heard_at,
+        name: row.speaker_artifacts?.name ?? "an unnamed relic",
+        glyph: row.speaker_artifacts?.glyph ?? "☩",
+        holder_kind: row.speaker_artifacts?.holder_kind ?? "wild",
+        home_room: row.speaker_artifacts?.home_room ?? "",
+      })));
+      setLoading(false);
+    });
   }, [open]);
 
   const fmtDate = (s: string) => new Date(s).toLocaleString(undefined, {
@@ -108,8 +120,27 @@ export function ChronicleModal({
               </div>
             ) : (
               <div>
-                {discoveries.length === 0 && (
+                {discoveries.length === 0 && rumors.length === 0 && (
                   <p className="text-ash italic p-6 text-center">You have uncovered no truths yet. Examine the world.</p>
+                )}
+                {rumors.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="font-display text-sm uppercase tracking-widest text-ember/80 mb-2 px-1">Whispered Relics</h4>
+                    <p className="text-[11px] text-ash italic px-1 mb-2">Half-rumors of the Speaker's lost artifacts. Listen for more.</p>
+                    {rumors.map((r) => (
+                      <div key={r.artifact_key} className="px-3 py-2 border-l-2 border-accent/40 hover:bg-accent/5 transition-colors">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-accent text-base">{r.glyph}</span>
+                          <span className="font-display text-base text-parchment">{r.name}</span>
+                          <span className="ml-auto text-[9px] font-mono text-ash/60 uppercase tracking-widest">
+                            {r.holder_kind === "aether" ? "an aether holds it" : r.holder_kind === "veiled" ? "the veiled keep it" : "lost in the wild"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-whisper italic mt-1">"{r.snippet}"</p>
+                        <p className="text-[9px] font-mono text-ash/60 mt-0.5">— heard from {r.source.replace(/^npc:/, "")}</p>
+                      </div>
+                    ))}
+                  </div>
                 )}
                 {sortedLore
                   .filter(l => discMap.has(l.slug))
