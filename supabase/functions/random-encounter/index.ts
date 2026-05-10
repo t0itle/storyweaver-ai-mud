@@ -70,11 +70,13 @@ const DISCOVERIES = [
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 function weightedKind(): "ambush" | "traveler" | "discovery" | "patrol" {
   const r = Math.random();
-  if (r < 0.35) return "ambush";
-  if (r < 0.60) return "traveler";
-  if (r < 0.85) return "discovery";
+  if (r < 0.50) return "ambush";
+  if (r < 0.70) return "traveler";
+  if (r < 0.88) return "discovery";
   return "patrol";
 }
+
+function SR(n: number) { return Math.floor(Math.random() * n) + 1; }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
