@@ -196,10 +196,111 @@ Deno.serve(async (req) => {
       });
     }
 
+    // === Rune utility puzzles ===
+    // On a successful cast (knows the symbol, score >= 0.6), check for matching
+    // env-tag or scripted effects in the current room. One-time per player per room.
+    const utility: any = { applied: false };
+    if (knewSymbol && score >= 0.6) {
+      // Tags on this room
+      const { data: tagRows } = await admin
+        .from("room_env_tags").select("tag").eq("room", profile.current_room);
+      const tags = (tagRows ?? []).map((t: any) => t.tag);
+
+      // Find candidate effects: scripted (room scope) OR matching tag scope
+      const orParts: string[] = [`and(scope.eq.room,match_key.eq.${profile.current_room})`];
+      if (tags.length) {
+        orParts.push(`and(scope.eq.tag,match_key.in.(${tags.join(",")}))`);
+      }
+      const { data: effects } = await admin
+        .from("rune_utility_effects").select("*")
+        .eq("rune_key", runeKey)
+        .or(orParts.join(","));
+
+      const candidates = (effects ?? []) as any[];
+      if (candidates.length) {
+        // Filter out one-time effects already solved in this room by this player
+        const ids = candidates.map((e) => e.id);
+        const { data: solved } = await admin
+          .from("player_rune_solves").select("effect_id")
+          .eq("user_id", user.id).eq("room", profile.current_room).in("effect_id", ids);
+        const solvedIds = new Set((solved ?? []).map((s: any) => s.effect_id));
+
+        // Pick the first unsolved (scripted preferred over tag — sort scope=room first)
+        const pick = candidates
+          .filter((e) => !(e.one_time && solvedIds.has(e.id)))
+          .sort((a, b) => (a.scope === "room" ? -1 : 1) - (b.scope === "room" ? -1 : 1))[0];
+
+        if (pick) {
+          let goldGained = 0, xpGained = 0, meritGained = 0, itemGained: string | null = null;
+          let exitGained: { dir: string; to: string; label: string | null } | null = null;
+
+          if (pick.reward_gold > 0) goldGained = pick.reward_gold;
+          if (pick.reward_xp > 0) xpGained = pick.reward_xp;
+          if (pick.reward_merit > 0) meritGained = pick.reward_merit;
+
+          if (pick.reward_kind === "access" && pick.reward_exit_dir && pick.reward_exit_to) {
+            await admin.from("player_room_extra_exits").upsert({
+              user_id: user.id, room: profile.current_room,
+              dir: pick.reward_exit_dir, to_room: pick.reward_exit_to,
+              label: pick.reward_exit_label ?? null,
+            }, { onConflict: "user_id,room,dir" });
+            exitGained = { dir: pick.reward_exit_dir, to: pick.reward_exit_to, label: pick.reward_exit_label ?? null };
+          }
+
+          if (pick.reward_kind === "cache" && pick.reward_item_key) {
+            await admin.from("player_items").insert({
+              user_id: user.id, item_key: pick.reward_item_key, quantity: 1,
+            });
+            itemGained = pick.reward_item_key;
+          }
+
+          if (pick.reward_kind === "lore" && pick.reward_lore_slug) {
+            await admin.from("player_lore_discoveries").insert({
+              user_id: user.id, lore_slug: pick.reward_lore_slug, source: `rune:${runeKey}`,
+            }).then(() => null, () => null); // ignore dup
+          }
+
+          // Apply gold/xp/merit
+          if (goldGained || xpGained || meritGained) {
+            const { data: pp } = await admin.from("profiles")
+              .select("gold,xp,merit").eq("id", user.id).maybeSingle();
+            await admin.from("profiles").update({
+              gold: (pp?.gold ?? 0) + goldGained,
+              xp:   (pp?.xp ?? 0)   + xpGained,
+              merit:(pp?.merit ?? 0) + meritGained,
+            }).eq("id", user.id);
+          }
+
+          // Mark solved (one-time only; for repeatable, skip)
+          if (pick.one_time) {
+            await admin.from("player_rune_solves").insert({
+              user_id: user.id, effect_id: pick.id, room: profile.current_room,
+            }).then(() => null, () => null);
+          }
+
+          // Public emote so others see something happened
+          const rewardBits: string[] = [];
+          if (goldGained) rewardBits.push(`+${goldGained}g`);
+          if (xpGained) rewardBits.push(`+${xpGained}xp`);
+          if (meritGained) rewardBits.push(`+${meritGained} merit`);
+          if (exitGained) rewardBits.push(`a way ${exitGained.dir} opens`);
+          await admin.from("messages").insert({
+            room: profile.current_room, user_id: null, author_name: "—", kind: "ambient",
+            content: pick.flavor_solve + (rewardBits.length ? `  *(${rewardBits.join(", ")})*` : ""),
+          });
+
+          utility.applied = true;
+          utility.flavor = pick.flavor_solve;
+          utility.reward = { gold: goldGained, xp: xpGained, merit: meritGained, item: itemGained, exit: exitGained };
+        }
+      }
+    }
+
     return new Response(JSON.stringify({
       ok: true, score: pct, outcome, narrative, damage, heal,
       hp: newHp, corruption_delta: corruptionDelta,
       symbol_just_learned: symbolJustLearned,
+      utility,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
