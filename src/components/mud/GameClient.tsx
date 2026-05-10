@@ -1568,6 +1568,8 @@ export default function GameClient({ session }: { session: Session }) {
                   </button>
                 );
               })}
+            </div>
+          </div>
 
           <button
             onClick={() => setHelpOpen(true)}
