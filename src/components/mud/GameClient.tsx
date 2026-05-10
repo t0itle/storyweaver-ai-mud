@@ -253,7 +253,7 @@ export default function GameClient({ session }: { session: Session }) {
     (async () => {
       const nowIso = new Date().toISOString();
       // Only show conversations from the moment the player arrived in this room.
-      const [{ data: r }, { data: nAll }, { data: m }, { data: ev }, { data: dr }, { data: discov }] = await Promise.all([
+      const [{ data: r }, { data: nAll }, { data: m }, { data: ev }, { data: dr }, { data: discov }, { data: extraExits }, { data: envTags }] = await Promise.all([
         supabase.from("rooms").select("*").eq("slug", slug).maybeSingle(),
         supabase.from("npcs").select("*").eq("room", slug)
           .or(`dead_until.is.null,dead_until.lte.${nowIso}`),
@@ -267,15 +267,39 @@ export default function GameClient({ session }: { session: Session }) {
           .order("created_at", { ascending: false }).limit(5),
         supabase.from("dragons").select("name, epithet, personality").eq("current_room", slug),
         supabase.from("player_npc_discoveries").select("npc_id").eq("user_id", profile.id),
+        supabase.from("player_room_extra_exits").select("dir,to_room,label")
+          .eq("user_id", profile.id).eq("room", slug),
+        supabase.from("room_env_tags").select("tag").eq("room", slug),
       ]);
       const discoveredIds = new Set((discov ?? []).map((d: any) => d.npc_id));
       // Hide soul/hidden NPCs that this player has not personally uncovered.
       const n = (nAll ?? []).filter((x: any) => !x.hidden || discoveredIds.has(x.id));
-      if (r) setRoom(r as Room);
+      if (r) {
+        // Merge per-player unlocked exits into the room's exits map
+        const merged: Record<string, string> = { ...((r as any).exits ?? {}) };
+        for (const ex of extraExits ?? []) merged[(ex as any).dir] = (ex as any).to_room;
+        setRoom({ ...(r as any), exits: merged } as Room);
+      }
+      // Show a faint hint about environmental tags the first time you see them this visit
+      const tagList = (envTags ?? []).map((t: any) => t.tag);
+      let hintMsg: Message | null = null;
+      if (tagList.length) {
+        const hintMap: Record<string, string> = {
+          dark: "It is very dark here.",
+          flooded: "Water lies heavy across the floor.",
+          parched: "The air is bone-dry; nothing grows.",
+          sealed: "Something here is bound shut.",
+          overgrown: "Vines and briar choke the ground.",
+          hallowed: "The air feels older than the stones.",
+        };
+        const lines = tagList.map((t) => hintMap[t]).filter(Boolean);
+        if (lines.length) hintMsg = localSys(lines.map((l) => `*${l}*`).join("  "));
+      }
       setNpcs((n ?? []) as Npc[]);
       setDragons((dr ?? []) as any);
       setRoomEvents((ev ?? []) as any);
-      setMessages(((m ?? []) as Message[]).reverse());
+      const baseMsgs = ((m ?? []) as Message[]).reverse();
+      setMessages(hintMsg ? [...baseMsgs, hintMsg] : baseMsgs);
 
       // Load amity scores for the NPCs in this room
       const npcIds = (n ?? []).map((x: any) => x.id);

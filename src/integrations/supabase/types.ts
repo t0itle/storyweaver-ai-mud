@@ -1290,6 +1290,62 @@ export type Database = {
         }
         Relationships: []
       }
+      player_room_extra_exits: {
+        Row: {
+          dir: string
+          label: string | null
+          room: string
+          to_room: string
+          unlocked_at: string
+          user_id: string
+        }
+        Insert: {
+          dir: string
+          label?: string | null
+          room: string
+          to_room: string
+          unlocked_at?: string
+          user_id: string
+        }
+        Update: {
+          dir?: string
+          label?: string | null
+          room?: string
+          to_room?: string
+          unlocked_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      player_rune_solves: {
+        Row: {
+          effect_id: string
+          room: string
+          solved_at: string
+          user_id: string
+        }
+        Insert: {
+          effect_id: string
+          room: string
+          solved_at?: string
+          user_id: string
+        }
+        Update: {
+          effect_id?: string
+          room?: string
+          solved_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_rune_solves_effect_id_fkey"
+            columns: ["effect_id"]
+            isOneToOne: false
+            referencedRelation: "rune_utility_effects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_runes: {
         Row: {
           id: string
@@ -1772,6 +1828,21 @@ export type Database = {
         }
         Relationships: []
       }
+      room_env_tags: {
+        Row: {
+          room: string
+          tag: string
+        }
+        Insert: {
+          room: string
+          tag: string
+        }
+        Update: {
+          room?: string
+          tag?: string
+        }
+        Relationships: []
+      }
       room_scenes: {
         Row: {
           context_hash: string
@@ -1835,6 +1906,63 @@ export type Database = {
           requires_faction?: string | null
           slug?: string
           town_key?: string | null
+        }
+        Relationships: []
+      }
+      rune_utility_effects: {
+        Row: {
+          created_at: string
+          flavor_solve: string
+          id: string
+          match_key: string
+          one_time: boolean
+          reward_exit_dir: string | null
+          reward_exit_label: string | null
+          reward_exit_to: string | null
+          reward_gold: number
+          reward_item_key: string | null
+          reward_kind: string
+          reward_lore_slug: string | null
+          reward_merit: number
+          reward_xp: number
+          rune_key: string
+          scope: string
+        }
+        Insert: {
+          created_at?: string
+          flavor_solve: string
+          id?: string
+          match_key: string
+          one_time?: boolean
+          reward_exit_dir?: string | null
+          reward_exit_label?: string | null
+          reward_exit_to?: string | null
+          reward_gold?: number
+          reward_item_key?: string | null
+          reward_kind?: string
+          reward_lore_slug?: string | null
+          reward_merit?: number
+          reward_xp?: number
+          rune_key: string
+          scope: string
+        }
+        Update: {
+          created_at?: string
+          flavor_solve?: string
+          id?: string
+          match_key?: string
+          one_time?: boolean
+          reward_exit_dir?: string | null
+          reward_exit_label?: string | null
+          reward_exit_to?: string | null
+          reward_gold?: number
+          reward_item_key?: string | null
+          reward_kind?: string
+          reward_lore_slug?: string | null
+          reward_merit?: number
+          reward_xp?: number
+          rune_key?: string
+          scope?: string
         }
         Relationships: []
       }
