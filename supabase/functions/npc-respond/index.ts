@@ -428,12 +428,20 @@ Do not mention these tags in your prose.`;
       try { questResolveRaw = JSON.parse(questResolveMatch[1]); } catch { /* ignore */ }
     }
 
+    // Strip and parse hidden <<RUMOR>>{...}<<END>> tag (artifact whisper)
+    const rumorMatch = rawContent.match(/<<RUMOR>>\s*(\{[\s\S]*?\})\s*<<END>>/);
+    let rumorRaw: { artifact_key?: string; snippet?: string } | null = null;
+    if (rumorMatch) {
+      try { rumorRaw = JSON.parse(rumorMatch[1]); } catch { /* ignore */ }
+    }
+
     content = rawContent
       .replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<MEMORY>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<AMITY>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<QUEST_OFFER>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<QUEST_RESOLVE>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<RUMOR>>[\s\S]*?<<END>>\s*/g, "")
       .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
