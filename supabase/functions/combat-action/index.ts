@@ -70,14 +70,21 @@ async function narrateLine(args: {
   damage?: number; outcome?: string; defeated?: boolean;
 }): Promise<string | null> {
   const key = Deno.env.get("LOVABLE_API_KEY"); if (!key) return null;
-  const sys = `You are a combat narrator for EverBloom — a dying world of Aethers, mouth-bound Veiled, and the silenced Speaker. Output ONE vivid sentence (max 28 words), present tense, third person, no second-person, no game numbers, no quest hooks. Reference the named weapon/armor/rune naturally when given. End with a hard period.`;
-  const lines: string[] = [`${args.actor} ${args.verb}${args.target ? ` ${args.target}` : ""}.`];
-  if (args.weapon) lines.push(`Weapon: ${args.weapon}.`);
-  if (args.armor) lines.push(`Wearing: ${args.armor}.`);
-  if (args.rune) lines.push(`Rune: ${args.runeGlyph ?? ""} ${args.rune}.`);
-  if (typeof args.damage === "number") lines.push(`Damage dealt: ${args.damage}.`);
-  if (args.outcome) lines.push(`Trace outcome: ${args.outcome}.`);
-  if (args.defeated) lines.push(`Result: target falls.`);
+  const sys = `You are a combat narrator for EverBloom, a dark fantasy world. Output ONE vivid sentence (max 28 words), present tense, third person, no second-person, no game numbers, no quest hooks. End with a hard period.
+
+STRICT RULES — DO NOT VIOLATE:
+- Use the EXACT actor and target names provided. Never invent factions, titles, races, or identities (do NOT call anyone "Veiled", "cultist", "warden", "guard", etc. unless that word appears in the provided name).
+- Only mention a weapon if a "Weapon:" line is given. If none is given, describe the strike with bare hands, fists, or unarmed motion — NEVER name a sword, blade, dagger, axe, bow, staff, etc.
+- Only mention armor if an "Armor:" line is given. If none is given, do NOT describe armor, mail, plate, robes, etc.
+- Only mention a rune if a "Rune:" line is given.`;
+  const lines: string[] = [`Actor: ${args.actor}`, `Action: ${args.verb}${args.target ? ` ${args.target}` : ""}`];
+  if (args.weapon) lines.push(`Weapon: ${args.weapon}`);
+  else lines.push(`Weapon: none (unarmed — bare hands/fists only)`);
+  if (args.armor) lines.push(`Armor: ${args.armor}`);
+  if (args.rune) lines.push(`Rune: ${args.runeGlyph ?? ""} ${args.rune}`);
+  if (typeof args.damage === "number") lines.push(`Damage dealt: ${args.damage}`);
+  if (args.outcome) lines.push(`Trace outcome: ${args.outcome}`);
+  if (args.defeated) lines.push(`Result: target falls`);
   try {
     const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
