@@ -96,15 +96,39 @@ Do NOT change the gear, do NOT change the pose, do NOT change the background. On
         modalities: ["image", "text"],
       }),
     });
-    if (aiRes.status === 429) return json({ error: "Too busy. Try again in a moment." }, 429);
-    if (aiRes.status === 402) return json({ error: "AI credits exhausted." }, 402);
+    if (aiRes.status === 429) return json({ error: "Too busy. Try again in a moment.", fallback: true }, 200);
+    if (aiRes.status === 402) return json({ error: "AI credits exhausted.", fallback: true }, 200);
     if (!aiRes.ok) {
       console.error("AI error", aiRes.status, await aiRes.text());
-      return json({ error: "Image generation failed" }, 500);
+      return json({ error: "Image generation failed", fallback: true }, 200);
     }
     const aiData = await aiRes.json();
-    const dataUrl: string | undefined = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    if (!dataUrl?.startsWith("data:image/")) return json({ error: "No image returned" }, 500);
+    let dataUrl: string | undefined = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    if (!dataUrl?.startsWith("data:image/")) {
+      console.warn("No image on first try, retrying once");
+      const retry = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image",
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: prompt + "\n\nReturn the repainted image only, no text." },
+              { type: "image_url", image_url: { url: profile.portrait_url } },
+            ],
+          }],
+          modalities: ["image", "text"],
+        }),
+      });
+      if (retry.ok) {
+        const rd = await retry.json();
+        dataUrl = rd.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      }
+    }
+    if (!dataUrl?.startsWith("data:image/")) {
+      return json({ error: "No image returned", fallback: true, portrait_url: profile.portrait_url }, 200);
+    }
 
     const [meta, b64] = dataUrl.split(",");
     const mime = meta.match(/data:(image\/[a-z]+)/)?.[1] ?? "image/png";
