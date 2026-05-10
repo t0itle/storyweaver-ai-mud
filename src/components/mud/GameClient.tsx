@@ -144,8 +144,30 @@ export default function GameClient({ session }: { session: Session }) {
   const [hasCache, setHasCache] = useState(false);
   const [cacheClaimed, setCacheClaimed] = useState(false);
   const [roomLoot, setRoomLoot] = useState<{ id: string; gold: number; item_key: string | null; quantity: number; placed_by_name: string | null }[]>([]);
+  const [bucket, setBucket] = useState<TimeBucket>(getTimeBucket());
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Tick a world clock once a minute. When the time-of-day bucket flips,
+  // emit a system note in the current room so players feel the day pass.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const next = getTimeBucket();
+      setBucket((prev) => {
+        if (prev === next) return prev;
+        if (profile && room) {
+          const note = TIME_TRANSITIONS[next];
+          setMessages((m) => [...m, {
+            id: crypto.randomUUID(), room: room.slug, author_name: "—",
+            kind: "ambient", content: `*${note} over ${room.name}.*`,
+            created_at: new Date().toISOString(), user_id: null, npc_id: null,
+          } as Message]);
+        }
+        return next;
+      });
+    }, 60000);
+    return () => clearInterval(id);
+  }, [profile, room]);
 
   const reloadInventory = async () => {
     const { data } = await supabase.from("player_items")
@@ -744,7 +766,7 @@ export default function GameClient({ session }: { session: Session }) {
     if (c === "help" || c === "?") {
       setMessages((m) => [...m, localSys(HELP.map(([k, v]) => `  ${k.padEnd(20)} — ${v}`).join("\n"))]);
     } else if (c === "look" || c === "l") {
-      setMessages((m) => [...m, localSys(formatRoom(room, npcs, roomEvents))]);
+      setMessages((m) => [...m, localSys(formatRoom(room, npcs, roomEvents, bucket))]);
     } else if (c === "who") {
       setMessages((m) => [...m, localSys(`Here: ${presence.map(p => p.username).join(", ") || "(only you)"}`)]);
     } else if (c === "follow") {
@@ -1235,7 +1257,7 @@ export default function GameClient({ session }: { session: Session }) {
         {/* Main log */}
         <main className="flex-1 flex flex-col min-w-0">
           <div ref={logRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-6 space-y-3 font-body text-[17px] leading-relaxed">
-            <RoomBlock room={room} npcs={npcs} dragons={dragons} sceneUrl={sceneUrl} sceneLoading={sceneLoading} events={roomEvents} />
+            <RoomBlock room={room} npcs={npcs} dragons={dragons} sceneUrl={sceneUrl} sceneLoading={sceneLoading} events={roomEvents} bucket={bucket} />
             {corpses.length > 0 && (
               <div className="border border-red-900/50 bg-red-950/20 px-3 py-2 mb-3 text-sm">
                 <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-red-400 mb-1">⚰ Corpses here</div>
@@ -1509,14 +1531,20 @@ export default function GameClient({ session }: { session: Session }) {
   );
 }
 
-function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events }: {
+function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket }: {
   room: Room; npcs: Npc[]; dragons: { name: string; epithet: string; personality: string }[];
   sceneUrl: string | null; sceneLoading: boolean;
   events: { kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[];
+  bucket: TimeBucket;
 }) {
+  const tint = pickTimeTint(bucket, (room.kind ?? "room") as string);
   return (
     <div className="border-l-2 border-ember/60 pl-4 py-1 mb-4">
-      <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-ash mb-1">{room.label ?? "Place"}</div>
+      <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-ash mb-1 flex items-center gap-3">
+        <span>{room.label ?? "Place"}</span>
+        <span className="text-whisper">·</span>
+        <span className="text-whisper normal-case tracking-normal italic">{TIME_LABEL[bucket]}</span>
+      </div>
       <h2 className="font-display text-2xl text-ember mb-2">{room.name}</h2>
       <div className="mb-3 aspect-[16/9] bg-card/50 border border-border overflow-hidden relative">
         {sceneUrl ? (
@@ -1542,6 +1570,7 @@ function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events }: {
           </>
         )}
       </p>
+      {tint && <p className="text-whisper italic mt-2">{tint}</p>}
       {room.ambience && <p className="text-ash italic mt-2">{room.ambience}</p>}
       {dragons.length > 0 && (
         <div className="mt-3 border border-ember/60 bg-ember/10 px-3 py-2">
@@ -1643,8 +1672,10 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
   );
 }
 
-function formatRoom(room: Room, npcs: Npc[], events: { kind: string; actor_name: string; target_name: string | null; details: any }[] = []) {
-  const lines = [`${(room.label ?? "Place").toUpperCase()} — ${room.name.toUpperCase()}`, "", room.description];
+function formatRoom(room: Room, npcs: Npc[], events: { kind: string; actor_name: string; target_name: string | null; details: any }[] = [], bucket: TimeBucket = getTimeBucket()) {
+  const lines = [`${(room.label ?? "Place").toUpperCase()} — ${room.name.toUpperCase()}  [${TIME_LABEL[bucket]}]`, "", room.description];
+  const tint = pickTimeTint(bucket, (room.kind ?? "room") as string);
+  if (tint) lines.push("", tint);
   if (room.ambience) lines.push("", room.ambience);
   if (npcs.length) lines.push("", "Here: " + npcs.map(n => n.current_activity ? `${n.name} (${n.current_activity})` : n.name).join(", "));
   lines.push("", "Exits: " + (Object.keys(room.exits).join(", ") || "none"));
@@ -1819,4 +1850,245 @@ function pickAmbience(kind: string, npcNames: string[]): string | null {
     return fn(who);
   }
   return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Time-of-day cycle. Real-world UTC hour drives a six-bucket day,
+// and each room kind gets its own atmospheric tint per bucket so
+// the same place reads differently at dawn vs deep night.
+// ─────────────────────────────────────────────────────────────────
+type TimeBucket = "night" | "dawn" | "morning" | "midday" | "dusk" | "deepnight";
+
+function getTimeBucket(d: Date = new Date()): TimeBucket {
+  const h = d.getUTCHours();
+  if (h < 5) return "deepnight";
+  if (h < 8) return "dawn";
+  if (h < 12) return "morning";
+  if (h < 16) return "midday";
+  if (h < 20) return "dusk";
+  return "night";
+}
+
+const TIME_LABEL: Record<TimeBucket, string> = {
+  deepnight: "the small hours",
+  dawn: "first light",
+  morning: "late morning",
+  midday: "the long afternoon",
+  dusk: "dusk",
+  night: "deep night",
+};
+
+const TIME_TRANSITIONS: Record<TimeBucket, string> = {
+  deepnight: "The deep hours settle",
+  dawn: "First grey light creeps in",
+  morning: "Morning brightens",
+  midday: "The sun climbs over the rooftops",
+  dusk: "The light goes amber and starts to fail",
+  night: "Night closes",
+};
+
+// Per (kind × bucket) tints. Falls back to GENERIC_TIME_TINTS by bucket if a
+// kind has no entry. Each entry is one short sensory line in the same voice
+// as the AMBIENCE pool. We pick at random per render.
+const TIME_TINTS_BY_KIND: Partial<Record<string, Partial<Record<TimeBucket, string[]>>>> = {
+  market: {
+    dawn: ["awnings are still being cranked open and the cobbles are dark with night-water"],
+    morning: ["the lanes are at full clamor; coin and copper sing on every counter"],
+    midday: ["the heat slows everyone; merchants fan themselves under striped cloth"],
+    dusk: ["stalls are coming down; lamps are being lit one by one along the row"],
+    night: ["only the late stalls keep going by lantern; a watchman drifts past"],
+    deepnight: ["the lane is empty save for swept-up rinds and a single guttering lamp"],
+  },
+  square: {
+    dawn: ["pigeons are still asleep on the cornices; the fountain steams faintly"],
+    morning: ["the bells have just rung; the square fills with errands and gossip"],
+    midday: ["heat lies heavy on the flagstones; figures keep to the colonnades"],
+    dusk: ["lamplighters work the perimeter; the fountain blackens with shadow"],
+    night: ["the fountain murmurs to itself; lanterns burn low at the corners"],
+    deepnight: ["the square is given over to wind and a single, distant watch-bell"],
+  },
+  tavern: {
+    dawn: ["chairs are stacked on tables; someone is sluicing the floor"],
+    morning: ["the kitchen-fire is being woken; a smell of yeast and bacon"],
+    midday: ["a quiet noon trade — a few drinkers, the hum of low talk"],
+    dusk: ["the room is filling fast; the first songs are being negotiated"],
+    night: ["smoke and laughter and the occasional crash of a stool going over"],
+    deepnight: ["only the hard cases left now, hunched and slow over their cups"],
+  },
+  hall: {
+    dawn: ["torches are guttering in their brackets, untrimmed since the night-watch"],
+    morning: ["light cuts in through the high windows in long pale bars"],
+    midday: ["the stone holds its cool; voices echo a long way down the nave"],
+    dusk: ["the high windows go red, then violet; sconces are being lit below"],
+    night: ["the hall is held only by torchlight; the corners are deep with dark"],
+    deepnight: ["the hall is silent except for one watchman's footsteps, far off"],
+  },
+  gate: {
+    dawn: ["the bar is being lifted; the first carts are queueing in the grey"],
+    morning: ["the gate is full open; trade flows in both directions"],
+    midday: ["the guards are slow with heat; flies orbit the gate-house lamp"],
+    dusk: ["the last carts are being waved through before the bar comes down"],
+    night: ["the gate is barred; a single lantern burns above the wicket"],
+    deepnight: ["the gate is shut and the watch is doubled, breath steaming"],
+  },
+  road: {
+    dawn: ["dew silvers the wagon-ruts; nothing else is moving"],
+    morning: ["the road is busy with the day's first traffic"],
+    midday: ["the heat lays a shimmer along the road ahead"],
+    dusk: ["long shadows stripe the road; the air goes cool and blue"],
+    night: ["the road is dark; only your own footfall keeps you company"],
+    deepnight: ["nothing moves but the wind and the cold weight of stars"],
+  },
+  shore: {
+    dawn: ["the sea is the colour of slate; gulls are just stirring on the wrack"],
+    morning: ["sunlight catches each wave-crest in cold white"],
+    midday: ["the tide is far out; the flats steam under the sun"],
+    dusk: ["the sea takes the light and gives back fire on every wave"],
+    night: ["the sea is black and patient; phosphor flickers in the wash"],
+    deepnight: ["the sea is invisible; only its long, dragging breath is left"],
+  },
+  grove: {
+    dawn: ["mist threads the trunks and the first bird is trying its voice"],
+    morning: ["light filters down green through the canopy"],
+    midday: ["the leaves go still; insects hum in the warm hush"],
+    dusk: ["the grove darkens fast; one owl, somewhere, is starting up"],
+    night: ["the trees are great black shapes; something moves among them"],
+    deepnight: ["nothing moves at all; the grove holds its breath"],
+  },
+  garden: {
+    dawn: ["dew weighs every petal; no bee is yet awake"],
+    morning: ["the borders are loud with bees and the smell of warming earth"],
+    midday: ["the flowers are wide open and almost too bright"],
+    dusk: ["moths are coming out as the colors drain to blues and greys"],
+    night: ["pale blooms catch what light there is; everything else goes black"],
+    deepnight: ["the garden is silver and silent under the moon"],
+  },
+  wilds: {
+    dawn: ["a cold mist hangs in every hollow; the world is grey and waiting"],
+    morning: ["the heath warms; small things rustle in the low cover"],
+    midday: ["the light is bleached and merciless across the open ground"],
+    dusk: ["long shadows pool in every dip; an owl tries the air"],
+    night: ["the wilds are pitch and full of small, patient noises"],
+    deepnight: ["nothing for miles but wind and your own breath, and the dark"],
+  },
+  desert: {
+    dawn: ["the dunes go from black to bone in a single slow wash of light"],
+    morning: ["the sand is already hot enough to sting through a sandal"],
+    midday: ["the sun is a hammer; the air shakes above the sand"],
+    dusk: ["the dunes turn copper, then violet; the heat finally breaks"],
+    night: ["the desert goes brutally cold; the stars are unbearably close"],
+    deepnight: ["nothing moves; the cold and the silence are absolute"],
+  },
+  cave: {
+    dawn: ["a thin grey trickle of light reaches the mouth and dies"],
+    morning: ["pale light gropes a few feet inside, then gives up"],
+    midday: ["the mouth glows bright, but the dark beyond is unchanged"],
+    dusk: ["the mouth bleeds red light onto the first few feet of stone"],
+    night: ["the dark from outside meets the dark inside without any seam"],
+    deepnight: ["the cave is the same as it always is; only you can tell time"],
+  },
+  ruin: {
+    dawn: ["dew runs down every broken column; nothing has stirred in the rubble"],
+    morning: ["light picks out the carvings the night had hidden"],
+    midday: ["the stone is hot; lizards bask on the fallen capitals"],
+    dusk: ["shadows fill the ruin; the broken arches go to silhouette"],
+    night: ["the ruin is black on black; only the sky between the walls is paler"],
+    deepnight: ["the ruin is deeply, completely still — the dead-of-night kind"],
+  },
+  crypt: {
+    dawn: ["a cold draft moves through, smelling of stone and turned earth"],
+    morning: ["nothing changes here; somewhere above, faint birdsong filters"],
+    midday: ["the crypt holds the same cold it always does"],
+    dusk: ["it feels colder; the lamp-flames lean inward without cause"],
+    night: ["the dark seems to thicken and lean in close"],
+    deepnight: ["the very air tastes older now; something is awake in the silence"],
+  },
+  tower: {
+    dawn: ["wind pushes mist past the high windows in slow ropes"],
+    morning: ["the wind is fresher up here, cold off the open country"],
+    midday: ["sunlight floods the floorboards; you can see the dust hanging"],
+    dusk: ["the windows fill with red; the wind starts to whine in the slats"],
+    night: ["only the lamp keeps the dark out of the room"],
+    deepnight: ["the tower creaks in the wind; you are very high and very alone"],
+  },
+  temple: {
+    dawn: ["a single chant has just begun, somewhere out of sight"],
+    morning: ["the daily rites are in progress; bells, incense, low voices"],
+    midday: ["the temple is hushed; an acolyte sweeps without noise"],
+    dusk: ["lamps are being lit at every altar; the air thickens with smoke"],
+    night: ["only the night-keeper is here, tending the standing flames"],
+    deepnight: ["the temple is empty and the lamps burn very low"],
+  },
+  bridge: {
+    dawn: ["mist hangs in the gorge; the planks are slick with it"],
+    morning: ["the river runs bright below; the boards are warming"],
+    midday: ["heat shimmers off the stones; the water flashes underneath"],
+    dusk: ["the water below goes black; the bridge stands out red against it"],
+    night: ["the bridge is invisible until you are on it; the water hisses below"],
+    deepnight: ["only the river is awake, somewhere down in the dark"],
+  },
+  dock: {
+    dawn: ["the boats sit still in a milky calm; nothing has cast off yet"],
+    morning: ["the docks are full noise — winches, shouts, gulls, water"],
+    midday: ["the smell of pitch and fish settles thick in the heat"],
+    dusk: ["the last boats are being made fast; lanterns wink on the water"],
+    night: ["a single lamp burns on each pier; the boats nod in the dark"],
+    deepnight: ["the docks are deserted; only the tide works against the wood"],
+  },
+  camp: {
+    dawn: ["the fire is down to grey ash; someone is coaxing it back"],
+    morning: ["the fire is up and the camp is breaking — packs going on backs"],
+    midday: ["the camp is quiet; most are out on the day's business"],
+    dusk: ["the fire is being built up; people are drifting back to it"],
+    night: ["the fire throws orange on every face; the dark stands around it"],
+    deepnight: ["only the watchman is awake, feeding the fire one stick at a time"],
+  },
+  hollow: {
+    dawn: ["fog fills the hollow to the brim and is slow to drain"],
+    morning: ["the hollow is bright at the rim and dim at the bottom"],
+    midday: ["heat pools here and does not move"],
+    dusk: ["the hollow goes dark before anywhere else does"],
+    night: ["the hollow is full of black water and quieter sounds"],
+    deepnight: ["the hollow is the deepest dark in the country, and very still"],
+  },
+  clearing: {
+    dawn: ["dew weighs the long grass; mist rises in pale rags"],
+    morning: ["the clearing is bright and full of small wing-noises"],
+    midday: ["the sun stands directly over and there is no shadow worth the name"],
+    dusk: ["the grass goes gold, then grey; bats begin their first low passes"],
+    night: ["moonlight lies across the clearing; the trees stand around in black"],
+    deepnight: ["the clearing is silver and still; nothing crosses it"],
+  },
+  loft: {
+    dawn: ["pale light leaks through every gap in the boards"],
+    morning: ["dust dances in the bars of light from the gable"],
+    midday: ["the loft is roasting under the slate; the air is close"],
+    dusk: ["the light goes long and red across the floor before failing"],
+    night: ["the loft is dark and the timbers settle around you"],
+    deepnight: ["only mice are awake up here, and they pretend not to be"],
+  },
+  room: {
+    dawn: ["grey light is just reaching the floor"],
+    morning: ["sunlight has the room and dust hangs in it"],
+    midday: ["the room holds the heat; the air is still"],
+    dusk: ["the room dims and a lamp is lit somewhere in the building"],
+    night: ["only lamplight; the corners are full of soft dark"],
+    deepnight: ["the lamp burns low; everything is asleep but you"],
+  },
+};
+
+const GENERIC_TIME_TINTS: Record<TimeBucket, string[]> = {
+  dawn: ["the world is grey and waking; the air is cold off the night"],
+  morning: ["the day is well underway and the light is honest"],
+  midday: ["the light is full and unkind; shadows huddle at the bases of things"],
+  dusk: ["the light goes red and slantways; everything throws a long shadow"],
+  night: ["the dark is settled in; lamps are doing the work of the sun now"],
+  deepnight: ["it is the dead of night and the world is given over to it"],
+};
+
+function pickTimeTint(bucket: TimeBucket, kind: string): string | null {
+  const k = TIME_TINTS_BY_KIND[kind]?.[bucket];
+  if (k && k.length) return k[Math.floor(Math.random() * k.length)];
+  const g = GENERIC_TIME_TINTS[bucket];
+  return g[Math.floor(Math.random() * g.length)];
 }
