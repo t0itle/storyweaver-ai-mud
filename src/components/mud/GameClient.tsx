@@ -334,22 +334,42 @@ export default function GameClient({ session }: { session: Session }) {
   }, [profile?.current_room]);
 
   // Living scene: post a sensory ambient line on entry and every 45-90s while present.
-  // Local-only (atmospheric flavor — not persisted, only the current player sees it).
+  // AI-generated per room+player+moment, with a local pool as fallback.
+  // Lines are not persisted — only the current player sees them.
   useEffect(() => {
     if (!profile || !room) return;
     const slug = profile.current_room;
     const kind = (room.kind ?? "room") as string;
     let cancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
+    const recent: string[] = [];
+
+    const generate = async (): Promise<string | null> => {
+      try {
+        const { data, error } = await supabase.functions.invoke("room-ambience", { body: { recent } });
+        if (error) throw error;
+        const line = (data as any)?.line as string | undefined;
+        if (line && line.length > 2) return line;
+      } catch (e) { /* fall through */ }
+      return pickAmbience(kind, npcs.map(n => n.name));
+    };
+
     const fire = (delay: number) => {
-      const t = setTimeout(() => {
+      const t = setTimeout(async () => {
         if (cancelled) return;
-        const line = pickAmbience(kind, npcs.map(n => n.name));
-        if (line) setMessages((m) => [...m, {
-          id: crypto.randomUUID(), room: slug, author_name: "—",
-          kind: "ambient", content: `*${line}*`, created_at: new Date().toISOString(),
-          user_id: null, npc_id: null,
-        } as Message]);
+        // skip if room is not the focus anymore
+        if (slug !== profile.current_room) return;
+        const line = await generate();
+        if (cancelled) return;
+        if (line) {
+          recent.push(line);
+          if (recent.length > 8) recent.shift();
+          setMessages((m) => [...m, {
+            id: crypto.randomUUID(), room: slug, author_name: "—",
+            kind: "ambient", content: `*${line}*`, created_at: new Date().toISOString(),
+            user_id: null, npc_id: null,
+          } as Message]);
+        }
         fire(45000 + Math.floor(Math.random() * 45000));
       }, delay);
       timers.push(t);
