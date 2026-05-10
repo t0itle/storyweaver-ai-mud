@@ -94,8 +94,16 @@ Deno.serve(async (req) => {
     });
     if (!resp.ok) {
       const txt = await resp.text();
-      return new Response(JSON.stringify({ error: `ElevenLabs music failed [${resp.status}]: ${txt}` }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      console.error(`ElevenLabs music failed [${resp.status}]: ${txt}`);
+      // Auth/billing/rate-limit/server errors → graceful fallback (no audio, no crash)
+      const fallbackable = resp.status === 401 || resp.status === 402 || resp.status === 429 || resp.status >= 500;
+      return new Response(JSON.stringify({
+        scene_key: key,
+        audioContent: null,
+        fallback: true,
+        reason: fallbackable ? "ELEVENLABS_UNAVAILABLE" : `ElevenLabs error ${resp.status}`,
+      }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     const buf = await resp.arrayBuffer();
