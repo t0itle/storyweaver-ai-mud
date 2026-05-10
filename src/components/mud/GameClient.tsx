@@ -1672,8 +1672,10 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
   );
 }
 
-function formatRoom(room: Room, npcs: Npc[], events: { kind: string; actor_name: string; target_name: string | null; details: any }[] = []) {
-  const lines = [`${(room.label ?? "Place").toUpperCase()} — ${room.name.toUpperCase()}`, "", room.description];
+function formatRoom(room: Room, npcs: Npc[], events: { kind: string; actor_name: string; target_name: string | null; details: any }[] = [], bucket: TimeBucket = getTimeBucket()) {
+  const lines = [`${(room.label ?? "Place").toUpperCase()} — ${room.name.toUpperCase()}  [${TIME_LABEL[bucket]}]`, "", room.description];
+  const tint = pickTimeTint(bucket, (room.kind ?? "room") as string);
+  if (tint) lines.push("", tint);
   if (room.ambience) lines.push("", room.ambience);
   if (npcs.length) lines.push("", "Here: " + npcs.map(n => n.current_activity ? `${n.name} (${n.current_activity})` : n.name).join(", "));
   lines.push("", "Exits: " + (Object.keys(room.exits).join(", ") || "none"));
