@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Backpack, Flame, HelpCircle, Landmark, Loader2, LogOut, ScrollText, Sparkles, Users, Volume2, VolumeX } from "lucide-react";
-import { useSceneMusic } from "./useSceneMusic";
+import { useRoomAudio } from "./useRoomAudio";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
 import { KinPanel } from "./KinPanel";
 import { ChronicleModal } from "./ChronicleModal";
