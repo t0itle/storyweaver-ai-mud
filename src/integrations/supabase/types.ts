@@ -862,6 +862,7 @@ export type Database = {
           merchant_town: string | null
           name: string
           persona: string
+          purse_gold: number
           requires_rune_key: string | null
           room: string
           schedule: Json
@@ -888,6 +889,7 @@ export type Database = {
           merchant_town?: string | null
           name: string
           persona: string
+          purse_gold?: number
           requires_rune_key?: string | null
           room: string
           schedule?: Json
@@ -914,6 +916,7 @@ export type Database = {
           merchant_town?: string | null
           name?: string
           persona?: string
+          purse_gold?: number
           requires_rune_key?: string | null
           room?: string
           schedule?: Json
@@ -1881,6 +1884,39 @@ export type Database = {
         Update: {
           room?: string
           tag?: string
+        }
+        Relationships: []
+      }
+      room_loot: {
+        Row: {
+          gold: number
+          id: string
+          item_key: string | null
+          placed_at: string
+          placed_by_name: string | null
+          quantity: number
+          room: string
+          source: string
+        }
+        Insert: {
+          gold?: number
+          id?: string
+          item_key?: string | null
+          placed_at?: string
+          placed_by_name?: string | null
+          quantity?: number
+          room: string
+          source?: string
+        }
+        Update: {
+          gold?: number
+          id?: string
+          item_key?: string | null
+          placed_at?: string
+          placed_by_name?: string | null
+          quantity?: number
+          room?: string
+          source?: string
         }
         Relationships: []
       }

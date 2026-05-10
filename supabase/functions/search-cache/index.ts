@@ -112,21 +112,29 @@ Deno.serve(async (req) => {
     }
 
     // First successful find — claim, award, and reveal the cache to the room forever.
+    // Mark this player as having "searched here" so they don't keep rolling forever.
     await admin.from("player_room_cache_claims").insert({ user_id: user.id, room });
-    if (cache.gold) {
-      await admin.from("profiles").update({ gold: (profile.gold ?? 0) + cache.gold }).eq("id", user.id);
-    }
-    if (cache.item_key) {
-      await admin.from("player_items").insert({ user_id: user.id, item_key: cache.item_key, quantity: 1 });
-    }
     await admin.from("room_caches").update({
       revealed_at: new Date().toISOString(),
       revealed_by_name: profile.username,
     }).eq("room", room);
 
+    // Drop the contents on the floor as a loot pile — anyone in the room can `take` it now.
+    if (cache.gold) {
+      await admin.from("room_loot").insert({
+        room, gold: cache.gold, source: `cache:${room}`, placed_by_name: profile.username,
+      });
+    }
+    if (cache.item_key) {
+      await admin.from("room_loot").insert({
+        room, gold: 0, item_key: cache.item_key, quantity: 1,
+        source: `cache:${room}`, placed_by_name: profile.username,
+      });
+    }
+
     await admin.from("messages").insert({
       room, author_name: "—", kind: "ambient",
-      content: `*${profile.username} rolled **${roll}** vs **${dc}** — ${cache.reveal_text}* (+${cache.gold}g${cache.item_key ? `, ${cache.item_key}` : ""})`,
+      content: `*${profile.username} rolled **${roll}** vs **${dc}** — ${cache.reveal_text}* The treasure lies revealed: **${cache.gold}g**${cache.item_key ? ` and **${cache.item_key}**` : ""}. Use **take** to claim it.`,
       user_id: null,
     });
     await admin.from("world_events").insert({
@@ -136,7 +144,7 @@ Deno.serve(async (req) => {
       details: { gold: cache.gold, item: cache.item_key, roll, dc },
     });
 
-    return new Response(JSON.stringify({ ok: true, found: true, gold: cache.gold, item: cache.item_key, roll, dc }),
+    return new Response(JSON.stringify({ ok: true, found: true, dropped: true, gold: cache.gold, item: cache.item_key, roll, dc }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);

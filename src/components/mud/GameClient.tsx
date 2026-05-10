@@ -51,7 +51,7 @@ interface Room {
   kind?: string; label?: string;
   town_key?: string | null;
 }
-interface Npc { id: string; room: string; name: string; title: string | null; greeting: string | null; current_activity?: string | null; is_merchant?: boolean | null; merchant_town?: string | null; is_guildmaster?: boolean | null; guild_key?: string | null; }
+interface Npc { id: string; room: string; name: string; title: string | null; greeting: string | null; current_activity?: string | null; is_merchant?: boolean | null; merchant_town?: string | null; is_guildmaster?: boolean | null; guild_key?: string | null; is_soul?: boolean | null; }
 interface Message {
   id: string; room: string; author_name: string;
   kind: string; content: string; created_at: string;
@@ -143,6 +143,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [wagonRoutes, setWagonRoutes] = useState<{ destination: string; cost_gold: number; flavor: string; name?: string; visited?: boolean }[]>([]);
   const [hasCache, setHasCache] = useState(false);
   const [cacheClaimed, setCacheClaimed] = useState(false);
+  const [roomLoot, setRoomLoot] = useState<{ id: string; gold: number; item_key: string | null; quantity: number; placed_by_name: string | null }[]>([]);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -387,7 +388,28 @@ export default function GameClient({ session }: { session: Session }) {
     })();
   }, [profile?.current_room, profile?.id]);
 
-  // Generate / fetch scene image when room changes (events-aware so the world reflects what's been done)
+  // Live loot pile in the current room (any player can `take` from it).
+  useEffect(() => {
+    if (!profile?.current_room) return;
+    const slug = profile.current_room;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("room_loot")
+        .select("id, gold, item_key, quantity, placed_by_name")
+        .eq("room", slug);
+      if (!cancelled) setRoomLoot(data ?? []);
+    })();
+    const ch = supabase.channel(`loot:${slug}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "room_loot", filter: `room=eq.${slug}` },
+        async () => {
+          const { data } = await supabase.from("room_loot")
+            .select("id, gold, item_key, quantity, placed_by_name").eq("room", slug);
+          if (!cancelled) setRoomLoot(data ?? []);
+        })
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(ch); };
+  }, [profile?.current_room]);
+
   useEffect(() => {
     if (!profile || !room) return;
     const slug = profile.current_room;
@@ -920,6 +942,33 @@ export default function GameClient({ session }: { session: Session }) {
         });
         if (error || data?.error) throw new Error(data?.error ?? error?.message);
       } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "take" || c === "get" || c === "loot" || c === "grab") {
+      // `take` (or `take all`) — claim everything in this room's loot pile.
+      try {
+        const { data, error } = await supabase.functions.invoke("take-loot", { body: {} });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        if (!data?.taken) {
+          setMessages((m) => [...m, localSys("There is nothing here to take.")]);
+        } else {
+          toast.success(`+${data.gold ?? 0}g${data.items?.length ? ` · ${data.items.map((i: any) => i.item_key).join(", ")}` : ""}`);
+          reloadProfile(); reloadInventory();
+        }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "steal" || c === "pickpocket") {
+      if (!args) { setMessages((m) => [...m, localSys("Steal from whom?")]); return; }
+      const target = args.replace(/^from\s+/i, "").toLowerCase().trim();
+      const mark = npcs.find(n => n.name.toLowerCase().includes(target));
+      if (!mark) { setMessages((m) => [...m, localSys(`No "${target}" here to lift from.`)]); return; }
+      try {
+        const { data, error } = await supabase.functions.invoke("steal-from-npc", { body: { npc_id: mark.id } });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        if (data?.success) {
+          toast.success(data.gold ? `+${data.gold}g (rolled ${data.roll}/${data.dc})` : `Got nothing — empty purse.`);
+          reloadProfile();
+        } else {
+          toast.error(`Caught! (rolled ${data.roll}/${data.dc})`);
+        }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
     } else if (c === "join" && !args) {
       try {
         const { data, error } = await supabase.functions.invoke("combat-action", { body: { action: "join" } });
@@ -1245,7 +1294,7 @@ export default function GameClient({ session }: { session: Session }) {
             </div>
           </div>
 
-          {(wagonRoutes.length > 0 || hasCache) && (
+          {(wagonRoutes.length > 0 || hasCache || roomLoot.length > 0) && (
             <div className="flex flex-col gap-1.5">
               {wagonRoutes.length > 0 && (
                 <button onClick={() => setWagonOpen(true)}
@@ -1261,17 +1310,23 @@ export default function GameClient({ session }: { session: Session }) {
                       const { data, error } = await supabase.functions.invoke("search-cache");
                       if (error || data?.error) throw new Error(data?.error ?? error?.message);
                       if (data?.found) {
-                        toast.success(`+${data.gold ?? 0}g${data.item ? ` · ${data.item}` : ""}`);
+                        toast.success(`Rolled ${data.roll}/${data.dc} — treasure revealed! Use TAKE.`);
                         setCacheClaimed(true);
-                        reloadProfile();
-                        reloadInventory();
                       } else if (data?.already) {
                         setCacheClaimed(true);
+                      } else if (data?.roll !== undefined) {
+                        toast.message(`Rolled ${data.roll}/${data.dc} — nothing this time.`);
                       }
                     } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
                   }}
                   className="w-full text-left font-mono text-[11px] px-2 py-1.5 border border-border hover:border-ember hover:text-ember transition-colors uppercase tracking-widest text-parchment disabled:opacity-40 disabled:cursor-not-allowed">
                   ⌖ {cacheClaimed ? "Searched" : "Search Here"}
+                </button>
+              )}
+              {roomLoot.length > 0 && (
+                <button onClick={() => handleCommand("take")}
+                  className="w-full text-left font-mono text-[11px] px-2 py-1.5 border border-ember/60 bg-ember/10 hover:bg-ember/20 transition-colors uppercase tracking-widest text-ember">
+                  ✦ Take Loot ({roomLoot.reduce((s, l) => s + (l.gold ?? 0), 0)}g{roomLoot.some(l => l.item_key) ? " + items" : ""})
                 </button>
               )}
             </div>
@@ -1288,21 +1343,31 @@ export default function GameClient({ session }: { session: Session }) {
                 const tone = score === undefined ? "" :
                   score <= -20 ? "text-ember" : score >= 60 ? "text-moss" : score >= 20 ? "text-accent" : "";
                 return (
-                  <button key={n.id}
-                    onClick={() => {
-                      if (n.is_merchant) { setMarketMerchant(n.id); }
-                      else if (n.is_guildmaster) { setGuildmaster(n.id); }
-                      else { setInput(`ask ${n.name.split(" ")[0]} `); inputRef.current?.focus(); }
-                    }}
-                    className="block text-left w-full font-body text-parchment hover:text-ember transition-colors">
-                    <span className={n.is_merchant ? "text-ember" : n.is_guildmaster ? "text-accent" : "text-accent"}>
-                      {n.is_merchant ? "⚖" : n.is_guildmaster ? (n.guild_key === "warriors" ? "⚔" : n.guild_key === "traders" ? "⚖" : "✶") : "●"}
-                    </span> {n.name}
-                    {n.title && <span className="text-ash italic"> — {n.title}</span>}
-                    {word && <span className={`text-[10px] italic ml-1 ${tone}`}> ({word})</span>}
-                    {n.is_merchant && <span className="text-[10px] text-ember/70 ml-1">[trade]</span>}
-                    {n.is_guildmaster && <span className="text-[10px] text-accent/70 ml-1">[guild]</span>}
-                  </button>
+                  <div key={n.id} className="flex items-center gap-1">
+                    <button
+                      onClick={() => {
+                        if (n.is_merchant) { setMarketMerchant(n.id); }
+                        else if (n.is_guildmaster) { setGuildmaster(n.id); }
+                        else { setInput(`ask ${n.name.split(" ")[0]} `); inputRef.current?.focus(); }
+                      }}
+                      className="flex-1 text-left font-body text-parchment hover:text-ember transition-colors">
+                      <span className={n.is_merchant ? "text-ember" : n.is_guildmaster ? "text-accent" : "text-accent"}>
+                        {n.is_merchant ? "⚖" : n.is_guildmaster ? (n.guild_key === "warriors" ? "⚔" : n.guild_key === "traders" ? "⚖" : "✶") : "●"}
+                      </span> {n.name}
+                      {n.title && <span className="text-ash italic"> — {n.title}</span>}
+                      {word && <span className={`text-[10px] italic ml-1 ${tone}`}> ({word})</span>}
+                      {n.is_merchant && <span className="text-[10px] text-ember/70 ml-1">[trade]</span>}
+                      {n.is_guildmaster && <span className="text-[10px] text-accent/70 ml-1">[guild]</span>}
+                    </button>
+                    {!n.is_soul && (
+                      <button
+                        title={`Pickpocket ${n.name}`}
+                        onClick={() => handleCommand(`steal ${n.name.split(" ")[0]}`)}
+                        className="font-mono text-[10px] text-ash hover:text-ember px-1.5 py-0.5 border border-border hover:border-ember rounded transition-colors">
+                        ✋
+                      </button>
+                    )}
+                  </div>
                 );
               })}
               {presence.map((p) => (
