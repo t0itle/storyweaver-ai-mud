@@ -211,7 +211,7 @@ Deno.serve(async (req) => {
       const defeated = wouldDie;
       await admin.from("combatants").update({ hp: newHp, defeated }).eq("id", target.id);
       if (target.kind === "player") {
-        await admin.from("profiles").update({ hp: newHp }).eq("id", target.user_id);
+        await admin.from("profiles").update({ hp: newHp, last_damage_kind: "physical" }).eq("id", target.user_id);
         if (wouldDie) {
           await admin.from("profiles").update({
             downed: true, downed_at: new Date().toISOString(), downed_combat_id: combatId,
