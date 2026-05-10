@@ -23,6 +23,7 @@ export function ChronicleModal({
   initialTab?: "journal" | "codex";
 }) {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [rumors, setRumors] = useState<Array<{ artifact_key: string; snippet: string; source: string; heard_at: string; name: string; glyph: string; holder_kind: string; home_room: string }>>([]);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<"journal" | "codex">(initialTab);
 
@@ -31,9 +32,20 @@ export function ChronicleModal({
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    supabase.from("player_journal_entries")
-      .select("*").order("created_at", { ascending: false }).limit(200)
-      .then(({ data }) => { setEntries((data ?? []) as any); setLoading(false); });
+    Promise.all([
+      supabase.from("player_journal_entries").select("*").order("created_at", { ascending: false }).limit(200),
+      supabase.from("player_artifact_rumors").select("artifact_key, snippet, source, heard_at, speaker_artifacts(name, glyph, holder_kind, home_room)").order("heard_at", { ascending: false }),
+    ]).then(([j, r]) => {
+      setEntries((j.data ?? []) as any);
+      setRumors(((r.data ?? []) as any[]).map((row) => ({
+        artifact_key: row.artifact_key, snippet: row.snippet, source: row.source, heard_at: row.heard_at,
+        name: row.speaker_artifacts?.name ?? "an unnamed relic",
+        glyph: row.speaker_artifacts?.glyph ?? "☩",
+        holder_kind: row.speaker_artifacts?.holder_kind ?? "wild",
+        home_room: row.speaker_artifacts?.home_room ?? "",
+      })));
+      setLoading(false);
+    });
   }, [open]);
 
   const fmtDate = (s: string) => new Date(s).toLocaleString(undefined, {
