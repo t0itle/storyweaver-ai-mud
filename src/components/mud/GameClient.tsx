@@ -920,6 +920,33 @@ export default function GameClient({ session }: { session: Session }) {
         });
         if (error || data?.error) throw new Error(data?.error ?? error?.message);
       } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "take" || c === "get" || c === "loot" || c === "grab") {
+      // `take` (or `take all`) — claim everything in this room's loot pile.
+      try {
+        const { data, error } = await supabase.functions.invoke("take-loot", { body: {} });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        if (!data?.taken) {
+          setMessages((m) => [...m, localSys("There is nothing here to take.")]);
+        } else {
+          toast.success(`+${data.gold ?? 0}g${data.items?.length ? ` · ${data.items.map((i: any) => i.item_key).join(", ")}` : ""}`);
+          reloadProfile(); reloadInventory();
+        }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "steal" || c === "pickpocket") {
+      if (!args) { setMessages((m) => [...m, localSys("Steal from whom?")]); return; }
+      const target = args.replace(/^from\s+/i, "").toLowerCase().trim();
+      const mark = npcs.find(n => n.name.toLowerCase().includes(target));
+      if (!mark) { setMessages((m) => [...m, localSys(`No "${target}" here to lift from.`)]); return; }
+      try {
+        const { data, error } = await supabase.functions.invoke("steal-from-npc", { body: { npc_id: mark.id } });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        if (data?.success) {
+          toast.success(data.gold ? `+${data.gold}g (rolled ${data.roll}/${data.dc})` : `Got nothing — empty purse.`);
+          reloadProfile();
+        } else {
+          toast.error(`Caught! (rolled ${data.roll}/${data.dc})`);
+        }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
     } else if (c === "join" && !args) {
       try {
         const { data, error } = await supabase.functions.invoke("combat-action", { body: { action: "join" } });
