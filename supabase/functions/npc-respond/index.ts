@@ -471,6 +471,18 @@ Do not mention these tags in your prose.`;
     // Persist NPC's memory and amity (service role bypasses RLS).
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
+    // Persist artifact rumor if NPC dropped one and it matches a real candidate.
+    let rumorPersisted: { artifact_key: string; name: string; glyph: string; snippet: string } | null = null;
+    if (rumorRaw?.artifact_key && artifactWhispers.some(a => a.key === rumorRaw!.artifact_key)) {
+      const a = artifactWhispers.find(x => x.key === rumorRaw!.artifact_key)!;
+      const snip = String(rumorRaw.snippet ?? "").slice(0, 200) || a.blurb;
+      await admin.from("player_artifact_rumors").upsert({
+        user_id: user.id, artifact_key: a.key, snippet: snip,
+        source: `npc:${npc.name}`, heard_at: new Date().toISOString(),
+      }, { onConflict: "user_id,artifact_key" });
+      rumorPersisted = { artifact_key: a.key, name: a.name, glyph: a.glyph, snippet: snip };
+    }
+
     // Lesser rune WORD discovery: if the NPC mentions a Latin rune name, the player learns its WORD.
     const { data: allLesser } = await admin.from("lesser_runes").select("key, latin_name, english_meaning");
     const lesserLearned: { key: string; latin_name: string; english_meaning: string }[] = [];
