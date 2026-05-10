@@ -1531,14 +1531,20 @@ export default function GameClient({ session }: { session: Session }) {
   );
 }
 
-function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events }: {
+function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket }: {
   room: Room; npcs: Npc[]; dragons: { name: string; epithet: string; personality: string }[];
   sceneUrl: string | null; sceneLoading: boolean;
   events: { kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[];
+  bucket: TimeBucket;
 }) {
+  const tint = pickTimeTint(bucket, (room.kind ?? "room") as string);
   return (
     <div className="border-l-2 border-ember/60 pl-4 py-1 mb-4">
-      <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-ash mb-1">{room.label ?? "Place"}</div>
+      <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-ash mb-1 flex items-center gap-3">
+        <span>{room.label ?? "Place"}</span>
+        <span className="text-whisper">·</span>
+        <span className="text-whisper normal-case tracking-normal italic">{TIME_LABEL[bucket]}</span>
+      </div>
       <h2 className="font-display text-2xl text-ember mb-2">{room.name}</h2>
       <div className="mb-3 aspect-[16/9] bg-card/50 border border-border overflow-hidden relative">
         {sceneUrl ? (
@@ -1564,6 +1570,7 @@ function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events }: {
           </>
         )}
       </p>
+      {tint && <p className="text-whisper italic mt-2">{tint}</p>}
       {room.ambience && <p className="text-ash italic mt-2">{room.ambience}</p>}
       {dragons.length > 0 && (
         <div className="mt-3 border border-ember/60 bg-ember/10 px-3 py-2">
