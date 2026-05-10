@@ -3,7 +3,8 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Backpack, Flame, HelpCircle, Landmark, Loader2, LogOut, ScrollText, Sparkles, Users } from "lucide-react";
+import { Backpack, Flame, HelpCircle, Landmark, Loader2, LogOut, ScrollText, Sparkles, Users, Volume2, VolumeX } from "lucide-react";
+import { useSceneMusic } from "./useSceneMusic";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
 import { KinPanel } from "./KinPanel";
 import { ChronicleModal } from "./ChronicleModal";
@@ -157,6 +158,11 @@ export default function GameClient({ session }: { session: Session }) {
   const [cacheClaimed, setCacheClaimed] = useState(false);
   const [roomLoot, setRoomLoot] = useState<{ id: string; gold: number; item_key: string | null; quantity: number; placed_by_name: string | null }[]>([]);
   const [bucket, setBucket] = useState<TimeBucket>(getTimeBucket());
+  const { muted: musicMuted, setMuted: setMusicMuted, tryResume: resumeMusic } = useSceneMusic(
+    room?.kind ?? null,
+    bucket,
+    !!room,
+  );
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -1319,7 +1325,14 @@ export default function GameClient({ session }: { session: Session }) {
             <Users className="w-4 h-4" /><span className="hidden sm:inline">kin</span>
           </button>
           {/* Speaker's Artifacts hidden — discovered through lore/rumor only */}
-          <button onClick={() => setHelpOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs ml-auto" title="Commands">
+          <button
+            onClick={() => { setMusicMuted(!musicMuted); resumeMusic(); }}
+            className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs ml-auto"
+            title={musicMuted ? "Unmute scene music" : "Mute scene music"}
+          >
+            {musicMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+          </button>
+          <button onClick={() => setHelpOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Commands">
             <HelpCircle className="w-4 h-4" /><span className="hidden sm:inline">help</span>
           </button>
         </div>
