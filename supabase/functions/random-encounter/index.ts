@@ -16,10 +16,13 @@ const cors = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
-const COOLDOWN_SECONDS = 90;
-const TRIGGER_CHANCE = 0.15;
+const COOLDOWN_SECONDS = 30;
+const TRIGGER_CHANCE = 0.45;
 
-const ELIGIBLE_KINDS = new Set(["road", "desert", "wilds", "hollow", "grove"]);
+const ELIGIBLE_KINDS = new Set([
+  "road", "desert", "wilds", "hollow", "grove",
+  "ruin", "cave", "lair", "shore", "bridge", "dock", "crypt",
+]);
 
 const CAPITAL_DESTINATIONS = [
   { slug: "high-sanctum", name: "The High Sanctum" },
@@ -67,11 +70,13 @@ const DISCOVERIES = [
 function pick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
 function weightedKind(): "ambush" | "traveler" | "discovery" | "patrol" {
   const r = Math.random();
-  if (r < 0.35) return "ambush";
-  if (r < 0.60) return "traveler";
-  if (r < 0.85) return "discovery";
+  if (r < 0.50) return "ambush";
+  if (r < 0.70) return "traveler";
+  if (r < 0.88) return "discovery";
   return "patrol";
 }
+
+function SR(n: number) { return Math.floor(Math.random() * n) + 1; }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
@@ -148,6 +153,40 @@ Deno.serve(async (req) => {
         content: `*${t.name}, ${t.title}, steps from cover, blocking the road.*${cargoFlavor} "${t.greeting}"`,
         user_id: null,
       });
+
+      // Auto-start combat if the player and room are free.
+      const { data: existing } = await admin.from("combats")
+        .select("id").eq("room", room).eq("status", "active").maybeSingle();
+      if (!existing && !profile.in_combat_id) {
+        const { data: prof2 } = await admin.from("profiles")
+          .select("hp, max_hp, username").eq("id", user.id).maybeSingle();
+        const playerHp = prof2?.hp ?? 20;
+        const playerMax = prof2?.max_hp ?? 20;
+        const npcMax = 12 + SR(8);
+        const playerInit = 10 + SR(10);
+        const npcInit = 12 + SR(10); // ambushers get the jump
+        const npcFirst = npcInit >= playerInit;
+        const { data: combat } = await admin.from("combats").insert({
+          room, status: "active", turn_number: 1,
+        }).select("id").single();
+        const { data: combatants } = await admin.from("combatants").insert([
+          { combat_id: combat!.id, side: "a", kind: "player", user_id: user.id,
+            name: prof2?.username ?? "you", hp: playerHp, max_hp: playerMax,
+            initiative: playerInit, turn_order: npcFirst ? 1 : 0 },
+          { combat_id: combat!.id, side: "b", kind: "npc", npc_id: npc!.id,
+            name: npc!.name, hp: npcMax, max_hp: npcMax,
+            initiative: npcInit, turn_order: npcFirst ? 0 : 1 },
+        ]).select("id, turn_order");
+        const first = (combatants ?? []).sort((a: any, b: any) => a.turn_order - b.turn_order)[0];
+        await admin.from("combats").update({ current_combatant_id: first.id }).eq("id", combat!.id);
+        await admin.from("profiles").update({ in_combat_id: combat!.id, last_encounter_at: now }).eq("id", user.id);
+        await admin.from("combat_actions").insert({
+          combat_id: combat!.id, turn_number: 1, actor_id: null,
+          actor_name: npc!.name, action: "system", target_name: prof2?.username ?? "you",
+          text: `${npc!.name} springs the ambush!`, damage: 0,
+        });
+        return json({ ok: true, kind, npc_id: npc?.id, npc_name: npc?.name, combat_id: combat!.id });
+      }
       await admin.from("profiles").update({ last_encounter_at: now }).eq("id", user.id);
       return json({ ok: true, kind, npc_id: npc?.id, npc_name: npc?.name });
     }
