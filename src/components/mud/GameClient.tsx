@@ -1175,8 +1175,12 @@ export default function GameClient({ session }: { session: Session }) {
         return;
       }
       const { data, error } = await supabase.functions.invoke("combat-action", { body: { action: kind, ...args } });
-      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      if (error || data?.error) {
+        const msg = data?.error ?? error?.message ?? "no";
+        if (!/not your turn/i.test(msg)) throw new Error(msg);
+      }
     } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    finally { combatBusyRef.current = false; }
   };
 
   const localSys = (content: string): Message => ({
