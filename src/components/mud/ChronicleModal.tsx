@@ -120,8 +120,27 @@ export function ChronicleModal({
               </div>
             ) : (
               <div>
-                {discoveries.length === 0 && (
+                {discoveries.length === 0 && rumors.length === 0 && (
                   <p className="text-ash italic p-6 text-center">You have uncovered no truths yet. Examine the world.</p>
+                )}
+                {rumors.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="font-display text-sm uppercase tracking-widest text-ember/80 mb-2 px-1">Whispered Relics</h4>
+                    <p className="text-[11px] text-ash italic px-1 mb-2">Half-rumors of the Speaker's lost artifacts. Listen for more.</p>
+                    {rumors.map((r) => (
+                      <div key={r.artifact_key} className="px-3 py-2 border-l-2 border-accent/40 hover:bg-accent/5 transition-colors">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-accent text-base">{r.glyph}</span>
+                          <span className="font-display text-base text-parchment">{r.name}</span>
+                          <span className="ml-auto text-[9px] font-mono text-ash/60 uppercase tracking-widest">
+                            {r.holder_kind === "aether" ? "an aether holds it" : r.holder_kind === "veiled" ? "the veiled keep it" : "lost in the wild"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-whisper italic mt-1">"{r.snippet}"</p>
+                        <p className="text-[9px] font-mono text-ash/60 mt-0.5">— heard from {r.source.replace(/^npc:/, "")}</p>
+                      </div>
+                    ))}
+                  </div>
                 )}
                 {sortedLore
                   .filter(l => discMap.has(l.slug))
