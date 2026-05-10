@@ -439,6 +439,18 @@ Do not mention these tags in your prose.`;
       try { rumorRaw = JSON.parse(rumorMatch[1]); } catch { /* ignore */ }
     }
 
+    // Strip and parse <<TEACH_RUNE>> and <<TEACH_KANJI>> tags (deliberate teaching only)
+    const teachRuneMatch = rawContent.match(/<<TEACH_RUNE>>\s*(\{[\s\S]*?\})\s*<<END>>/);
+    let teachRuneRaw: { latin_name?: string } | null = null;
+    if (teachRuneMatch) {
+      try { teachRuneRaw = JSON.parse(teachRuneMatch[1]); } catch { /* ignore */ }
+    }
+    const teachKanjiMatch = rawContent.match(/<<TEACH_KANJI>>\s*(\{[\s\S]*?\})\s*<<END>>/);
+    let teachKanjiRaw: { kanji?: string; romaji?: string } | null = null;
+    if (teachKanjiMatch) {
+      try { teachKanjiRaw = JSON.parse(teachKanjiMatch[1]); } catch { /* ignore */ }
+    }
+
     content = rawContent
       .replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<MEMORY>>[\s\S]*?<<END>>\s*/g, "")
@@ -446,6 +458,8 @@ Do not mention these tags in your prose.`;
       .replace(/\s*<<QUEST_OFFER>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<QUEST_RESOLVE>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<RUMOR>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<TEACH_RUNE>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<TEACH_KANJI>>[\s\S]*?<<END>>\s*/g, "")
       .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
