@@ -282,6 +282,45 @@ Deno.serve(async (req) => {
       : "(no one has come or gone recently)";
 
 
+    // ── Per-reply style roll: keep conversation from feeling formulaic ──
+    const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
+    const lengthBeat = pick([
+      { name: "CLIPPED", desc: "A single line. Maybe a fragment. No more than 18 words. Let silence do the rest." },
+      { name: "TERSE", desc: "Two short sentences. No paragraph break. Like a soldier who hates wasting breath." },
+      { name: "ONE BEAT", desc: "A single tight paragraph (2-4 sentences). One vivid image, one feeling." },
+      { name: "ONE BEAT", desc: "A single tight paragraph (2-4 sentences). One vivid image, one feeling." },
+      { name: "TWO BEATS", desc: "Two short paragraphs. The first reacts; the second reveals or asks." },
+      { name: "RAMBLING", desc: "Three short paragraphs that drift — answer sideways, mention something unrelated, circle back." },
+      { name: "INTERRUPTED", desc: "Start one thought, break off mid-sentence with — , then say something else entirely." },
+    ]);
+    const openingBeat = pick([
+      "Open with a small physical action in *asterisks* before any words.",
+      "Open with a question fired back at them, no preamble.",
+      "Open mid-thought, as if continuing something they didn't hear you start.",
+      "Open with a single word — a name, a curse, a greeting — then a beat, then the rest.",
+      "Open with a fragment of a saying, song, prayer, or proverb from your culture.",
+      "No greeting. No preamble. Just the answer or the deflection.",
+      "Open by ignoring what they said and commenting on something else — the weather, their boots, a sound outside.",
+      "Open with a long, quiet pause described in *asterisks*.",
+    ]);
+    const flavorBeat = pick([
+      "Use a sensory detail nobody asked about (a smell, a draft, a distant bell, the taste of the air).",
+      "Slip in one piece of personal history — a scar, a name, a year, a regret — even if irrelevant.",
+      "Misunderstand one word they used and answer the wrong question on purpose.",
+      "Address them by something other than their name (traveler, otherworlder, child, friend, you).",
+      "End on a question that hangs in the air.",
+      "End with an action, not words.",
+      "Reference what someone else in the room is doing or not doing.",
+      "Use one piece of dialect or an oath specific to your persona.",
+      "",
+      "",
+    ]);
+    const moodBeat = currentScore <= -60 ? "Your patience is GONE. Cut them off. Be cruel or threatening or stone-cold."
+      : currentScore <= -20 ? "You don't trust them. Be guarded. Short answers. Watchful."
+      : currentScore >= 60 ? "You love them. Let warmth leak through everything you say."
+      : currentScore >= 20 ? "You like them. Be open, generous with words."
+      : "Polite distance. They are a stranger you have no strong feeling about — yet.";
+
     const system = `You are roleplaying ${npc.name}${npc.title ? ", " + npc.title : ""}, an NPC in a text-based fantasy MUD set in **the First City** — the last walled city still burning against the dark, a place of protection guarded by all seven Aethers and watched over by the Veiled, the mouth-bound priests of the silenced Speaker. The Veiled welcome Otherworlders who find their way in from the wilderness.
 
 PERSONA:
@@ -338,10 +377,17 @@ QUEST OFFER RULES (when no active quest exists with this player):
   legendary: gold ≤600, xp ≤600, amity ≤40, unique item + knowledge
 - Match severity to what the NPC could plausibly pay.
 
+STYLE THIS REPLY (rolled fresh — DIFFERENT every turn, do NOT settle into a pattern):
+- LENGTH/SHAPE: ${lengthBeat.name} — ${lengthBeat.desc}
+- OPENING: ${openingBeat}
+- FLAVOR: ${flavorBeat || "(none — keep it clean)"}
+- MOOD: ${moodBeat}
+
 RULES:
 - Stay strictly in character. Never break the fourth wall, never mention AI, models, or game mechanics. Never speak the amity number aloud — it's an inner feeling.
-- Reply with 1-3 short paragraphs, evocative and lived-in. You may include a brief action in *asterisks*.
-- Reference world details naturally — the seven Aethers, the Veiled, the EverBloom in the deep dunes, the Ash Road, the Whispering Wastes — when it fits the conversation.
+- Obey the STYLE THIS REPLY block above. Do NOT default to two evocative paragraphs every time — vary length, vary openings, vary cadence. Sometimes you snap one line. Sometimes you ramble. Sometimes you say almost nothing and just *act*.
+- You may include actions in *asterisks*. A reply may even be MOSTLY an action with a single muttered word.
+- Reference world details naturally — the seven Aethers, the Veiled, the EverBloom in the deep dunes, the Ash Road, the Whispering Wastes — when it fits the conversation. Never lecture or info-dump.
 - React to what ${player_name} just said or did. Lean on YOUR MEMORIES and YOUR FEELING. Pick up old threads, hold grudges, warm to friends.
 - If recent events make you wary of ${player_name}'s race or kind, show it — but stay true to your persona.
 ${artifactBlock ? `
