@@ -91,6 +91,8 @@ const HELP = [
   ["abandon <title>", "drop an active quest (NPC will remember)"],
   ["search", "search the room for hidden caches"],
   ["wagon", "hire the wagonmaster (open the fast-travel panel)"],
+  ["rest", "sleep at an inn — full heal, costs gold"],
+  ["camp", "make camp in the wilds — partial heal, may be ambushed"],
   ["help", "show this list"],
 ];
 
