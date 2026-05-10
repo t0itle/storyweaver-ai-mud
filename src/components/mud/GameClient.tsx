@@ -1831,14 +1831,32 @@ const AMBIENCE_BY_KIND: Record<string, string[]> = {
   ],
 };
 
+// Indoor vs outdoor classification — drives both the AI prompt context and
+// the local fallback flavor pool. Roofed/enclosed places must not reference
+// open sky, wind across distance, etc.; open places must not reference doors
+// or rafters.
+const INDOOR_KINDS = new Set(["tavern", "hall", "cave", "crypt", "tower", "temple", "loft", "room"]);
+function isIndoor(kind: string): boolean { return INDOOR_KINDS.has(kind); }
+
 // NPC-aware flavor: occasionally weave a present NPC into the line.
-const NPC_FLAVOR: ((name: string) => string)[] = [
+const NPC_FLAVOR_INDOOR: ((name: string) => string)[] = [
   (n) => `${n} mutters something to themselves and falls quiet`,
   (n) => `${n} glances toward the door, then back`,
   (n) => `${n} cracks a knuckle, slowly, one finger at a time`,
   (n) => `${n} scratches at an old stain on their sleeve`,
   (n) => `${n} catches your eye for a beat, then looks away`,
   (n) => `${n} hums two bars of a song you almost know`,
+  (n) => `${n} leans closer to the lamp to see what they're working on`,
+];
+const NPC_FLAVOR_OUTDOOR: ((name: string) => string)[] = [
+  (n) => `${n} squints up the road for a moment, then looks back down`,
+  (n) => `${n} cracks a knuckle, slowly, one finger at a time`,
+  (n) => `${n} scratches at an old stain on their sleeve`,
+  (n) => `${n} catches your eye for a beat, then looks away`,
+  (n) => `${n} hums two bars of a song you almost know`,
+  (n) => `${n} shades their eyes against the light and watches something far off`,
+  (n) => `${n} kicks a stone idly into the dust`,
+  (n) => `${n} pulls their cloak tighter against the wind`,
 ];
 
 function pickAmbience(kind: string, npcNames: string[]): string | null {
@@ -1846,7 +1864,8 @@ function pickAmbience(kind: string, npcNames: string[]): string | null {
   // 1-in-3 chance: if NPCs are present, attribute a small bit of business to one of them.
   if (npcNames.length && Math.random() < 0.34) {
     const who = npcNames[Math.floor(Math.random() * npcNames.length)];
-    const fn = NPC_FLAVOR[Math.floor(Math.random() * NPC_FLAVOR.length)];
+    const flavorPool = isIndoor(kind) ? NPC_FLAVOR_INDOOR : NPC_FLAVOR_OUTDOOR;
+    const fn = flavorPool[Math.floor(Math.random() * flavorPool.length)];
     return fn(who);
   }
   return pool[Math.floor(Math.random() * pool.length)];
