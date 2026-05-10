@@ -1153,7 +1153,10 @@ export default function GameClient({ session }: { session: Session }) {
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
+  const combatBusyRef = useRef(false);
   const combatAct = async (kind: string, args: Record<string, unknown> = {}) => {
+    if (combatBusyRef.current) return;
+    combatBusyRef.current = true;
     try {
       if (kind === "trace_lesser") {
         // Open the rune hub for live tracing; start a 10s timer that
@@ -1172,8 +1175,12 @@ export default function GameClient({ session }: { session: Session }) {
         return;
       }
       const { data, error } = await supabase.functions.invoke("combat-action", { body: { action: kind, ...args } });
-      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      if (error || data?.error) {
+        const msg = data?.error ?? error?.message ?? "no";
+        if (!/not your turn/i.test(msg)) throw new Error(msg);
+      }
     } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    finally { combatBusyRef.current = false; }
   };
 
   const localSys = (content: string): Message => ({
