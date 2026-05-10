@@ -766,7 +766,7 @@ export default function GameClient({ session }: { session: Session }) {
     if (c === "help" || c === "?") {
       setMessages((m) => [...m, localSys(HELP.map(([k, v]) => `  ${k.padEnd(20)} — ${v}`).join("\n"))]);
     } else if (c === "look" || c === "l") {
-      setMessages((m) => [...m, localSys(formatRoom(room, npcs, roomEvents))]);
+      setMessages((m) => [...m, localSys(formatRoom(room, npcs, roomEvents, bucket))]);
     } else if (c === "who") {
       setMessages((m) => [...m, localSys(`Here: ${presence.map(p => p.username).join(", ") || "(only you)"}`)]);
     } else if (c === "follow") {
