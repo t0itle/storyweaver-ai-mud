@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem, Wand2, Loader2, Skull } from "lucide-react";
+import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem, Wand2, Loader2, Skull, Droplet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { InvItem } from "./Panels";
@@ -18,7 +18,28 @@ interface SheetProfile {
   aether: string | null;
   portrait_url: string | null;
   char_description: string | null;
+  portrait_variants?: Record<string, string> | null;
+  last_damage_kind?: string | null;
 }
+
+type WoundState = "healthy" | "scratched" | "wounded" | "bloodied";
+function woundStateFor(hp: number, maxHp: number): WoundState {
+  const pct = maxHp > 0 ? hp / maxHp : 1;
+  if (pct >= 0.75) return "healthy";
+  if (pct >= 0.5) return "scratched";
+  if (pct >= 0.25) return "wounded";
+  return "bloodied";
+}
+const STATE_LABEL: Record<WoundState, string> = {
+  healthy: "Unharmed", scratched: "Scratched", wounded: "Wounded", bloodied: "Bloodied",
+};
+const STATE_TONE: Record<WoundState, string> = {
+  healthy: "text-moss", scratched: "text-parchment", wounded: "text-ember", bloodied: "text-destructive",
+};
+const KIND_LABEL: Record<string, string> = {
+  physical: "blade & fist", fire: "flame", cold: "frost", arcane: "rune-burn",
+  shadow: "shadow", holy: "searing light", poison: "venom",
+};
 
 // Cumulative XP needed to reach level N (N>=2) is fib(N+1) * 10
 // fib(2)=1, fib(3)=2, fib(4)=3, fib(5)=5, fib(6)=8, fib(7)=13 → thresholds 20, 30, 50, 80, 130 …
@@ -81,6 +102,32 @@ export function CharacterSheet({
     } finally { setRestyling(false); }
   };
 
+  // Wound state portrait variant
+  const state = woundStateFor(profile.hp, profile.max_hp);
+  const kind = profile.last_damage_kind ?? "physical";
+  const cacheKey = `${state}:${kind}`;
+  const cachedVariant = useMemo(
+    () => (profile.portrait_variants ?? {})[cacheKey] ?? null,
+    [profile.portrait_variants, cacheKey],
+  );
+  const [variantUrl, setVariantUrl] = useState<string | null>(cachedVariant);
+  const [variantLoading, setVariantLoading] = useState(false);
+
+  useEffect(() => { setVariantUrl(cachedVariant); }, [cachedVariant]);
+
+  useEffect(() => {
+    if (!open || state === "healthy" || !profile.portrait_url || variantUrl || variantLoading) return;
+    setVariantLoading(true);
+    supabase.functions.invoke("portrait-state-variant", { body: { state, kind } })
+      .then(({ data, error }) => {
+        if (error || data?.error) return;
+        if (data?.portrait_url) setVariantUrl(data.portrait_url);
+      })
+      .finally(() => setVariantLoading(false));
+  }, [open, state, kind, profile.portrait_url, variantUrl, variantLoading]);
+
+  const shownPortrait = state === "healthy" ? profile.portrait_url : (variantUrl ?? profile.portrait_url);
+
   const armor = equipped.reduce((s, i) => s + (i.items.base_armor ?? 0), 0);
   const weapon = findSlot("main_hand");
   const dmg = weapon ? weapon.items.base_damage : 1;
@@ -105,11 +152,24 @@ export function CharacterSheet({
         <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr] gap-5">
           {/* Portrait */}
           <div className="space-y-2">
-            <div className="aspect-[3/4] w-40 sm:w-full mx-auto bg-card border border-ember/40 overflow-hidden">
-              {profile.portrait_url ? (
-                <img src={profile.portrait_url} alt={profile.username} className="w-full h-full object-cover" />
+            <div className="relative aspect-[3/4] w-40 sm:w-full mx-auto bg-card border border-ember/40 overflow-hidden">
+              {shownPortrait ? (
+                <img src={shownPortrait} alt={profile.username} className="w-full h-full object-cover transition-opacity duration-500" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-ash text-xs italic">no likeness</div>
+              )}
+              {variantLoading && (
+                <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center gap-1 text-ash">
+                  <Loader2 className="w-4 h-4 animate-spin text-ember" />
+                  <span className="font-mono text-[9px] uppercase tracking-widest">painting wounds…</span>
+                </div>
+              )}
+              {state !== "healthy" && (
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-background/95 to-transparent px-2 py-1.5 flex items-center gap-1.5">
+                  <Droplet className={`w-3 h-3 ${STATE_TONE[state]}`} />
+                  <span className={`font-mono text-[10px] uppercase tracking-widest ${STATE_TONE[state]}`}>{STATE_LABEL[state]}</span>
+                  <span className="font-mono text-[9px] text-ash ml-auto">by {KIND_LABEL[kind] ?? kind}</span>
+                </div>
               )}
             </div>
             <button

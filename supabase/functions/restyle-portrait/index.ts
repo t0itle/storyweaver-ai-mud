@@ -93,8 +93,9 @@ Render visible armor pieces, weapons in hand, cloaks, helms etc. exactly as list
     if (up.error) throw up.error;
     const { data: pub } = admin.storage.from("portraits").getPublicUrl(path);
 
+    // Reset wound-state variant cache — they were derived from the old portrait
     const { error: updErr } = await admin.from("profiles")
-      .update({ portrait_url: pub.publicUrl }).eq("id", user.id);
+      .update({ portrait_url: pub.publicUrl, portrait_variants: {} }).eq("id", user.id);
     if (updErr) throw updErr;
 
     return json({ portrait_url: pub.publicUrl });

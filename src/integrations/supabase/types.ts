@@ -1605,6 +1605,7 @@ export type Database = {
           id: string
           in_combat_id: string | null
           infamy: number
+          last_damage_kind: string | null
           last_encounter_at: string | null
           level: number
           max_hp: number
@@ -1612,6 +1613,7 @@ export type Database = {
           merit: number
           non_serviam_at: string | null
           portrait_url: string | null
+          portrait_variants: Json
           race: string | null
           revived_at: string | null
           revived_by: string | null
@@ -1649,6 +1651,7 @@ export type Database = {
           id: string
           in_combat_id?: string | null
           infamy?: number
+          last_damage_kind?: string | null
           last_encounter_at?: string | null
           level?: number
           max_hp?: number
@@ -1656,6 +1659,7 @@ export type Database = {
           merit?: number
           non_serviam_at?: string | null
           portrait_url?: string | null
+          portrait_variants?: Json
           race?: string | null
           revived_at?: string | null
           revived_by?: string | null
@@ -1693,6 +1697,7 @@ export type Database = {
           id?: string
           in_combat_id?: string | null
           infamy?: number
+          last_damage_kind?: string | null
           last_encounter_at?: string | null
           level?: number
           max_hp?: number
@@ -1700,6 +1705,7 @@ export type Database = {
           merit?: number
           non_serviam_at?: string | null
           portrait_url?: string | null
+          portrait_variants?: Json
           race?: string | null
           revived_at?: string | null
           revived_by?: string | null
