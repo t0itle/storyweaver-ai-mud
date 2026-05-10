@@ -73,12 +73,20 @@ Deno.serve(async (req) => {
     if (profile.hp < profile.max_hp / 3) playerBits.push("badly wounded");
     if (profile.merit > 100) playerBits.push("renowned");
 
+    const INDOOR_KINDS = new Set(["tavern", "hall", "cave", "crypt", "tower", "temple", "loft", "room"]);
+    const kind = (room.kind ?? "room") as string;
+    const indoor = INDOOR_KINDS.has(kind);
+    const settingRules = indoor
+      ? `SETTING: INDOOR / enclosed (${kind}). The player is under a roof and walls. Allowed details: doors, hinges, lamps, candles, smoke, rafters, beams, hearths, floorboards, dust in light-shafts, mice, drafts under doors, things heard through walls. FORBIDDEN: open sky, distant horizons, wind across fields, weather hitting the player, gulls, crows wheeling overhead, sunlight on grass, dust devils.`
+      : `SETTING: OUTDOOR / open (${kind}). The player is under sky. Allowed details: wind, weather, dust, light angles, distant sounds, birds, insects, animals, footing underfoot, far figures. FORBIDDEN: doors, hinges, rafters, beams, candles guttering on a hearth, lamp-flames leaning, things "in the next room" — there are no rooms here.`;
+
     const sys = `You write a SINGLE short ambient sentence (max 18 words) for a dark fantasy MUD.
 Style: lowercase, no period at the end, sensory and concrete. No dialogue. No "you" actions. No second-person commands.
 The line is ATMOSPHERE the player notices in this exact place at this exact moment. It must feel inevitable for *this* room and *this* player — never generic. Vary the sense (sight, smell, sound, touch, the uncanny). Sometimes weave in a present NPC by name doing a tiny piece of business. Reference the player's situation only obliquely (a wound aches, a sworn glyph stings, the corrupt taste copper, etc.) and rarely.
+${settingRules}
 NEVER repeat the recent lines. NEVER restate what the room description already says. Output only the line itself, no quotes, no prefix.`;
 
-    const usr = `Place: ${room.label ?? "Place"} — ${room.name} (${room.kind ?? "room"})
+    const usr = `Place: ${room.label ?? "Place"} — ${room.name} (${kind}, ${indoor ? "indoor" : "outdoor"})
 Room: ${room.description}${room.ambience ? `\nFixed ambience: ${room.ambience}` : ""}
 Time: ${timeBucket()}
 Present: ${npcSummary}
@@ -87,7 +95,7 @@ ${lootSummary ? `On the floor: ${lootSummary}\n` : ""}Player: ${profile.username
 Recent ambient lines (DO NOT REPEAT, DO NOT ECHO):
 ${recent.map(r => `- ${r}`).join("\n") || "- (none)"}
 
-Write one fresh ambient line.`;
+Write one fresh ambient line, obeying the SETTING rules above.`;
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
