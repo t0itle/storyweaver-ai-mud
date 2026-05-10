@@ -996,6 +996,22 @@ export default function GameClient({ session }: { session: Session }) {
         });
         if (error || data?.error) throw new Error(data?.error ?? error?.message);
       } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "search" || c === "look around" || c === "scour" || c === "rummage") {
+      // Forcibly hunt for a hidden cache in the current room.
+      try {
+        const { data, error } = await supabase.functions.invoke("search-cache");
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        if (data?.found) {
+          toast.success(`Rolled ${data.roll}/${data.dc} — you uncover something! Use TAKE.`);
+          setCacheClaimed(true);
+        } else if (data?.already) {
+          setMessages((m) => [...m, localSys("You've already picked this place clean.")]);
+        } else if (data?.none) {
+          setMessages((m) => [...m, localSys("Nothing here rewards your searching.")]);
+        } else if (data?.roll !== undefined) {
+          toast.message(`Rolled ${data.roll}/${data.dc} — nothing this time.`);
+        }
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
     } else if (c === "take" || c === "get" || c === "loot" || c === "grab") {
       // `take` (or `take all`) — claim everything in this room's loot pile.
       try {
