@@ -126,6 +126,11 @@ export default function GameClient({ session }: { session: Session }) {
   const [roomEvents, setRoomEvents] = useState<{ kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [presence, setPresence] = useState<{ username: string }[]>([]);
+  const [roommates, setRoommates] = useState<{
+    id: string; username: string; portrait_url: string | null;
+    level: number; aether: string | null; faction: string | null;
+    downed: boolean; dead: boolean;
+  }[]>([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [lore, setLore] = useState<LoreEntry[]>([]);
@@ -555,21 +560,38 @@ export default function GameClient({ session }: { session: Session }) {
     return () => window.removeEventListener("shadow-act", handler);
   }, [profile?.current_room]);
 
-  // Realtime: messages in current room + presence
+  // Realtime: messages in current room + presence + DB-backed roommates
   useEffect(() => {
     if (!profile) return;
     const slug = profile.current_room;
+    let cancelled = false;
+    let pending: ReturnType<typeof setTimeout> | null = null;
+
+    const loadRoommates = async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, username, portrait_url, level, aether, faction, downed, dead")
+        .eq("current_room", slug)
+        .neq("id", profile.id)
+        .limit(50);
+      if (!cancelled) setRoommates((data ?? []) as any);
+    };
+    const scheduleReload = () => {
+      if (pending) return;
+      pending = setTimeout(() => { pending = null; loadRoommates(); }, 250);
+    };
+    loadRoommates();
 
     const ch = supabase.channel(`room:${slug}`, { config: { presence: { key: profile.id } } })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `room=eq.${slug}` },
         (p) => {
           const msg = p.new as Message & { addressed_to?: string | null };
-          // Show: anything not addressed to a specific player, OR addressed to me.
-          // Hides only NPC replies meant for someone else.
           if (!msg.addressed_to || msg.addressed_to === profile.id) {
             setMessages((prev) => [...prev, msg]);
           }
         })
+      // Any profile move/state change triggers a refresh — covers arrivals AND departures.
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, scheduleReload)
       .on("presence", { event: "sync" }, () => {
         const state = ch.presenceState() as Record<string, { username: string }[]>;
         const users = Object.values(state).flat();
@@ -579,7 +601,16 @@ export default function GameClient({ session }: { session: Session }) {
         if (status === "SUBSCRIBED") await ch.track({ username: profile.username });
       });
 
-    return () => { supabase.removeChannel(ch); };
+    // Safety net: window-focus refresh in case realtime missed an event.
+    const onFocus = () => loadRoommates();
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      cancelled = true;
+      if (pending) clearTimeout(pending);
+      window.removeEventListener("focus", onFocus);
+      supabase.removeChannel(ch);
+    };
   }, [profile?.current_room, profile?.id, profile?.username]);
 
   // autoscroll
@@ -815,7 +846,18 @@ export default function GameClient({ session }: { session: Session }) {
     } else if (c === "look" || c === "l") {
       setMessages((m) => [...m, localSys(formatRoom(room, npcs, roomEvents, bucket))]);
     } else if (c === "who") {
-      setMessages((m) => [...m, localSys(`Here: ${presence.map(p => p.username).join(", ") || "(only you)"}`)]);
+      const onlineNames = new Set(presence.map(p => p.username));
+      const lines = roommates.map(r => {
+        const dot = onlineNames.has(r.username) ? "●" : "○";
+        const tags: string[] = [`lv ${r.level}`];
+        if (r.aether) tags.push(r.aether);
+        if (r.faction === "chaos") tags.push("chaos");
+        if (r.dead) tags.push("fallen");
+        else if (r.downed) tags.push("downed");
+        return `  ${dot} ${r.username} (${tags.join(", ")})`;
+      });
+      lines.unshift(`  ● ${profile!.username} (you)`);
+      setMessages((m) => [...m, localSys(`Here:\n${lines.join("\n")}`)]);
     } else if (c === "follow") {
       if (!args) { setMessages((m) => [...m, localSys("Follow whom? Try: follow <npc name>")]); return; }
       await followNpc(args.trim());
@@ -1498,11 +1540,34 @@ export default function GameClient({ session }: { session: Session }) {
                   </div>
                 );
               })}
-              {presence.map((p) => (
-                <div key={p.username} className="font-body text-moss">
-                  <span>◆</span> {p.username}{p.username === profile.username && <span className="text-ash"> (you)</span>}
-                </div>
-              ))}
+              {/* You */}
+              <div className="flex items-center gap-2 font-body text-moss">
+                {profile.portrait_url
+                  ? <img src={profile.portrait_url} alt="" className="w-6 h-6 object-cover border border-border" />
+                  : <span>◆</span>}
+                <span>{profile.username}</span>
+                <span className="text-ash text-[10px]">(you · lv {profile.level})</span>
+              </div>
+              {/* Other walkers — DB-backed, with online dot from realtime presence */}
+              {roommates.map((r) => {
+                const online = presence.some(p => p.username === r.username);
+                const stateColor = r.dead ? "text-red-500" : r.downed ? "text-amber-500" : "text-moss";
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => { setInput(`say `); inputRef.current?.focus(); }}
+                    className="w-full flex items-center gap-2 font-body text-left hover:bg-background/40 px-1 py-0.5 transition-colors"
+                    title={`${r.username} — level ${r.level}${r.aether ? ` · ${r.aether}` : ""}${r.faction === "chaos" ? " · chaos" : ""}`}
+                  >
+                    {r.portrait_url
+                      ? <img src={r.portrait_url} alt="" className={`w-6 h-6 object-cover border ${online ? "border-ember" : "border-border opacity-60"}`} />
+                      : <span className={stateColor}>◆</span>}
+                    <span className={stateColor}>{r.username}</span>
+                    <span className="text-ash text-[10px]">lv {r.level}{r.aether ? ` · ${r.aether}` : ""}{r.dead ? " · fallen" : r.downed ? " · downed" : ""}</span>
+                    <span className={`ml-auto text-[10px] ${online ? "text-ember" : "text-ash/50"}`}>{online ? "●" : "○"}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
