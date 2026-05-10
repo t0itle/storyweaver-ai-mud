@@ -126,6 +126,11 @@ export default function GameClient({ session }: { session: Session }) {
   const [roomEvents, setRoomEvents] = useState<{ kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [presence, setPresence] = useState<{ username: string }[]>([]);
+  const [roommates, setRoommates] = useState<{
+    id: string; username: string; portrait_url: string | null;
+    level: number; aether: string | null; faction: string | null;
+    downed: boolean; dead: boolean;
+  }[]>([]);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [lore, setLore] = useState<LoreEntry[]>([]);
