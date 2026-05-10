@@ -388,7 +388,28 @@ export default function GameClient({ session }: { session: Session }) {
     })();
   }, [profile?.current_room, profile?.id]);
 
-  // Generate / fetch scene image when room changes (events-aware so the world reflects what's been done)
+  // Live loot pile in the current room (any player can `take` from it).
+  useEffect(() => {
+    if (!profile?.current_room) return;
+    const slug = profile.current_room;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("room_loot")
+        .select("id, gold, item_key, quantity, placed_by_name")
+        .eq("room", slug);
+      if (!cancelled) setRoomLoot(data ?? []);
+    })();
+    const ch = supabase.channel(`loot:${slug}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "room_loot", filter: `room=eq.${slug}` },
+        async () => {
+          const { data } = await supabase.from("room_loot")
+            .select("id, gold, item_key, quantity, placed_by_name").eq("room", slug);
+          if (!cancelled) setRoomLoot(data ?? []);
+        })
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(ch); };
+  }, [profile?.current_room]);
+
   useEffect(() => {
     if (!profile || !room) return;
     const slug = profile.current_room;
