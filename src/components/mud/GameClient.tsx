@@ -1540,13 +1540,34 @@ export default function GameClient({ session }: { session: Session }) {
                   </div>
                 );
               })}
-              {presence.map((p) => (
-                <div key={p.username} className="font-body text-moss">
-                  <span>◆</span> {p.username}{p.username === profile.username && <span className="text-ash"> (you)</span>}
-                </div>
-              ))}
-            </div>
-          </div>
+              {/* You */}
+              <div className="flex items-center gap-2 font-body text-moss">
+                {profile.portrait_url
+                  ? <img src={profile.portrait_url} alt="" className="w-6 h-6 object-cover border border-border" />
+                  : <span>◆</span>}
+                <span>{profile.username}</span>
+                <span className="text-ash text-[10px]">(you · lv {profile.level})</span>
+              </div>
+              {/* Other walkers — DB-backed, with online dot from realtime presence */}
+              {roommates.map((r) => {
+                const online = presence.some(p => p.username === r.username);
+                const stateColor = r.dead ? "text-red-500" : r.downed ? "text-amber-500" : "text-moss";
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => { setInput(`say `); inputRef.current?.focus(); }}
+                    className="w-full flex items-center gap-2 font-body text-left hover:bg-background/40 px-1 py-0.5 transition-colors"
+                    title={`${r.username} — level ${r.level}${r.aether ? ` · ${r.aether}` : ""}${r.faction === "chaos" ? " · chaos" : ""}`}
+                  >
+                    {r.portrait_url
+                      ? <img src={r.portrait_url} alt="" className={`w-6 h-6 object-cover border ${online ? "border-ember" : "border-border opacity-60"}`} />
+                      : <span className={stateColor}>◆</span>}
+                    <span className={stateColor}>{r.username}</span>
+                    <span className="text-ash text-[10px]">lv {r.level}{r.aether ? ` · ${r.aether}` : ""}{r.dead ? " · fallen" : r.downed ? " · downed" : ""}</span>
+                    <span className={`ml-auto text-[10px] ${online ? "text-ember" : "text-ash/50"}`}>{online ? "●" : "○"}</span>
+                  </button>
+                );
+              })}
 
           <button
             onClick={() => setHelpOpen(true)}
