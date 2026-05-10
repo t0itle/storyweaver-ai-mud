@@ -1857,6 +1857,33 @@ export type Database = {
         }
         Relationships: []
       }
+      room_audio: {
+        Row: {
+          ambient_url: string | null
+          generated_at: string | null
+          music_url: string | null
+          slug: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ambient_url?: string | null
+          generated_at?: string | null
+          music_url?: string | null
+          slug: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ambient_url?: string | null
+          generated_at?: string | null
+          music_url?: string | null
+          slug?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       room_caches: {
         Row: {
           find_dc: number

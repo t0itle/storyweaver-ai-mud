@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Backpack, Flame, HelpCircle, Landmark, Loader2, LogOut, ScrollText, Sparkles, Users, Volume2, VolumeX } from "lucide-react";
-import { useSceneMusic } from "./useSceneMusic";
+import { useRoomAudio } from "./useRoomAudio";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
 import { KinPanel } from "./KinPanel";
 import { ChronicleModal } from "./ChronicleModal";
@@ -160,10 +160,14 @@ export default function GameClient({ session }: { session: Session }) {
   const [cacheClaimed, setCacheClaimed] = useState(false);
   const [roomLoot, setRoomLoot] = useState<{ id: string; gold: number; item_key: string | null; quantity: number; placed_by_name: string | null }[]>([]);
   const [bucket, setBucket] = useState<TimeBucket>(getTimeBucket());
-  const { muted: musicMuted, setMuted: setMusicMuted, tryResume: resumeMusic } = useSceneMusic(
-    room?.kind ?? null,
-    bucket,
-    !!room,
+  const audioMode: "room" | "combat" | "rest" = profile?.in_combat_id
+    ? "combat"
+    : room?.kind === "inn"
+      ? "rest"
+      : "room";
+  const { muted: musicMuted, setMuted: setMusicMuted, tryResume: resumeMusic } = useRoomAudio(
+    profile?.current_room ?? null,
+    audioMode,
   );
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
