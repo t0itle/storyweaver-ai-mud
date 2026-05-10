@@ -128,6 +128,46 @@ Deno.serve(async (req) => {
       `- **${k.kanji}** (${k.romaji}, ${k.element}): ${k.english_meaning}`
     ).join("\n");
 
+    // ── Speaker's Artifacts: surface oblique rumors only when the player asks the right questions ──
+    const inputLower = String(player_input || "").toLowerCase();
+    const rumorTriggerRe = /\b(relic|relics|artifact|artifacts|speaker|silenced|hidden|lost|sacred|holy|treasure|forbidden|shrine|reliqu|word of power|first city.*relic|veil|tongue|seal|crown|chalice|mirror|key|bell|shard|ember|coin|veil|veil|cup|stone|tablet|sigil|mask|ring|horn|lantern)\b/;
+    let artifactWhispers: Array<{ key: string; name: string; glyph: string; blurb: string; lore: string; holder_kind: string; home_room: string }> = [];
+    let alreadyHeardKeys: string[] = [];
+    if (rumorTriggerRe.test(inputLower)) {
+      const { data: allArt } = await supabase.from("speaker_artifacts")
+        .select("key,name,glyph,blurb,lore,holder_kind,home_room");
+      const { data: heard } = await supabase.from("player_artifact_rumors")
+        .select("artifact_key").eq("user_id", user.id);
+      alreadyHeardKeys = (heard ?? []).map((h: any) => h.artifact_key);
+      const heardSet = new Set(alreadyHeardKeys);
+
+      // Score artifacts: name match in input > holder/home overlap with this NPC > random
+      const persona = (npc.persona ?? "") + " " + (npc.title ?? "");
+      const personaLow = persona.toLowerCase();
+      const scored = (allArt ?? []).map((a: any) => {
+        let score = 0;
+        const nameWords = a.name.toLowerCase().replace(/^the\s+/, "").split(/\s+/);
+        for (const w of nameWords) if (w.length > 3 && inputLower.includes(w)) score += 5;
+        if (a.home_room === room) score += 3;
+        if (a.holder_kind === "veiled" && /veiled|priest|silent/.test(personaLow)) score += 2;
+        if (a.holder_kind === "aether" && /aether|warden|seven|throne/.test(personaLow)) score += 2;
+        if (a.holder_kind === "wild" && /hermit|wanderer|drunk|scavenger|ranger|nomad/.test(personaLow)) score += 2;
+        if (heardSet.has(a.key)) score -= 3; // prefer fresh rumors
+        score += Math.random() * 0.5;
+        return { a, score };
+      }).sort((x, y) => y.score - x.score).slice(0, 3);
+      artifactWhispers = scored.filter(s => s.score > -2).map(s => s.a);
+    }
+    const artifactBlock = artifactWhispers.length
+      ? artifactWhispers.map((a) => {
+          const where = a.holder_kind === "aether" ? `held by an Aether at ${a.home_room}`
+            : a.holder_kind === "veiled" ? `kept by the Veiled near ${a.home_room}`
+            : `lost somewhere out by ${a.home_room}`;
+          const fresh = alreadyHeardKeys.includes(a.key) ? " (player already heard a half-rumor of this — vary it, do not repeat verbatim)" : "";
+          return `- ${a.glyph} **${a.name}** — ${where}. Lore: ${a.lore} Whisper: ${a.blurb}${fresh}`;
+        }).join("\n")
+      : "";
+
     // Adaptive storytelling: recent unresolved world events in this room (and recent global ones)
     const nowIso = new Date().toISOString();
     const { data: localEvents } = await supabase
