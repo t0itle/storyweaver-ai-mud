@@ -846,7 +846,18 @@ export default function GameClient({ session }: { session: Session }) {
     } else if (c === "look" || c === "l") {
       setMessages((m) => [...m, localSys(formatRoom(room, npcs, roomEvents, bucket))]);
     } else if (c === "who") {
-      setMessages((m) => [...m, localSys(`Here: ${presence.map(p => p.username).join(", ") || "(only you)"}`)]);
+      const onlineNames = new Set(presence.map(p => p.username));
+      const lines = roommates.map(r => {
+        const dot = onlineNames.has(r.username) ? "●" : "○";
+        const tags: string[] = [`lv ${r.level}`];
+        if (r.aether) tags.push(r.aether);
+        if (r.faction === "chaos") tags.push("chaos");
+        if (r.dead) tags.push("fallen");
+        else if (r.downed) tags.push("downed");
+        return `  ${dot} ${r.username} (${tags.join(", ")})`;
+      });
+      lines.unshift(`  ● ${profile!.username} (you)`);
+      setMessages((m) => [...m, localSys(`Here:\n${lines.join("\n")}`)]);
     } else if (c === "follow") {
       if (!args) { setMessages((m) => [...m, localSys("Follow whom? Try: follow <npc name>")]); return; }
       await followNpc(args.trim());
