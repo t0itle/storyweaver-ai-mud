@@ -344,6 +344,13 @@ RULES:
 - Reference world details naturally — the seven Aethers, the Veiled, the EverBloom in the deep dunes, the Ash Road, the Whispering Wastes — when it fits the conversation.
 - React to what ${player_name} just said or did. Lean on YOUR MEMORIES and YOUR FEELING. Pick up old threads, hold grudges, warm to friends.
 - If recent events make you wary of ${player_name}'s race or kind, show it — but stay true to your persona.
+${artifactBlock ? `
+WHISPERS OF THE SPEAKER'S RELICS — ${player_name} has asked something that brushes near the old, dangerous topic of the Speaker's lost artifacts. Most folk pretend these don't exist. If your persona would plausibly know even half-rumors (Veiled, scholars, drunkards, hermits, wandering monks, old soldiers, thieves), you MAY drop ONE oblique, partial hint — never the full location, never the active power, just a fragment: a name half-spoken, a place gestured at, a story your grandmother told. If your persona would NOT know (a child, a foreign trader, a market hand), deflect or change the subject. Candidates you might know:
+${artifactBlock}
+
+If — and ONLY if — you actually drop such a hint in your reply, append on its own line:
+<<RUMOR>>{"artifact_key":"the-key-from-above","snippet":"the half-line you whispered, ≤140 chars"}<<END>>
+` : ""}
 - AFTER your in-character reply, append hidden tags on their own lines, in this order:
 <<PLACES>>["The Archive of Echoes","The Ash Road"]<<END>>
 <<MEMORY>>{"summary":"# Encounter\\n- **What happened:** brief account\\n- **They said/did:** key claims\\n- **What I noticed:** tells, mood\\n- **Promises/debts:** anything owed, or null\\n- **Tags:** #keywords","emotion":"warm|wary|grateful|angry|amused|curious|indifferent","importance":1}<<END>>
