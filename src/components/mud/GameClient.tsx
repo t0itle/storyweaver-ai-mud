@@ -1150,9 +1150,7 @@ export default function GameClient({ session }: { session: Session }) {
           <button onClick={() => setKinOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Kin spirits — friends & private messages">
             <Users className="w-4 h-4" /><span className="hidden sm:inline">kin</span>
           </button>
-          <button onClick={() => setArtifactsOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-accent hover:border-accent transition-colors text-xs" title="Speaker's Artifacts">
-            <span className="text-accent">☩</span><span className="hidden sm:inline">relics</span>
-          </button>
+          {/* Speaker's Artifacts hidden — discovered through lore/rumor only */}
           <button onClick={() => setHelpOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs ml-auto" title="Commands">
             <HelpCircle className="w-4 h-4" /><span className="hidden sm:inline">help</span>
           </button>
