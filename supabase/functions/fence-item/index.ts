@@ -79,18 +79,21 @@ Deno.serve(async (req) => {
       infamy: Math.max(0, (profile.infamy ?? 0) - 1),
     }).eq("id", user.id);
 
-    // Advance any active "fence N goods" thieves' guild quests for this player.
-    await admin.from("quests").update({ updated_at: new Date().toISOString() })
-      .eq("user_id", user.id).eq("source_guild", "thieves").eq("status", "accepted");
-
-    // Bump the thieves chapter quest_count so the player ranks up over time.
-    await admin.from("player_guild_membership").upsert({
-      user_id: user.id, guild_key: "thieves",
-      quests_completed: 0, // will be incremented below if exists
-      status: "prospect", rank: 0, updated_at: new Date().toISOString(),
-    }, { onConflict: "user_id,guild_key", ignoreDuplicates: true });
-
-    await admin.rpc("noop").catch(() => {}); // (placeholder, no-op)
+    // Track guild progress: increment quests_completed (used by guild rank thresholds).
+    const { data: existingMem } = await admin.from("player_guild_membership")
+      .select("quests_completed, rank, status")
+      .eq("user_id", user.id).eq("guild_key", "thieves").maybeSingle();
+    if (existingMem) {
+      await admin.from("player_guild_membership").update({
+        quests_completed: (existingMem.quests_completed ?? 0) + 1,
+        updated_at: new Date().toISOString(),
+      }).eq("user_id", user.id).eq("guild_key", "thieves");
+    } else {
+      await admin.from("player_guild_membership").insert({
+        user_id: user.id, guild_key: "thieves",
+        quests_completed: 1, status: "prospect", rank: 0,
+      });
+    }
 
     await admin.from("messages").insert({
       room: profile.current_room, author_name: "—", kind: "ambient",
