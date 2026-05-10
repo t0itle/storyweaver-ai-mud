@@ -91,6 +91,8 @@ const HELP = [
   ["abandon <title>", "drop an active quest (NPC will remember)"],
   ["search", "search the room for hidden caches"],
   ["wagon", "hire the wagonmaster (open the fast-travel panel)"],
+  ["rest", "sleep at an inn — full heal, costs gold"],
+  ["camp", "make camp in the wilds — partial heal, may be ambushed"],
   ["help", "show this list"],
 ];
 
@@ -1024,6 +1026,21 @@ export default function GameClient({ session }: { session: Session }) {
           body: { action: "start", target_name: args.trim() },
         });
         if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "rest" || c === "sleep" || c === "inn") {
+      try {
+        const { data, error } = await supabase.functions.invoke("rest-action", { body: { action: "inn" } });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        toast.success(`Rested at the inn. (+${data.healed} HP, -${data.cost}g)`);
+        reloadProfile();
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "camp" || c === "bivouac") {
+      try {
+        const { data, error } = await supabase.functions.invoke("rest-action", { body: { action: "camp" } });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        if (data.ambushed) toast.error(`Ambushed mid-rest by ${data.npc_name}!`);
+        else toast.success(`Camped safely. (+${data.healed} HP)`);
+        reloadProfile();
       } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
     } else if (c === "search" || c === "look around" || c === "scour" || c === "rummage") {
       // Forcibly hunt for a hidden cache in the current room.
