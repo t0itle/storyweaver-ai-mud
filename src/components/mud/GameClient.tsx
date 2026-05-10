@@ -1027,6 +1027,21 @@ export default function GameClient({ session }: { session: Session }) {
         });
         if (error || data?.error) throw new Error(data?.error ?? error?.message);
       } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "rest" || c === "sleep" || c === "inn") {
+      try {
+        const { data, error } = await supabase.functions.invoke("rest-action", { body: { action: "inn" } });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        toast.success(`Rested at the inn. (+${data.healed} HP, -${data.cost}g)`);
+        reloadProfile();
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
+    } else if (c === "camp" || c === "bivouac") {
+      try {
+        const { data, error } = await supabase.functions.invoke("rest-action", { body: { action: "camp" } });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        if (data.ambushed) toast.error(`Ambushed mid-rest by ${data.npc_name}!`);
+        else toast.success(`Camped safely. (+${data.healed} HP)`);
+        reloadProfile();
+      } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
     } else if (c === "search" || c === "look around" || c === "scour" || c === "rummage") {
       // Forcibly hunt for a hidden cache in the current room.
       try {
