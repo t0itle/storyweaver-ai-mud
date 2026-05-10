@@ -16,10 +16,13 @@ const cors = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
-const COOLDOWN_SECONDS = 90;
-const TRIGGER_CHANCE = 0.15;
+const COOLDOWN_SECONDS = 30;
+const TRIGGER_CHANCE = 0.45;
 
-const ELIGIBLE_KINDS = new Set(["road", "desert", "wilds", "hollow", "grove"]);
+const ELIGIBLE_KINDS = new Set([
+  "road", "desert", "wilds", "hollow", "grove",
+  "ruin", "cave", "lair", "shore", "bridge", "dock", "crypt",
+]);
 
 const CAPITAL_DESTINATIONS = [
   { slug: "high-sanctum", name: "The High Sanctum" },
