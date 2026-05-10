@@ -355,6 +355,10 @@ If — and ONLY if — you actually drop such a hint in your reply, append on it
 <<PLACES>>["The Archive of Echoes","The Ash Road"]<<END>>
 <<MEMORY>>{"summary":"# Encounter\\n- **What happened:** brief account\\n- **They said/did:** key claims\\n- **What I noticed:** tells, mood\\n- **Promises/debts:** anything owed, or null\\n- **Tags:** #keywords","emotion":"warm|wary|grateful|angry|amused|curious|indifferent","importance":1}<<END>>
 <<AMITY>>{"delta":-2,"reason":"..."}<<END>>
+TEACH_RUNE (ONLY if you are deliberately teaching a Latin rune word per the strict rules above — omit otherwise. ONE rune per reply max.):
+<<TEACH_RUNE>>{"latin_name":"ignis","reason":"earned through service / asked sincerely / sworn student"}<<END>>
+TEACH_KANJI (ONLY if you are deliberately teaching a kanji per the strict rules above — omit otherwise. ONE kanji per reply max.):
+<<TEACH_KANJI>>{"kanji":"火","reason":"..."}<<END>>
 QUEST_OFFER (optional, ONLY if no active/offered quest exists with this player and a need naturally arose):
 <<QUEST_OFFER>>{"title":"The Locket of Renn","description":"A short paragraph from your POV.","objective":"Bring me the silver locket from the dunes.","kind":"fetch","severity":"minor","target_kind":"item","target_ref":"silver-locket","rewards":{"gold":15,"xp":25,"amity":4,"item_key":null,"rune_key":null,"kanji_key":null}}<<END>>
 QUEST_RESOLVE (ONLY if there is an ACTIVE QUEST above and you judge ${player_name} has either fulfilled or failed it RIGHT NOW based on what they said/did):
