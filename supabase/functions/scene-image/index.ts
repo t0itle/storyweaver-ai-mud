@@ -93,7 +93,9 @@ Deno.serve(async (req) => {
       ? `Recent events that have visibly altered this place: ${context_extra}. Show those scars on the world — burn marks, broken stone, fresh graves, ash in the air, signs of struggle — woven naturally into the scene.`
       : "";
 
-    const prompt = `Painterly fantasy environment concept art, oil-painted, cinematic wide shot. Palette: ${mood.palette}. Mood: ${mood.mood}. Atmospheric volumetric light, no text, no logos, no characters in the foreground. Do NOT default to fire, embers, ash, or grimdark unless the scene explicitly calls for it.
+    const prompt = `Painterly fantasy environment concept art, oil-painted, cinematic wide shot. Palette: ${mood.palette}. Mood: ${mood.mood}. Atmospheric volumetric light, no characters in the foreground. Do NOT default to fire, embers, ash, or grimdark unless the scene explicitly calls for it.
+
+ABSOLUTELY NO TEXT of any kind in the image — no signs, no banners, no shop signage, no painted lettering on walls or stalls, no carved inscriptions, no scrolls with writing, no maps with labels, no runes meant to read as letters, no logos, no watermarks, no captions. If a sign would normally appear, render it as a blank wooden plank or a pictographic symbol only.
 
 Scene: ${room.name}.
 ${room.description}
