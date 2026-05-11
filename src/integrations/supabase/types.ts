@@ -1530,6 +1530,32 @@ export type Database = {
           },
         ]
       }
+      player_skills: {
+        Row: {
+          acquired_at: string
+          node_key: string
+          user_id: string
+        }
+        Insert: {
+          acquired_at?: string
+          node_key: string
+          user_id: string
+        }
+        Update: {
+          acquired_at?: string
+          node_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_skills_node_key_fkey"
+            columns: ["node_key"]
+            isOneToOne: false
+            referencedRelation: "skill_nodes"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       player_speaker_artifacts: {
         Row: {
           acquired_at: string
@@ -1725,6 +1751,7 @@ export type Database = {
           race: string | null
           revived_at: string | null
           revived_by: string | null
+          talent_points: number
           updated_at: string
           username: string
           xp: number
@@ -1771,6 +1798,7 @@ export type Database = {
           race?: string | null
           revived_at?: string | null
           revived_by?: string | null
+          talent_points?: number
           updated_at?: string
           username: string
           xp?: number
@@ -1817,6 +1845,7 @@ export type Database = {
           race?: string | null
           revived_at?: string | null
           revived_by?: string | null
+          talent_points?: number
           updated_at?: string
           username?: string
           xp?: number
@@ -2253,6 +2282,36 @@ export type Database = {
           created_at?: string
           prompt?: string | null
           scene_key?: string
+        }
+        Relationships: []
+      }
+      skill_nodes: {
+        Row: {
+          branch: string
+          description: string
+          effect: Json
+          key: string
+          name: string
+          sort_order: number
+          tier: number
+        }
+        Insert: {
+          branch: string
+          description?: string
+          effect?: Json
+          key: string
+          name: string
+          sort_order?: number
+          tier: number
+        }
+        Update: {
+          branch?: string
+          description?: string
+          effect?: Json
+          key?: string
+          name?: string
+          sort_order?: number
+          tier?: number
         }
         Relationships: []
       }
