@@ -1,34 +1,52 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import logo from "@/assets/everbloom-logo.png";
 
+// Username-only accounts get a stable synthetic email so Supabase auth still works.
+const USERNAME_DOMAIN = "wanderer.everbloom.local";
+const usernameToEmail = (u: string) =>
+  `${u.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}@${USERNAME_DOMAIN}`;
+
 export default function Landing() {
   const [mode, setMode] = useState<"signin" | "signup">("signup");
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState(""); // email OR username for signin
+  const [email, setEmail] = useState(""); // optional on signup
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
+  const [oauthBusy, setOauthBusy] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       if (mode === "signup") {
+        const uname = username.trim();
+        if (uname.length < 2) throw new Error("Choose a name (min 2 characters).");
+        const useEmail = email.trim().length > 0 ? email.trim() : usernameToEmail(uname);
         const { error } = await supabase.auth.signUp({
-          email, password,
+          email: useEmail,
+          password,
           options: {
             emailRedirectTo: `${window.location.origin}/`,
-            data: { username: username.trim() || email.split("@")[0] },
+            data: { username: uname },
           },
         });
         if (error) throw error;
+        // Auto-confirm is on, so try immediate sign-in for username-only flow.
+        if (!email.trim()) {
+          await supabase.auth.signInWithPassword({ email: useEmail, password });
+        }
         toast.success("The desert has heard a new walker.");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const id = identifier.trim();
+        const loginEmail = id.includes("@") ? id : usernameToEmail(id);
+        const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
         if (error) throw error;
       }
     } catch (err) {
@@ -38,7 +56,19 @@ export default function Landing() {
     }
   };
 
-
+  const oauth = async (provider: "google" | "apple") => {
+    setOauthBusy(provider);
+    try {
+      const result = await lovable.auth.signInWithOAuth(provider, {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) throw result.error;
+      // result.redirected → browser navigates away; otherwise session is set.
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : `${provider} sign-in failed`);
+      setOauthBusy(null);
+    }
+  };
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden">
@@ -89,17 +119,69 @@ export default function Landing() {
           </button>
         </div>
 
+        <div className="space-y-2 mb-5">
+          <Button
+            type="button"
+            onClick={() => oauth("google")}
+            disabled={!!oauthBusy}
+            variant="outline"
+            className="w-full font-mono text-xs tracking-widest"
+          >
+            {oauthBusy === "google" ? "..." : "CONTINUE WITH GOOGLE"}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => oauth("apple")}
+            disabled={!!oauthBusy}
+            variant="outline"
+            className="w-full font-mono text-xs tracking-widest"
+          >
+            {oauthBusy === "apple" ? "..." : "CONTINUE WITH APPLE"}
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-3 mb-5">
+          <div className="h-px flex-1 bg-border" />
+          <span className="font-mono text-[10px] text-ash/60 tracking-widest">OR</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+
         <form onSubmit={submit} className="space-y-4">
-          {mode === "signup" && (
+          {mode === "signup" ? (
+            <>
+              <div>
+                <Label className="font-mono text-xs text-ash">YOUR NAME IN THIS WORLD</Label>
+                <Input
+                  required
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="e.g. Caelin Ash-walker"
+                  maxLength={32}
+                  className="font-body bg-input"
+                />
+              </div>
+              <div>
+                <Label className="font-mono text-xs text-ash">EMAIL <span className="text-ash/50 normal-case">(optional)</span></Label>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="leave blank for a name-only walker"
+                  className="font-body bg-input"
+                />
+              </div>
+            </>
+          ) : (
             <div>
-              <Label className="font-mono text-xs text-ash">YOUR NAME IN THIS WORLD</Label>
-              <Input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. Caelin Ash-walker" maxLength={32} className="font-body bg-input" />
+              <Label className="font-mono text-xs text-ash">NAME OR EMAIL</Label>
+              <Input
+                required
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                className="font-body bg-input"
+              />
             </div>
           )}
-          <div>
-            <Label className="font-mono text-xs text-ash">EMAIL</Label>
-            <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="font-body bg-input" />
-          </div>
           <div>
             <Label className="font-mono text-xs text-ash">PASSWORD</Label>
             <Input type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} className="font-body bg-input" />
