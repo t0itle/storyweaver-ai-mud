@@ -87,7 +87,17 @@ Style: painterly brushwork in the spirit of Studio Ghibli character art and Crai
     // Apply HP mod
     const baseMaxHp = 20;
     const newMax = Math.max(8, baseMaxHp + (race.hp_mod ?? 0));
-    const username = String(user.user_metadata?.username ?? user.email?.split("@")[0] ?? "wanderer").trim().slice(0, 32) || "wanderer";
+    let username = (chosenName || String(user.user_metadata?.username ?? user.email?.split("@")[0] ?? "wanderer"))
+      .trim().slice(0, 32) || "wanderer";
+
+    // Ensure uniqueness — append a short suffix from user id if taken by someone else.
+    {
+      const { data: clash } = await admin.from("profiles")
+        .select("id").eq("username", username).neq("id", user.id).maybeSingle();
+      if (clash) {
+        username = `${username}-${user.id.slice(0, 4)}`.slice(0, 32);
+      }
+    }
 
     const { error: updErr } = await admin.from("profiles").upsert({
       id: user.id,
