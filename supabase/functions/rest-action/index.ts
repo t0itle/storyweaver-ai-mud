@@ -52,7 +52,8 @@ Deno.serve(async (req) => {
     if (!roomRow) return json({ error: "Where are you?" }, 400);
 
     if (action === "inn") {
-      if (!room.endsWith("-inn")) return json({ error: "There's no innkeeper to take your coin here." }, 400);
+      const isInn = room.endsWith("-inn") || roomRow.kind === "inn" || roomRow.kind === "tavern";
+      if (!isInn) return json({ error: "There's no innkeeper to take your coin here." }, 400);
       if ((profile.gold ?? 0) < INN_PRICE) return json({ error: `A bed costs ${INN_PRICE}g — you can't afford it.` }, 400);
       await admin.from("profiles").update({
         gold: profile.gold - INN_PRICE,
