@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import introVideo from "@/assets/intro-creation.mp4.asset.json";
+import { supabase } from "@/integrations/supabase/client";
 
 // Kingdom-Hearts-style intimate lead-in, then the creation myth, then the question.
 // Each line fades in, holds, fades out. Small form, one breath at a time.
