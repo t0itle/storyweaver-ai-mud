@@ -47,6 +47,11 @@ Deno.serve(async (req) => {
     if (profile.downed || profile.dead) return json({ error: "You're in no shape to rest." }, 400);
     if ((profile.hp ?? 0) >= (profile.max_hp ?? 20)) return json({ error: "You're already at full health." }, 400);
 
+    // Skill: Long Wind — +1 HP healed per rest.
+    const { data: longWind } = await admin.from("player_skills")
+      .select("node_key").eq("user_id", user.id).eq("node_key", "long_wind").maybeSingle();
+    const restBonus = longWind ? 1 : 0;
+
     const room = profile.current_room as string;
     const { data: roomRow } = await admin.from("rooms").select("slug, kind, name").eq("slug", room).maybeSingle();
     if (!roomRow) return json({ error: "Where are you?" }, 400);
@@ -71,7 +76,7 @@ Deno.serve(async (req) => {
       return json({ error: "You can't make camp here. Find an inn, the road, or the wilds." }, 400);
     }
 
-    const healed = Math.min(profile.max_hp - profile.hp, Math.ceil(profile.max_hp * 0.5));
+    const healed = Math.min(profile.max_hp - profile.hp, Math.ceil(profile.max_hp * 0.5) + restBonus);
     const ambushed = Math.random() < CAMP_AMBUSH_CHANCE;
 
     if (!ambushed) {

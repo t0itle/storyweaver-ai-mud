@@ -33,7 +33,11 @@ Deno.serve(async (req) => {
     if (!fence || !fence.is_fence) return new Response(JSON.stringify({ error: "no fence here" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     if (fence.room !== profile.current_room) return new Response(JSON.stringify({ error: "they are not in this room" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const rate = Number(fence.fence_rate ?? 0.55);
+    // Skill: Quiet Step bumps the rate floor to 0.62.
+    const { data: quietStep } = await admin.from("player_skills")
+      .select("node_key").eq("user_id", user.id).eq("node_key", "quiet_step").maybeSingle();
+    const baseRate = Number(fence.fence_rate ?? 0.55);
+    const rate = quietStep ? Math.max(baseRate, 0.62) : baseRate;
 
     // Stolen items the player is carrying.
     const { data: items } = await admin.from("player_items")

@@ -11,6 +11,7 @@ import { ChronicleModal } from "./ChronicleModal";
 import { BoardModal } from "./BoardModal";
 import { MarketModal } from "./MarketModal";
 import { GuildModal } from "./GuildModal";
+import SkillTreeModal from "./SkillTreeModal";
 import { ArtifactsPanel } from "./ArtifactsPanel";
 import { CharacterSheet } from "./CharacterSheet";
 import { RuneHub } from "./RuneHub";
@@ -44,6 +45,7 @@ interface Profile {
   downed: boolean; downed_at: string | null; downed_combat_id: string | null;
   dead: boolean; dead_at: string | null; death_room: string | null;
   zombified: boolean; revived_by: string | null; revived_at: string | null;
+  talent_points?: number;
 }
 interface Room {
   slug: string; name: string; description: string;
@@ -159,6 +161,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [chronicleTab, setChronicleTab] = useState<"journal" | "codex">("journal");
   const [hallOpen, setHallOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [skillsOpen, setSkillsOpen] = useState(false);
   const [corpses, setCorpses] = useState<{ id: string; username: string }[]>([]);
   const [reviving, setReviving] = useState(false);
   const [kinOpen, setKinOpen] = useState(false);
@@ -1514,6 +1517,23 @@ export default function GameClient({ session }: { session: Session }) {
           <button onClick={() => setInvOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Inventory">
             <Backpack className="w-4 h-4" /><span>{inventory.length}</span>
           </button>
+          <button
+            onClick={() => setSkillsOpen(true)}
+            className={`relative flex items-center gap-1 px-2 py-1 rounded border text-xs transition-colors ${
+              (profile.talent_points ?? 0) > 0
+                ? "border-amber-400/70 text-amber-200 hover:bg-amber-950/30 animate-pulse"
+                : "border-border text-whisper hover:text-ember hover:border-ember"
+            }`}
+            title="The Long Path — your talents"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span className="hidden sm:inline">talents</span>
+            {(profile.talent_points ?? 0) > 0 && (
+              <span className="ml-0.5 px-1 rounded bg-amber-500/30 text-amber-100 text-[10px]">
+                +{profile.talent_points}
+              </span>
+            )}
+          </button>
           <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Weave runes (Lesser & Greater)">
             <Flame className="w-4 h-4" /><span className="hidden sm:inline">runes</span>
           </button>
@@ -1769,6 +1789,7 @@ export default function GameClient({ session }: { session: Session }) {
       <MarketModal open={!!marketMerchant} merchantId={marketMerchant} onClose={() => setMarketMerchant(null)} onChanged={() => { reloadProfile(); reloadInventory(); }} />
       <GuildModal open={!!guildmaster} guildmasterId={guildmaster} onClose={() => setGuildmaster(null)} onChanged={() => { reloadProfile(); reloadInventory(); reloadRunes(); reloadQuestCounts(); }} />
       <ArtifactsPanel open={artifactsOpen} onClose={() => setArtifactsOpen(false)} onChanged={() => { reloadProfile(); }} />
+      <SkillTreeModal open={skillsOpen} onClose={() => setSkillsOpen(false)} userId={profile.id} talentPoints={profile.talent_points ?? 0} onChanged={reloadProfile} />
       <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} onRestarted={() => window.location.reload()} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
