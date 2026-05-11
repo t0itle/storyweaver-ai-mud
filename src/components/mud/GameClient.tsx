@@ -119,6 +119,13 @@ function getTimeBucket(d: Date = new Date()): TimeBucket {
   return "night";
 }
 
+// Shop owners (merchants, fences, guildmasters running a counter) close up
+// for the small hours and aren't present in the room during deepnight.
+function filterNpcsForBucket<T extends { is_merchant?: boolean; is_fence?: boolean; is_guildmaster?: boolean }>(list: T[], bucket: TimeBucket): T[] {
+  if (bucket !== "deepnight") return list;
+  return list.filter((n) => !n.is_merchant && !n.is_fence && !n.is_guildmaster);
+}
+
 export default function GameClient({ session }: { session: Session }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoadFailed, setProfileLoadFailed] = useState(false);
