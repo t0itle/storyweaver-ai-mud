@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
       return json({ error: "You can't make camp here. Find an inn, the road, or the wilds." }, 400);
     }
 
-    const healed = Math.min(profile.max_hp - profile.hp, Math.ceil(profile.max_hp * 0.5));
+    const healed = Math.min(profile.max_hp - profile.hp, Math.ceil(profile.max_hp * 0.5) + restBonus);
     const ambushed = Math.random() < CAMP_AMBUSH_CHANCE;
 
     if (!ambushed) {
