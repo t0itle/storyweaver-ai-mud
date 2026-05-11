@@ -119,6 +119,13 @@ function getTimeBucket(d: Date = new Date()): TimeBucket {
   return "night";
 }
 
+// Shop owners (merchants, fences, guildmasters running a counter) close up
+// for the small hours and aren't present in the room during deepnight.
+function filterNpcsForBucket<T extends { is_merchant?: boolean; is_fence?: boolean; is_guildmaster?: boolean }>(list: T[], bucket: TimeBucket): T[] {
+  if (bucket !== "deepnight") return list;
+  return list.filter((n) => !n.is_merchant && !n.is_fence && !n.is_guildmaster);
+}
+
 export default function GameClient({ session }: { session: Session }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileLoadFailed, setProfileLoadFailed] = useState(false);
@@ -200,6 +207,24 @@ export default function GameClient({ session }: { session: Session }) {
     }, 60000);
     return () => clearInterval(id);
   }, [profile, room]);
+
+  // When the time-of-day flips, re-pull NPCs so shop owners vanish at deepnight
+  // and reappear at dawn without requiring the player to leave and return.
+  useEffect(() => {
+    if (!profile?.current_room) return;
+    const slug = profile.current_room;
+    let cancelled = false;
+    (async () => {
+      const { data: n } = await supabase.from("npcs").select("*").eq("room", slug)
+        .or(`dead_until.is.null,dead_until.lte.${new Date().toISOString()}`);
+      const { data: d } = await supabase.from("player_npc_discoveries")
+        .select("npc_id").eq("user_id", profile.id);
+      const found = new Set((d ?? []).map((x: any) => x.npc_id));
+      if (cancelled) return;
+      setNpcs(filterNpcsForBucket(((n ?? []) as any[]).filter((x: any) => !x.hidden || found.has(x.id)) as Npc[], bucket));
+    })();
+    return () => { cancelled = true; };
+  }, [bucket, profile?.id, profile?.current_room]);
 
   const reloadInventory = async () => {
     const { data } = await supabase.from("player_items")
@@ -379,7 +404,7 @@ export default function GameClient({ session }: { session: Session }) {
         const lines = tagList.map((t) => hintMap[t]).filter(Boolean);
         if (lines.length) hintMsg = localSys(lines.map((l) => `*${l}*`).join("  "));
       }
-      setNpcs((n ?? []) as Npc[]);
+      setNpcs(filterNpcsForBucket((n ?? []) as Npc[], getTimeBucket()));
       setDragons((dr ?? []) as any);
       setRoomEvents((ev ?? []) as any);
       const baseMsgs = ((m ?? []) as Message[]).reverse();
@@ -407,7 +432,7 @@ export default function GameClient({ session }: { session: Session }) {
                 const { data: d2 } = await supabase.from("player_npc_discoveries")
                   .select("npc_id").eq("user_id", profile.id);
                 const found = new Set((d2 ?? []).map((d: any) => d.npc_id));
-                setNpcs(((n2 ?? []) as any[]).filter((x: any) => !x.hidden || found.has(x.id)) as Npc[]);
+                setNpcs(filterNpcsForBucket(((n2 ?? []) as any[]).filter((x: any) => !x.hidden || found.has(x.id)) as Npc[], getTimeBucket()));
               }, 400);
             }
           })
