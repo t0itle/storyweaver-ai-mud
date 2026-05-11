@@ -36,6 +36,19 @@ const STATE_LABEL: Record<WoundState, string> = {
 const STATE_TONE: Record<WoundState, string> = {
   healthy: "text-moss", scratched: "text-parchment", wounded: "text-ember", bloodied: "text-destructive",
 };
+// CSS wound overlay shown instantly while the AI repaint loads in the background.
+const STATE_FILTER: Record<WoundState, string> = {
+  healthy: "none",
+  scratched: "saturate(0.92) contrast(1.03) brightness(0.97)",
+  wounded: "saturate(0.78) contrast(1.08) brightness(0.9) sepia(0.08)",
+  bloodied: "saturate(0.55) contrast(1.15) brightness(0.78) sepia(0.18)",
+};
+const STATE_TINT: Record<WoundState, string> = {
+  healthy: "transparent",
+  scratched: "radial-gradient(ellipse at 50% 80%, hsl(0 70% 25% / 0.12), transparent 60%)",
+  wounded: "radial-gradient(ellipse at 50% 70%, hsl(0 75% 30% / 0.28), transparent 65%), linear-gradient(180deg, transparent 60%, hsl(0 60% 15% / 0.35))",
+  bloodied: "radial-gradient(ellipse at 50% 60%, hsl(0 80% 35% / 0.45), transparent 70%), linear-gradient(180deg, hsl(0 40% 8% / 0.25), hsl(0 70% 12% / 0.55))",
+};
 const KIND_LABEL: Record<string, string> = {
   physical: "blade & fist", fire: "flame", cold: "frost", arcane: "rune-burn",
   shadow: "shadow", holy: "searing light", poison: "venom",
@@ -126,7 +139,9 @@ export function CharacterSheet({
       .finally(() => setVariantLoading(false));
   }, [open, state, kind, profile.portrait_url, variantUrl, variantLoading]);
 
-  const shownPortrait = state === "healthy" ? profile.portrait_url : (variantUrl ?? profile.portrait_url);
+  // Show base portrait instantly with a CSS wound overlay; swap in the AI repaint silently when ready.
+  const usingAiVariant = state !== "healthy" && !!variantUrl;
+  const shownPortrait = usingAiVariant ? variantUrl : profile.portrait_url;
 
   const armor = equipped.reduce((s, i) => s + (i.items.base_armor ?? 0), 0);
   const weapon = findSlot("main_hand");
@@ -154,21 +169,28 @@ export function CharacterSheet({
           <div className="space-y-2">
             <div className="relative aspect-[3/4] w-40 sm:w-full mx-auto bg-card border border-ember/40 overflow-hidden">
               {shownPortrait ? (
-                <img src={shownPortrait} alt={profile.username} className="w-full h-full object-cover transition-opacity duration-500" />
+                <img
+                  src={shownPortrait}
+                  alt={profile.username}
+                  className="w-full h-full object-cover transition-opacity duration-500"
+                  style={usingAiVariant ? undefined : { filter: STATE_FILTER[state] }}
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-ash text-xs italic">no likeness</div>
               )}
-              {variantLoading && (
-                <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center gap-1 text-ash">
-                  <Loader2 className="w-4 h-4 animate-spin text-ember" />
-                  <span className="font-mono text-[9px] uppercase tracking-widest">painting wounds…</span>
-                </div>
+              {!usingAiVariant && state !== "healthy" && (
+                <div className="absolute inset-0 pointer-events-none" style={{ background: STATE_TINT[state] }} />
               )}
               {state !== "healthy" && (
                 <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-background/95 to-transparent px-2 py-1.5 flex items-center gap-1.5">
                   <Droplet className={`w-3 h-3 ${STATE_TONE[state]}`} />
                   <span className={`font-mono text-[10px] uppercase tracking-widest ${STATE_TONE[state]}`}>{STATE_LABEL[state]}</span>
                   <span className="font-mono text-[9px] text-ash ml-auto">by {KIND_LABEL[kind] ?? kind}</span>
+                </div>
+              )}
+              {variantLoading && !usingAiVariant && (
+                <div className="absolute top-1 right-1 bg-background/70 rounded-full p-1" title="painting wounds…">
+                  <Loader2 className="w-3 h-3 animate-spin text-ember" />
                 </div>
               )}
             </div>
