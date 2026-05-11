@@ -528,6 +528,13 @@ Do not mention these tags in your prose.`;
       try { teachKanjiRaw = JSON.parse(teachKanjiMatch[1]); } catch { /* ignore */ }
     }
 
+    // Strip and parse <<PRICE_OFFER>>{...}<<END>> tag (NPC cut a deal on a service)
+    const priceMatch = rawContent.match(/<<PRICE_OFFER>>\s*(\{[\s\S]*?\})\s*<<END>>/);
+    let priceOfferRaw: { service_key?: string; price_gold?: number; reason?: string } | null = null;
+    if (priceMatch) {
+      try { priceOfferRaw = JSON.parse(priceMatch[1]); } catch { /* ignore */ }
+    }
+
     content = rawContent
       .replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<MEMORY>>[\s\S]*?<<END>>\s*/g, "")
@@ -537,6 +544,7 @@ Do not mention these tags in your prose.`;
       .replace(/\s*<<RUMOR>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<TEACH_RUNE>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<TEACH_KANJI>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<PRICE_OFFER>>[\s\S]*?<<END>>\s*/g, "")
       .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
