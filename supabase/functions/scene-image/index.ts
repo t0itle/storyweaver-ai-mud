@@ -153,8 +153,8 @@ Style: painterly brushwork in the spirit of Studio Ghibli backgrounds and Craig 
 
     return json({ image_url: pub.publicUrl, cached: false });
   } catch (e) {
-    console.error(e);
-    return json({ error: e instanceof Error ? e.message : "error" }, 500);
+    console.error("scene-image fatal:", e);
+    return json({ error: e instanceof Error ? e.message : "error", fallback: true }, 200);
   }
 });
 
