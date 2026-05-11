@@ -194,15 +194,6 @@ export function CharacterSheet({
                 </div>
               )}
             </div>
-              )}
-              {state !== "healthy" && (
-                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-background/95 to-transparent px-2 py-1.5 flex items-center gap-1.5">
-                  <Droplet className={`w-3 h-3 ${STATE_TONE[state]}`} />
-                  <span className={`font-mono text-[10px] uppercase tracking-widest ${STATE_TONE[state]}`}>{STATE_LABEL[state]}</span>
-                  <span className="font-mono text-[9px] text-ash ml-auto">by {KIND_LABEL[kind] ?? kind}</span>
-                </div>
-              )}
-            </div>
             <button
               onClick={restyle}
               disabled={restyling}
