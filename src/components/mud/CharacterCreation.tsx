@@ -54,6 +54,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<"direction" | "choose">("direction");
   const [direction, setDirection] = useState<Direction | null>(null);
+  const [name, setName] = useState("");
 
   const buildDescription = (): string => {
     if (!chosen || !gender) return "";
@@ -69,18 +70,25 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   useEffect(() => {
     supabase.from("races").select("*").order("sort_order")
       .then(({ data }) => setRaces((data ?? []) as Race[]));
-  }, []);
+    supabase.from("profiles").select("username").eq("id", session.user.id).maybeSingle()
+      .then(({ data }) => {
+        const u = (data?.username ?? "").trim();
+        // Pre-fill only if it doesn't look like an auto-generated email-prefix name
+        if (u && !/^[a-z0-9.+_-]+$/.test(u)) setName(u);
+      });
+  }, [session.user.id]);
 
   const submit = async () => {
     if (!chosen) { toast.error("Choose a race first."); return; }
     if (!gender) { toast.error("Choose a gender first."); return; }
+    if (name.trim().length < 2) { toast.error("Speak a name — at least two letters."); return; }
     const filled = AD_LIB_FIELDS.filter((f) => (adlib[f.key]?.trim().length ?? 0) >= 2).length;
     if (filled < 3) { toast.error("Fill in at least three details — the pool needs a face."); return; }
     const description = buildDescription();
     setBusy(true);
     try {
       const { error } = await supabase.functions.invoke("create-character", {
-        body: { race_key: chosen.key, description, direction },
+        body: { race_key: chosen.key, description, direction, name: name.trim() },
       });
       if (error) throw error;
 
@@ -184,6 +192,24 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
             {isNorth
               ? "Kneel. Look into the water. Choose your blood, then fit the missing words — the well will paint the rest."
               : "Kneel. Look into the rain-pool. Choose your blood, then fit the missing words — the stone will paint the rest."}
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="font-mono text-[11px] uppercase tracking-widest text-ash">
+            Speak your name {name.trim().length >= 2 && <span className="text-ember normal-case tracking-normal">— {name.trim()} ✓</span>}
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value.slice(0, 32))}
+            disabled={busy}
+            placeholder="e.g. Caelin Ash-walker"
+            maxLength={32}
+            className="w-full bg-card/40 border border-border focus:border-ember outline-none p-2 font-body text-parchment placeholder:text-ash/40 text-sm"
+          />
+          <p className="font-body text-[11px] text-ash/70 italic">
+            {isNorth ? "The Veiled will write this above the gate." : "The desert will whisper this back to you on still nights."}
           </p>
         </div>
 

@@ -29,10 +29,11 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supa.auth.getUser();
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const { race_key, description, direction } = await req.json();
+    const { race_key, description, direction, name } = await req.json();
     if (!race_key || typeof description !== "string" || description.trim().length < 8) {
       return json({ error: "Provide race and a description (min 8 chars)" }, 400);
     }
+    const chosenName = typeof name === "string" ? name.trim().slice(0, 32) : "";
     // Every player wakes on the road just outside the First City's great gate.
     // The chosen direction colours their first journal entry but no longer
     // changes the spawn point.
@@ -86,7 +87,17 @@ Style: painterly brushwork in the spirit of Studio Ghibli character art and Crai
     // Apply HP mod
     const baseMaxHp = 20;
     const newMax = Math.max(8, baseMaxHp + (race.hp_mod ?? 0));
-    const username = String(user.user_metadata?.username ?? user.email?.split("@")[0] ?? "wanderer").trim().slice(0, 32) || "wanderer";
+    let username = (chosenName || String(user.user_metadata?.username ?? user.email?.split("@")[0] ?? "wanderer"))
+      .trim().slice(0, 32) || "wanderer";
+
+    // Ensure uniqueness — append a short suffix from user id if taken by someone else.
+    {
+      const { data: clash } = await admin.from("profiles")
+        .select("id").eq("username", username).neq("id", user.id).maybeSingle();
+      if (clash) {
+        username = `${username}-${user.id.slice(0, 4)}`.slice(0, 32);
+      }
+    }
 
     const { error: updErr } = await admin.from("profiles").upsert({
       id: user.id,
