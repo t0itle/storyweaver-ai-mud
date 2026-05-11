@@ -103,24 +103,39 @@ ${eventsLine}
 
 Style: painterly brushwork in the spirit of Studio Ghibli backgrounds and Craig Mullins — naturalistic colour, believable light, slight grain. Match the palette and mood above; let the location's true character lead the image.`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image-preview",
-        messages: [{ role: "user", content: prompt }],
-        modalities: ["image", "text"],
-      }),
-    });
-    if (aiRes.status === 429) return json({ error: "Too busy" }, 429);
-    if (aiRes.status === 402) return json({ error: "AI credits exhausted" }, 402);
-    if (!aiRes.ok) { console.error("scene-image AI", aiRes.status, await aiRes.text()); return json({ error: "scene gen failed" }, 500); }
-    const rawText = await aiRes.text();
+    async function callImageModel(p: string) {
+      return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash-image",
+          messages: [{ role: "user", content: p }],
+          modalities: ["image", "text"],
+        }),
+      });
+    }
+    let aiRes = await callImageModel(prompt);
+    if (aiRes.status === 429) return json({ error: "Too busy", fallback: true }, 200);
+    if (aiRes.status === 402) return json({ error: "AI credits exhausted", fallback: true }, 200);
+    if (!aiRes.ok) { console.error("scene-image AI", aiRes.status, await aiRes.text()); return json({ error: "scene gen failed", fallback: true }, 200); }
+    let rawText = await aiRes.text();
     let aiData: any;
     try { aiData = JSON.parse(rawText); }
-    catch { console.error("non-JSON AI body:", rawText.slice(0, 300)); return json({ error: "scene gen returned non-JSON" }, 500); }
-    const dataUrl: string | undefined = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    if (!dataUrl?.startsWith("data:image/")) return json({ error: "no image" }, 500);
+    catch { console.error("non-JSON AI body:", rawText.slice(0, 300)); return json({ error: "scene gen returned non-JSON", fallback: true }, 200); }
+    let dataUrl: string | undefined = aiData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    if (!dataUrl?.startsWith("data:image/")) {
+      console.warn("scene-image: no image on first try, retrying once");
+      aiRes = await callImageModel(prompt + "\n\nReturn the painted image only, no text.");
+      if (aiRes.ok) {
+        try {
+          const rd = JSON.parse(await aiRes.text());
+          dataUrl = rd.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+        } catch { /* ignore */ }
+      }
+    }
+    if (!dataUrl?.startsWith("data:image/")) {
+      return json({ error: "no image", fallback: true }, 200);
+    }
 
     const [meta, b64] = dataUrl.split(",");
     const mime = meta.match(/data:(image\/[a-z]+)/)?.[1] ?? "image/png";
