@@ -74,27 +74,35 @@ Deno.serve(async (req) => {
       }
 
       await admin.from("profiles").update({
-        gold: (profile.gold ?? 0) - svc.price_gold,
+        gold: (profile.gold ?? 0) - finalPrice,
         hp: hpAfter,
         last_damage_kind: damageKindAfter,
       }).eq("id", user.id);
 
       await admin.from("npcs").update({
-        purse_gold: (npc.purse_gold ?? 0) + svc.price_gold,
+        purse_gold: (npc.purse_gold ?? 0) + finalPrice,
       }).eq("id", npc_id);
+
+      // Burn the personal offer if we used it.
+      if (offer && finalPrice < svc.price_gold) {
+        await admin.from("npc_service_offers")
+          .update({ used_at: new Date().toISOString() }).eq("id", offer.id);
+      }
 
       await admin.from("world_events").insert({
         kind: "service_paid",
         actor_id: user.id, actor_name: profile.username,
         target_id: npc_id, target_name: npc.name,
         room: npc.room,
-        details: { service: svc.key, name: svc.name, gold: svc.price_gold },
+        details: { service: svc.key, name: svc.name, gold: finalPrice, list: svc.price_gold, discounted: finalPrice < svc.price_gold },
       });
 
       return json({
         ok: true,
-        note,
-        gold_spent: svc.price_gold,
+        note: finalPrice < svc.price_gold
+          ? `${note} (You paid ${finalPrice}g — ${npc.name} held to their word.)`
+          : note,
+        gold_spent: finalPrice,
         hp: hpAfter,
         max_hp: profile.max_hp,
       });
