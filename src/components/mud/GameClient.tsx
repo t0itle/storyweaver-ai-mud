@@ -978,17 +978,19 @@ export default function GameClient({ session }: { session: Session }) {
     } else if (c === "quests" || c === "quest" || c === "tasks") {
       setQuestsOpen(true);
     } else if (c === "accept" || c === "decline" || c === "abandon") {
-      if (!args) { setMessages((m) => [...m, localSys(`${c} which quest? Try "quests" to see your offers.`)]); return; }
       const wantStatus = c === "abandon" ? "active" : "offered";
       const { data: allMatches } = await supabase.from("quests")
         .select("id, title, status")
         .eq("user_id", profile.id)
         .eq("status", wantStatus);
+      const pool = allMatches ?? [];
       const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      const needle = norm(args);
-      const matches = (allMatches ?? []).filter(q => norm(q.title).includes(needle));
+      const needle = norm(args ?? "");
+      // If only one quest is in the requested state, ignore args and act on it.
+      let matches = pool.length === 1 ? pool : pool.filter(q => needle && norm(q.title).includes(needle));
       if (matches.length === 0) {
-        setMessages((m) => [...m, localSys(`No ${wantStatus} quest matches "${args}".`)]); return;
+        if (!args) { setMessages((m) => [...m, localSys(`${c} which quest? Try "quests" to see your offers.`)]); return; }
+        setMessages((m) => [...m, localSys(`No ${wantStatus} quest matches "${args}". You have: ${pool.map(q => q.title).join(" / ") || "none"}.`)]); return;
       }
       if (matches.length > 1) {
         setMessages((m) => [...m, localSys(`Be more specific — could be: ${matches.map(q => q.title).join(" / ")}.`)]); return;
