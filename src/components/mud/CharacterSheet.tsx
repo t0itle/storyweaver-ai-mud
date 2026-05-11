@@ -139,7 +139,9 @@ export function CharacterSheet({
       .finally(() => setVariantLoading(false));
   }, [open, state, kind, profile.portrait_url, variantUrl, variantLoading]);
 
-  const shownPortrait = state === "healthy" ? profile.portrait_url : (variantUrl ?? profile.portrait_url);
+  // Show base portrait instantly with a CSS wound overlay; swap in the AI repaint silently when ready.
+  const usingAiVariant = state !== "healthy" && !!variantUrl;
+  const shownPortrait = usingAiVariant ? variantUrl : profile.portrait_url;
 
   const armor = equipped.reduce((s, i) => s + (i.items.base_armor ?? 0), 0);
   const weapon = findSlot("main_hand");
@@ -167,15 +169,31 @@ export function CharacterSheet({
           <div className="space-y-2">
             <div className="relative aspect-[3/4] w-40 sm:w-full mx-auto bg-card border border-ember/40 overflow-hidden">
               {shownPortrait ? (
-                <img src={shownPortrait} alt={profile.username} className="w-full h-full object-cover transition-opacity duration-500" />
+                <img
+                  src={shownPortrait}
+                  alt={profile.username}
+                  className="w-full h-full object-cover transition-opacity duration-500"
+                  style={usingAiVariant ? undefined : { filter: STATE_FILTER[state] }}
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-ash text-xs italic">no likeness</div>
               )}
-              {variantLoading && (
-                <div className="absolute inset-0 bg-background/70 flex flex-col items-center justify-center gap-1 text-ash">
-                  <Loader2 className="w-4 h-4 animate-spin text-ember" />
-                  <span className="font-mono text-[9px] uppercase tracking-widest">painting wounds…</span>
+              {!usingAiVariant && state !== "healthy" && (
+                <div className="absolute inset-0 pointer-events-none" style={{ background: STATE_TINT[state] }} />
+              )}
+              {state !== "healthy" && (
+                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-background/95 to-transparent px-2 py-1.5 flex items-center gap-1.5">
+                  <Droplet className={`w-3 h-3 ${STATE_TONE[state]}`} />
+                  <span className={`font-mono text-[10px] uppercase tracking-widest ${STATE_TONE[state]}`}>{STATE_LABEL[state]}</span>
+                  <span className="font-mono text-[9px] text-ash ml-auto">by {KIND_LABEL[kind] ?? kind}</span>
                 </div>
+              )}
+              {variantLoading && !usingAiVariant && (
+                <div className="absolute top-1 right-1 bg-background/70 rounded-full p-1" title="painting wounds…">
+                  <Loader2 className="w-3 h-3 animate-spin text-ember" />
+                </div>
+              )}
+            </div>
               )}
               {state !== "healthy" && (
                 <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-background/95 to-transparent px-2 py-1.5 flex items-center gap-1.5">
