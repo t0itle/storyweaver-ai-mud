@@ -93,6 +93,8 @@ const HELP = [
   ["wagon", "hire the wagonmaster (open the fast-travel panel)"],
   ["rest", "sleep at an inn — full heal, costs gold"],
   ["camp", "make camp in the wilds — partial heal, may be ambushed"],
+  ["services", "list services any NPC here will sell you"],
+  ["pay <npc> <service>", "pay an NPC for a service (e.g. pay senna bind)"],
   ["help", "show this list"],
 ];
 
@@ -975,7 +977,51 @@ export default function GameClient({ session }: { session: Session }) {
       } else {
         setWagonOpen(true);
       }
-    } else if (c === "quests" || c === "quest" || c === "tasks") {
+    } else if (c === "services" || c === "service") {
+      // List services across all NPCs in this room. If args, narrow to that NPC.
+      const wantNpcs = args
+        ? npcs.filter((n) => n.name.toLowerCase().includes(args.toLowerCase()))
+        : npcs;
+      if (wantNpcs.length === 0) { setMessages((m) => [...m, localSys("No one here is offering services.")]); return; }
+      const { data: rows } = await supabase.from("npc_services" as any)
+        .select("npc_id, key, name, blurb, price_gold")
+        .in("npc_id", wantNpcs.map((n) => n.id));
+      const byNpc = new Map<string, any[]>();
+      (rows ?? []).forEach((r: any) => {
+        const arr = byNpc.get(r.npc_id) ?? [];
+        arr.push(r); byNpc.set(r.npc_id, arr);
+      });
+      if (byNpc.size === 0) { setMessages((m) => [...m, localSys("No one here is offering services.")]); return; }
+      const lines: string[] = [];
+      for (const n of wantNpcs) {
+        const list = byNpc.get(n.id);
+        if (!list) continue;
+        lines.push(`*${n.name}${n.title ? `, ${n.title}` : ""} offers:*`);
+        for (const s of list) lines.push(`  • **${s.name}** — ${s.price_gold}g  _(${s.blurb})_  [pay ${n.name.split(" ")[0].toLowerCase()} ${s.key.split("-")[0]}]`);
+      }
+      setMessages((m) => [...m, localSys(lines.join("\n"))]);
+    } else if (c === "pay") {
+      const m1 = args.match(/^(\S+)\s+(.+)$/);
+      if (!m1) { setMessages((m) => [...m, localSys('Try: pay <npc> <service>. Example: "pay senna bind".')]); return; }
+      const [, target, svcArg] = m1;
+      const npc = npcs.find((n) => n.name.toLowerCase().startsWith(target.toLowerCase()));
+      if (!npc) { setMessages((m) => [...m, localSys(`No one called "${target}" is here.`)]); return; }
+      const { data: svcRows } = await supabase.from("npc_services" as any)
+        .select("key, name, price_gold").eq("npc_id", npc.id);
+      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      const needle = norm(svcArg);
+      const all = (svcRows ?? []) as any[];
+      const matches = all.filter((s) => norm(s.name).includes(needle) || norm(s.key).includes(needle));
+      if (matches.length === 0) { setMessages((m) => [...m, localSys(`${npc.name} offers no service matching "${svcArg}". Try "services ${target}".`)]); return; }
+      if (matches.length > 1) { setMessages((m) => [...m, localSys(`Be more specific — ${npc.name} offers: ${matches.map((s) => s.name).join(" / ")}.`)]); return; }
+      try {
+        const { data, error } = await supabase.functions.invoke("npc-service", {
+          body: { action: "buy", npc_id: npc.id, service_key: matches[0].key },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        setMessages((mm) => [...mm, localSys(`✦ You hand ${matches[0].price_gold}g to ${npc.name}. ${data.note}`)]);
+        reloadProfile();
+      } catch (e) { toast.error(e instanceof Error ? e.message : "The deal does not take."); }
       setQuestsOpen(true);
     } else if (c === "accept" || c === "decline" || c === "abandon") {
       const wantStatus = c === "abandon" ? "active" : "offered";
