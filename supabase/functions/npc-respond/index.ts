@@ -341,14 +341,13 @@ Deno.serve(async (req) => {
       { name: "INTERRUPTED", desc: "Start one thought, break off mid-sentence with — , then say something else entirely." },
     ]);
     const openingBeat = pick([
-      "Open with a small physical action in *asterisks* before any words.",
       "Open with a question fired back at them, no preamble.",
       "Open mid-thought, as if continuing something they didn't hear you start.",
       "Open with a single word — a name, a curse, a greeting — then a beat, then the rest.",
       "Open with a fragment of a saying, song, prayer, or proverb from your culture.",
       "No greeting. No preamble. Just the answer or the deflection.",
-      "Open by ignoring what they said and commenting on something else — the weather, their boots, a sound outside.",
-      "Open with a long, quiet pause described in *asterisks*.",
+      "Open by commenting on something other than what they said — the weather, a sound outside, an old memory.",
+      "Open with a low murmur — half to yourself, half to them.",
     ]);
     const flavorBeat = pick([
       "Use a sensory detail nobody asked about (a smell, a draft, a distant bell, the taste of the air).",
