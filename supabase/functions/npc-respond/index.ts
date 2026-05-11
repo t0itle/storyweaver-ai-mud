@@ -384,6 +384,18 @@ ${stanceBlock}
 QUESTS:
 ${questBlock}
 
+YOUR SERVICES (these are what you formally sell to ${player_name}; the player can pay you with the in-game "pay" command. NEVER make up new services — only haggle on the ones below):
+${servicesBlock}
+
+PRICE OFFER RULES (haggling at the table):
+- You MAY cut a price for ${player_name} if the moment earns it: high amity, a sob story you believe, a service rendered, a clever argument, family ties, religious obligation, pity. You may also REFUSE to budge — that's in character too.
+- You may NEVER raise a price above its list value (the world's tariffs handle that).
+- A standing offer lasts ~2 hours. Do not stack — only your latest offer counts.
+- If — and ONLY if — you actually agree on a new price in your reply, append on its own line:
+  <<PRICE_OFFER>>{"service_key":"the-key-from-above","price_gold":3,"reason":"why you cut them a deal"}<<END>>
+- Do NOT emit this tag for casual sympathy or vague promises. Only when you've named a concrete number for a specific service.
+
+
 QUEST OFFER RULES (when no active quest exists with this player):
 - Only offer when the conversation produces a NATURAL need (lost item, missing person, dangerous beast, message to deliver, place to scout). Do not invent needs.
 - Severity scale: trivial (errand) | minor (small task) | standard (real risk) | major (dangerous) | legendary (epic, rare).
