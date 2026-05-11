@@ -1068,7 +1068,11 @@ export default function GameClient({ session }: { session: Session }) {
       const m1 = args.match(/^(\S+)(?:\s+(.+))?$/);
       if (!m1) { setMessages((m) => [...m, localSys('Try: buy <npc> [item]. Example: "buy trik longsword".')]); return; }
       const [, target, itemArg] = m1;
-      const npc = npcs.find((n) => n.name.toLowerCase().startsWith(target.toLowerCase()));
+      const t = target.toLowerCase();
+      const npc = npcs.find((n) => {
+        const nm = n.name.toLowerCase();
+        return nm === t || nm.startsWith(t) || nm.split(/\s+/).some(w => w.startsWith(t)) || nm.includes(t);
+      });
       if (!npc) { setMessages((m) => [...m, localSys(`No one called "${target}" is here.`)]); return; }
       const { data: offers } = await supabase.from("npc_item_offers" as any)
         .select("item_key, price_gold, expires_at")
