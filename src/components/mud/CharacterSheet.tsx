@@ -36,6 +36,19 @@ const STATE_LABEL: Record<WoundState, string> = {
 const STATE_TONE: Record<WoundState, string> = {
   healthy: "text-moss", scratched: "text-parchment", wounded: "text-ember", bloodied: "text-destructive",
 };
+// CSS wound overlay shown instantly while the AI repaint loads in the background.
+const STATE_FILTER: Record<WoundState, string> = {
+  healthy: "none",
+  scratched: "saturate(0.92) contrast(1.03) brightness(0.97)",
+  wounded: "saturate(0.78) contrast(1.08) brightness(0.9) sepia(0.08)",
+  bloodied: "saturate(0.55) contrast(1.15) brightness(0.78) sepia(0.18)",
+};
+const STATE_TINT: Record<WoundState, string> = {
+  healthy: "transparent",
+  scratched: "radial-gradient(ellipse at 50% 80%, hsl(0 70% 25% / 0.12), transparent 60%)",
+  wounded: "radial-gradient(ellipse at 50% 70%, hsl(0 75% 30% / 0.28), transparent 65%), linear-gradient(180deg, transparent 60%, hsl(0 60% 15% / 0.35))",
+  bloodied: "radial-gradient(ellipse at 50% 60%, hsl(0 80% 35% / 0.45), transparent 70%), linear-gradient(180deg, hsl(0 40% 8% / 0.25), hsl(0 70% 12% / 0.55))",
+};
 const KIND_LABEL: Record<string, string> = {
   physical: "blade & fist", fire: "flame", cold: "frost", arcane: "rune-burn",
   shadow: "shadow", holy: "searing light", poison: "venom",
