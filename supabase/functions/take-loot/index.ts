@@ -26,6 +26,25 @@ Deno.serve(async (req) => {
     if (!profile) throw new Error("no profile");
     const room = profile.current_room;
 
+    // Charity rooms always have something to give. Refill if empty.
+    // Map of room slug -> { item_key, quantity, source }.
+    const CHARITY: Record<string, { item_key: string; quantity: number; source: string }> = {
+      "breadline": { item_key: "flat-bread", quantity: 1, source: "veiled-charity" },
+    };
+    if (CHARITY[room] && !lootId) {
+      const { data: existing } = await admin.from("room_loot")
+        .select("id").eq("room", room).eq("item_key", CHARITY[room].item_key).limit(1);
+      if (!existing?.length) {
+        await admin.from("room_loot").insert({
+          room, gold: 0,
+          item_key: CHARITY[room].item_key,
+          quantity: CHARITY[room].quantity,
+          source: CHARITY[room].source,
+          placed_by_name: "the Veiled",
+        });
+      }
+    }
+
     // Pull loot rows: a single loot_id, or everything in this room.
     const q = admin.from("room_loot").select("*").eq("room", room);
     const { data: piles } = lootId ? await q.eq("id", lootId) : await q;
