@@ -483,6 +483,8 @@ QUEST_OFFER (optional, ONLY if no active/offered quest exists with this player a
 <<QUEST_OFFER>>{"title":"The Locket of Renn","description":"A short paragraph from your POV.","objective":"Bring me the silver locket from the dunes.","kind":"fetch","severity":"minor","target_kind":"item","target_ref":"silver-locket","rewards":{"gold":15,"xp":25,"amity":4,"item_key":null,"rune_key":null,"kanji_key":null}}<<END>>
 QUEST_RESOLVE (ONLY if there is an ACTIVE QUEST above and you judge ${player_name} has either fulfilled or failed it RIGHT NOW based on what they said/did):
 <<QUEST_RESOLVE>>{"quest_id":"<id from QUEST_ID above>","outcome":"complete|fail|in_progress","note":"brief reason"}<<END>>
+ITEM_OFFER (ONLY when you have actually agreed a price for a specific item from the catalog above — omit otherwise):
+<<ITEM_OFFER>>{"item_key":"pitted-longsword","price_gold":50,"reason":"why you settled on this price"}<<END>>
 PLACES: list any specific named travelable place you mentioned, or [].
 MEMORY: structured markdown summary; importance 1-5; or <<MEMORY>>null<<END>>.
 AMITY: integer delta from -10 to +10. Use 0 for unchanged.
