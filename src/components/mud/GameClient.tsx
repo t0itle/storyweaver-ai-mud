@@ -1062,6 +1062,38 @@ export default function GameClient({ session }: { session: Session }) {
         reloadProfile();
       } catch (e) { toast.error(e instanceof Error ? e.message : "The deal does not take."); }
       setQuestsOpen(true);
+    } else if (c === "buy") {
+      // Buy an item from an NPC against a verbal offer they've made you.
+      const m1 = args.match(/^(\S+)(?:\s+(.+))?$/);
+      if (!m1) { setMessages((m) => [...m, localSys('Try: buy <npc> [item]. Example: "buy trik longsword".')]); return; }
+      const [, target, itemArg] = m1;
+      const npc = npcs.find((n) => n.name.toLowerCase().startsWith(target.toLowerCase()));
+      if (!npc) { setMessages((m) => [...m, localSys(`No one called "${target}" is here.`)]); return; }
+      const { data: offers } = await supabase.from("npc_item_offers" as any)
+        .select("item_key, price_gold, expires_at")
+        .eq("npc_id", npc.id).eq("user_id", profile.id)
+        .is("used_at", null).gt("expires_at", new Date().toISOString());
+      const liveOffers = (offers ?? []) as any[];
+      if (liveOffers.length === 0) { setMessages((m) => [...m, localSys(`${npc.name} hasn't agreed a price with you on any item. Talk it through first.`)]); return; }
+      const { data: itemRows } = await supabase.from("items")
+        .select("key,name").in("key", liveOffers.map(o => o.item_key));
+      const itemNameMap = new Map<string, string>((itemRows ?? []).map((r: any) => [r.key, r.name]));
+      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      let chosen = liveOffers;
+      if (itemArg) {
+        const needle = norm(itemArg);
+        chosen = liveOffers.filter(o => norm(o.item_key).includes(needle) || norm(itemNameMap.get(o.item_key) ?? "").includes(needle));
+      }
+      if (chosen.length === 0) { setMessages((m) => [...m, localSys(`No standing offer from ${npc.name} matches "${itemArg}". Their offers: ${liveOffers.map(o => itemNameMap.get(o.item_key) ?? o.item_key).join(" / ")}.`)]); return; }
+      if (chosen.length > 1) { setMessages((m) => [...m, localSys(`Be specific — ${npc.name} has offered you: ${chosen.map(o => `${itemNameMap.get(o.item_key) ?? o.item_key} (${o.price_gold}g)`).join(" / ")}.`)]); return; }
+      try {
+        const { data, error } = await supabase.functions.invoke("npc-service", {
+          body: { action: "buy_item", npc_id: npc.id, item_key: chosen[0].item_key },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        setMessages((mm) => [...mm, localSys(`✦ ${data.note}`)]);
+        reloadProfile();
+      } catch (e) { toast.error(e instanceof Error ? e.message : "The deal does not take."); }
     } else if (c === "accept" || c === "decline" || c === "abandon") {
       const wantStatus = c === "abandon" ? "active" : "offered";
       const { data: allMatches } = await supabase.from("quests")
