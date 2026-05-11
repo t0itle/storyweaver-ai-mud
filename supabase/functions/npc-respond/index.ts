@@ -759,14 +759,58 @@ Do not mention these tags in your prose.`;
           it = { key: scored[0].c.key, name: scored[0].c.name, value: scored[0].c.value } as any;
         }
       }
-      // 3) last-ditch: ilike search across the catalog by the loose key/name words
+      // 3) last-ditch: ilike across catalog. Bridge hyphens ("longsword"→"long-sword") by also
+      //    splitting common compounds and searching each fragment.
       if (!it) {
-        const tokens = wanted.replace(/[^a-z0-9]+/g, " ").split(" ").filter(t => t.length >= 4);
-        if (tokens.length) {
-          const orParts = tokens.flatMap(t => [`name.ilike.%${t}%`, `key.ilike.%${t}%`]).join(",");
+        const compoundSplits: Record<string, string[]> = {
+          longsword: ["long", "sword"], shortsword: ["short", "sword"],
+          greatsword: ["great", "sword"], broadsword: ["broad", "sword"],
+          warhammer: ["war", "hammer"], battleaxe: ["battle", "axe"],
+          handaxe: ["hand", "axe"], crossbow: ["cross", "bow"],
+          shortbow: ["short", "bow"], longbow: ["long", "bow"],
+        };
+        const baseTokens = wanted.replace(/[^a-z0-9]+/g, " ").split(" ").filter(t => t.length >= 3);
+        const tokens = new Set<string>();
+        for (const t of baseTokens) {
+          if (t.length >= 4) tokens.add(t);
+          for (const [k, parts] of Object.entries(compoundSplits)) {
+            if (t.includes(k)) parts.forEach(p => tokens.add(p));
+          }
+        }
+        if (tokens.size) {
+          const orParts = [...tokens].flatMap(t => [`name.ilike.%${t}%`, `key.ilike.%${t}%`]).join(",");
           const { data: hits } = await admin.from("items")
-            .select("key,name,value").or(orParts).limit(10);
-          if (hits && hits.length) it = hits[0] as any;
+            .select("key,name,value").or(orParts).limit(40);
+          if (hits && hits.length) {
+            // score: count how many of the wanted tokens appear in name+key
+            const scored = hits.map((h: any) => {
+              const hay = `${h.key} ${h.name}`.toLowerCase();
+              let score = 0;
+              for (const t of tokens) if (hay.includes(t)) score++;
+              return { h, score };
+            }).sort((a, b) => b.score - a.score);
+            if (scored[0].score > 0) it = scored[0].h as any;
+          }
+        }
+      }
+      // 4) absolute fallback: synthesize a catalog row so the verbal deal can stand.
+      //    Uses the AI's slug + a generic description; weight=2, value=price_gold.
+      if (!it && wanted) {
+        const synthKey = `npc-offer-${wanted.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48)}`;
+        if (synthKey.length > 10) {
+          const synthName = wanted.replace(/[-_]+/g, " ").trim();
+          const price = Math.max(1, Math.round(Number(itemOfferRaw.price_gold)));
+          const { data: existed } = await admin.from("items")
+            .select("key,name,value").eq("key", synthKey).maybeSingle();
+          if (existed) {
+            it = existed as any;
+          } else {
+            const { data: ins } = await admin.from("items").insert({
+              key: synthKey, name: synthName, slot: "misc", weight: 2,
+              value: price, description: String(itemOfferRaw.reason ?? `A ${synthName} offered by ${npc.name}.`).slice(0, 240),
+            }).select("key,name,value").maybeSingle();
+            if (ins) it = ins as any;
+          }
         }
       }
       if (it) {
