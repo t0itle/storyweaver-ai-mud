@@ -580,6 +580,13 @@ Do not mention these tags in your prose.`;
       try { priceOfferRaw = JSON.parse(priceMatch[1]); } catch { /* ignore */ }
     }
 
+    // Strip and parse <<ITEM_OFFER>>{...}<<END>> tag (NPC offered to sell a specific item)
+    const itemOfferMatch = rawContent.match(/<<ITEM_OFFER>>\s*(\{[\s\S]*?\})\s*<<END>>/);
+    let itemOfferRaw: { item_key?: string; price_gold?: number; reason?: string } | null = null;
+    if (itemOfferMatch) {
+      try { itemOfferRaw = JSON.parse(itemOfferMatch[1]); } catch { /* ignore */ }
+    }
+
     content = rawContent
       .replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<MEMORY>>[\s\S]*?<<END>>\s*/g, "")
@@ -590,6 +597,7 @@ Do not mention these tags in your prose.`;
       .replace(/\s*<<TEACH_RUNE>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<TEACH_KANJI>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<PRICE_OFFER>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<ITEM_OFFER>>[\s\S]*?<<END>>\s*/g, "")
       .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
