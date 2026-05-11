@@ -597,6 +597,11 @@ Do not mention these tags in your prose.`;
       .replace(/\s*<<TEACH_KANJI>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<PRICE_OFFER>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<ITEM_OFFER>>[\s\S]*?<<END>>\s*/g, "")
+      // Strip self-narrated stage directions: *leans on counter*, _sighs_, (smirks)
+      .replace(/(^|\s)[\*_]{1,2}[^*_\n]{1,200}?[\*_]{1,2}(?=\s|[.,!?;:]|$)/g, "$1")
+      .replace(/(^|\s)\([^)\n]{1,200}?\)(?=\s|[.,!?;:]|$)/g, "$1")
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
       .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
