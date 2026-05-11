@@ -738,7 +738,31 @@ Do not mention these tags in your prose.`;
       }
     }
 
-    // ── Persist quest offer (if any, and if no existing offered/active with this NPC) ──
+    // ── Persist NPC's personal item offer for this player ──
+    let itemOfferPersisted: { item_key: string; item_name: string; price_gold: number; reason: string } | null = null;
+    if (itemOfferRaw?.item_key && Number.isFinite(Number(itemOfferRaw.price_gold))) {
+      const { data: it } = await admin.from("items")
+        .select("key,name,value").eq("key", String(itemOfferRaw.item_key)).maybeSingle();
+      if (it) {
+        // Floor: half catalog value (rounded up), min 1g. NPCs may charge above value.
+        const floor = Math.max(1, Math.ceil((it.value ?? 0) / 2));
+        const proposed = Math.round(Number(itemOfferRaw.price_gold));
+        const clamped = Math.max(floor, proposed);
+        await admin.from("npc_item_offers")
+          .update({ used_at: new Date().toISOString() })
+          .eq("npc_id", npc.id).eq("user_id", user.id)
+          .eq("item_key", it.key).is("used_at", null);
+        await admin.from("npc_item_offers").insert({
+          npc_id: npc.id, user_id: user.id, item_key: it.key,
+          price_gold: clamped, reason: String(itemOfferRaw.reason ?? "").slice(0, 200),
+        });
+        itemOfferPersisted = {
+          item_key: it.key, item_name: it.name,
+          price_gold: clamped, reason: String(itemOfferRaw.reason ?? ""),
+        };
+      }
+    }
+
     let offeredQuest: any = null;
     const validKinds = new Set(["fetch","deliver","slay","visit","talk","favor"]);
     const validSeverities = new Set(["trivial","minor","standard","major","legendary"]);
