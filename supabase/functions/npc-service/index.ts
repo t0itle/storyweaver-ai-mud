@@ -19,7 +19,7 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supa.auth.getUser();
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const { action, npc_id, service_key } = await req.json();
+    const { action, npc_id, service_key, item_key } = await req.json();
     if (!action || !npc_id) return json({ error: "action and npc_id required" }, 400);
 
     const { data: npc } = await admin.from("npcs")
