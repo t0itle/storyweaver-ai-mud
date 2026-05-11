@@ -49,6 +49,10 @@ export function useSceneMusic(kind: string | null | undefined, bucket: string | 
         a.loop = true;
         a.volume = 0.35;
         a.muted = muted;
+        // Safety net: some browsers won't honor loop on data:audio/mpeg streams.
+        a.addEventListener("ended", () => {
+          try { a.currentTime = 0; a.play().catch(() => {}); } catch { /* ignore */ }
+        });
         audioRef.current = a;
         currentKeyRef.current = realKey;
         a.play().catch(() => { /* needs user gesture on first load */ });
