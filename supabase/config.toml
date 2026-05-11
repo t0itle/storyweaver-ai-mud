@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.world-tick]
 verify_jwt = false
+
+[functions.intro-narration]
+verify_jwt = false
