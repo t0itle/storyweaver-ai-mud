@@ -70,7 +70,13 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   useEffect(() => {
     supabase.from("races").select("*").order("sort_order")
       .then(({ data }) => setRaces((data ?? []) as Race[]));
-  }, []);
+    supabase.from("profiles").select("username").eq("id", session.user.id).maybeSingle()
+      .then(({ data }) => {
+        const u = (data?.username ?? "").trim();
+        // Pre-fill only if it doesn't look like an auto-generated email-prefix name
+        if (u && !/^[a-z0-9.+_-]+$/.test(u)) setName(u);
+      });
+  }, [session.user.id]);
 
   const submit = async () => {
     if (!chosen) { toast.error("Choose a race first."); return; }
