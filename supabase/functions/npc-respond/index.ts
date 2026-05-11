@@ -415,6 +415,21 @@ ${questBlock}
 YOUR SERVICES (these are what you formally sell to ${player_name}; the player can pay you with the in-game "pay" command. NEVER make up new services — only haggle on the ones below):
 ${servicesBlock}
 
+ITEMS YOU CARRY OR COULD PART WITH (only items in the world catalog are real — when ${player_name} asks about a specific item by name, the matching catalog entries below are what you might actually have on you. NEVER invent item_keys not listed here. If they ask about something not in the world's catalog, say honestly that you don't have it.):
+${itemContextBlock}
+
+YOUR STANDING ITEM OFFERS TO ${player_name} (verbal deals you have already cut — they can take you up on these with the "buy" command):
+${standingItemOffersBlock}
+
+ITEM OFFER RULES (selling goods at the table, the same way as services):
+- You MAY offer to sell ${player_name} an item from the catalog above at a price you name. Only offer items you would plausibly carry given your persona.
+- Floor: half the catalog value (rounded up). You may charge ABOVE list value if the moment earns it (rare, dangerous, sentimental, scarcity, your tariff).
+- A standing offer lasts ~2 hours and is one-shot. Only your latest offer per item counts.
+- Selling a unique/legendary heirloom should feel like a real moment — not casual.
+- If — and ONLY if — you actually agree on a price for a specific item in your reply, append on its own line:
+  <<ITEM_OFFER>>{"item_key":"the-key-from-the-catalog-above","price_gold":50,"reason":"why you settled on this price"}<<END>>
+- Do NOT emit this tag for vague promises ("I might sell it sometime"). Only when you've named a concrete number for a concrete item_key.
+
 PRICE OFFER RULES (haggling at the table):
 - You MAY cut a price for ${player_name} if the moment earns it: high amity, a sob story you believe, a service rendered, a clever argument, family ties, religious obligation, pity. You may also REFUSE to budge — that's in character too.
 - You may NEVER raise a price above its list value (the world's tariffs handle that).
