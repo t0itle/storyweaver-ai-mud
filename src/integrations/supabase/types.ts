@@ -841,6 +841,42 @@ export type Database = {
         }
         Relationships: []
       }
+      npc_service_offers: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          npc_id: string
+          price_gold: number
+          reason: string
+          service_key: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          npc_id: string
+          price_gold: number
+          reason?: string
+          service_key: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          npc_id?: string
+          price_gold?: number
+          reason?: string
+          service_key?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       npc_services: {
         Row: {
           amount: number

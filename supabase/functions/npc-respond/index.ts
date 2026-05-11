@@ -255,6 +255,25 @@ Deno.serve(async (req) => {
       ? `(You have already offered "${pendingOffer.title}" but they haven't yet accepted. Do not offer another quest.)`
       : `(No active quests with this player. You MAY offer one if a need arises naturally — but only ONE per reply, and only if it fits the moment.)`;
 
+    // ── Services this NPC sells, and any active personal price-offers for THIS player ──
+    const { data: npcServices } = await supabase.from("npc_services")
+      .select("key, name, blurb, kind, price_gold").eq("npc_id", npc_id);
+    const { data: liveOffers } = await supabase.from("npc_service_offers")
+      .select("service_key, price_gold, expires_at")
+      .eq("npc_id", npc_id).eq("user_id", user.id)
+      .is("used_at", null).gt("expires_at", new Date().toISOString());
+    const offerByKey = new Map<string, number>();
+    for (const o of (liveOffers ?? [])) offerByKey.set(o.service_key, o.price_gold);
+    const servicesBlock = (npcServices ?? []).length
+      ? (npcServices ?? []).map((s: any) => {
+          const cur = offerByKey.get(s.key);
+          const priceLine = cur != null && cur < s.price_gold
+            ? `list ${s.price_gold}g, your standing offer to them: **${cur}g**`
+            : `${s.price_gold}g`;
+          return `- key:${s.key} | "${s.name}" — ${priceLine} — ${s.blurb}`;
+        }).join("\n")
+      : "(you sell no formal services)";
+
     const otherPlayers = (presentPlayers ?? []).filter((p: any) => p.id !== user.id);
     const otherNpcs = (presentNpcs ?? []).filter((n: any) => n.id !== npc_id);
     const presentBlock = [
@@ -364,6 +383,18 @@ ${stanceBlock}
 
 QUESTS:
 ${questBlock}
+
+YOUR SERVICES (these are what you formally sell to ${player_name}; the player can pay you with the in-game "pay" command. NEVER make up new services — only haggle on the ones below):
+${servicesBlock}
+
+PRICE OFFER RULES (haggling at the table):
+- You MAY cut a price for ${player_name} if the moment earns it: high amity, a sob story you believe, a service rendered, a clever argument, family ties, religious obligation, pity. You may also REFUSE to budge — that's in character too.
+- You may NEVER raise a price above its list value (the world's tariffs handle that).
+- A standing offer lasts ~2 hours. Do not stack — only your latest offer counts.
+- If — and ONLY if — you actually agree on a new price in your reply, append on its own line:
+  <<PRICE_OFFER>>{"service_key":"the-key-from-above","price_gold":3,"reason":"why you cut them a deal"}<<END>>
+- Do NOT emit this tag for casual sympathy or vague promises. Only when you've named a concrete number for a specific service.
+
 
 QUEST OFFER RULES (when no active quest exists with this player):
 - Only offer when the conversation produces a NATURAL need (lost item, missing person, dangerous beast, message to deliver, place to scout). Do not invent needs.
@@ -497,6 +528,13 @@ Do not mention these tags in your prose.`;
       try { teachKanjiRaw = JSON.parse(teachKanjiMatch[1]); } catch { /* ignore */ }
     }
 
+    // Strip and parse <<PRICE_OFFER>>{...}<<END>> tag (NPC cut a deal on a service)
+    const priceMatch = rawContent.match(/<<PRICE_OFFER>>\s*(\{[\s\S]*?\})\s*<<END>>/);
+    let priceOfferRaw: { service_key?: string; price_gold?: number; reason?: string } | null = null;
+    if (priceMatch) {
+      try { priceOfferRaw = JSON.parse(priceMatch[1]); } catch { /* ignore */ }
+    }
+
     content = rawContent
       .replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<MEMORY>>[\s\S]*?<<END>>\s*/g, "")
@@ -506,6 +544,7 @@ Do not mention these tags in your prose.`;
       .replace(/\s*<<RUMOR>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<TEACH_RUNE>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<TEACH_KANJI>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<PRICE_OFFER>>[\s\S]*?<<END>>\s*/g, "")
       .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
@@ -619,6 +658,33 @@ Do not mention these tags in your prose.`;
       );
     }
 
+    // ── Persist NPC's personal price offer for this player on a service ──
+    let priceOfferPersisted: { service_key: string; service_name: string; price_gold: number; reason: string } | null = null;
+    if (priceOfferRaw?.service_key && Number.isFinite(Number(priceOfferRaw.price_gold))) {
+      const svc = (npcServices ?? []).find((s: any) => s.key === priceOfferRaw!.service_key);
+      if (svc) {
+        // Floor: half list (rounded up), min 1g. Cap: list price.
+        const floor = Math.max(1, Math.ceil(svc.price_gold / 2));
+        const proposed = Math.round(Number(priceOfferRaw.price_gold));
+        const clamped = Math.max(floor, Math.min(svc.price_gold, proposed));
+        if (clamped < svc.price_gold) {
+          // Invalidate prior unused offers on this service for this player.
+          await admin.from("npc_service_offers")
+            .update({ used_at: new Date().toISOString() })
+            .eq("npc_id", npc.id).eq("user_id", user.id)
+            .eq("service_key", svc.key).is("used_at", null);
+          await admin.from("npc_service_offers").insert({
+            npc_id: npc.id, user_id: user.id, service_key: svc.key,
+            price_gold: clamped, reason: String(priceOfferRaw.reason ?? "").slice(0, 200),
+          });
+          priceOfferPersisted = {
+            service_key: svc.key, service_name: svc.name,
+            price_gold: clamped, reason: String(priceOfferRaw.reason ?? ""),
+          };
+        }
+      }
+    }
+
     // ── Persist quest offer (if any, and if no existing offered/active with this NPC) ──
     let offeredQuest: any = null;
     const validKinds = new Set(["fetch","deliver","slay","visit","talk","favor"]);
@@ -679,6 +745,7 @@ Do not mention these tags in your prose.`;
       amity: { score: newScore, word: amityWord(newScore) },
       quest_offer: offeredQuest, quest_resolution: questResolution,
       artifact_rumor: rumorPersisted,
+      price_offer: priceOfferPersisted,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);

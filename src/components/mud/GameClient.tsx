@@ -967,6 +967,11 @@ export default function GameClient({ session }: { session: Session }) {
           const r = data.artifact_rumor;
           toast(`${r.glyph} A whisper of ${r.name}…`, { description: r.snippet });
         }
+        if (data?.price_offer) {
+          const p = data.price_offer;
+          toast.success(`✦ ${npc.name} cuts you a deal: ${p.service_name} for ${p.price_gold}g`, { description: "Use the pay command within 2 hours." });
+          setMessages((mm) => [...mm, localSys(`✦ ${npc.name} agrees: **${p.service_name}** for **${p.price_gold}g** (good for ~2h). Use \`pay ${npc.name.split(" ")[0].toLowerCase()} ${p.service_key.split("-")[0]}\`.`)]);
+        }
         // NPCs may name places — but the world is fixed. We no longer auto-create rooms.
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
