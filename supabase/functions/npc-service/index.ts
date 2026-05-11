@@ -109,9 +109,69 @@ Deno.serve(async (req) => {
     }
 
     if (action === "buy_item") {
-      const { item_key } = await (async () => ({ item_key: (await Promise.resolve((await req.clone?.()) ? null : null)) }))().catch(() => ({ item_key: null }));
-      // re-parse body for item_key (we already consumed once); use a fresh parse pattern:
-      return json({ error: "buy_item must be called via the dedicated path" }, 500);
+      if (!item_key) return json({ error: "item_key required" }, 400);
+
+      // Find an active verbal offer for this item from this NPC to this player.
+      const { data: offer } = await admin.from("npc_item_offers")
+        .select("id, price_gold")
+        .eq("npc_id", npc_id).eq("user_id", user.id).eq("item_key", item_key)
+        .is("used_at", null).gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (!offer) return json({ error: `${npc.name} hasn't agreed a price with you for that.` }, 400);
+
+      const { data: it } = await admin.from("items")
+        .select("key,name,weight,stackable,max_stack").eq("key", item_key).maybeSingle();
+      if (!it) return json({ error: "no such item" }, 404);
+
+      if ((profile.gold ?? 0) < offer.price_gold)
+        return json({ error: `You lack the silver. ${it.name} costs ${offer.price_gold}g.` }, 400);
+
+      // Stack into existing pile if possible (and not over max_stack), else new row.
+      let placed = false;
+      if (it.stackable) {
+        const { data: existing } = await admin.from("player_items")
+          .select("id, quantity").eq("user_id", user.id).eq("item_key", item_key)
+          .is("equipped_slot", null).is("container_id", null)
+          .order("created_at", { ascending: true }).limit(1).maybeSingle();
+        if (existing && (existing.quantity ?? 1) < (it.max_stack ?? 99)) {
+          await admin.from("player_items")
+            .update({ quantity: (existing.quantity ?? 1) + 1 }).eq("id", existing.id);
+          placed = true;
+        }
+      }
+      if (!placed) {
+        await admin.from("player_items").insert({
+          user_id: user.id, item_key, quantity: 1, stolen: false,
+        });
+      }
+
+      await admin.from("profiles").update({
+        gold: (profile.gold ?? 0) - offer.price_gold,
+      }).eq("id", user.id);
+      await admin.from("npcs").update({
+        purse_gold: (npc.purse_gold ?? 0) + offer.price_gold,
+      }).eq("id", npc_id);
+      await admin.from("npc_item_offers")
+        .update({ used_at: new Date().toISOString() }).eq("id", offer.id);
+
+      await admin.from("world_events").insert({
+        kind: "item_bought",
+        actor_id: user.id, actor_name: profile.username,
+        target_id: npc_id, target_name: npc.name,
+        room: npc.room,
+        details: { item_key, item_name: it.name, gold: offer.price_gold },
+      });
+      await admin.from("messages").insert({
+        room: npc.room, author_name: "—", kind: "ambient", user_id: null,
+        content: `*${profile.username} hands ${offer.price_gold}g to ${npc.name}, who passes over **${it.name}**.*`,
+      });
+
+      return json({
+        ok: true,
+        note: `${npc.name} takes your ${offer.price_gold}g and hands you **${it.name}**.`,
+        gold_spent: offer.price_gold,
+        item_name: it.name,
+      });
     }
 
     return json({ error: "unknown action" }, 400);
