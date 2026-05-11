@@ -355,7 +355,7 @@ Deno.serve(async (req) => {
       "Misunderstand one word they used and answer the wrong question on purpose.",
       "Address them by something other than their name (traveler, otherworlder, child, friend, you).",
       "End on a question that hangs in the air.",
-      "End with an action, not words.",
+      "End on a clipped, final-sounding line.",
       "Reference what someone else in the room is doing or not doing.",
       "Use one piece of dialect or an oath specific to your persona.",
       "",
