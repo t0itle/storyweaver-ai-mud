@@ -75,10 +75,10 @@ Deno.serve(async (req) => {
       kind: "wagon_travel",
       actor_name: profile.username, actor_id: user.id,
       target_name: destination, room: destination,
-      details: { from: hub, cost: route.cost_gold },
+      details: { from: hub, cost },
     });
 
-    return new Response(JSON.stringify({ ok: true, destination, cost: route.cost_gold }),
+    return new Response(JSON.stringify({ ok: true, destination, cost }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
