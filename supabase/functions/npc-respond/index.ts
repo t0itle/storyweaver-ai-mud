@@ -823,6 +823,7 @@ Do not mention these tags in your prose.`;
       quest_offer: offeredQuest, quest_resolution: questResolution,
       artifact_rumor: rumorPersisted,
       price_offer: priceOfferPersisted,
+      item_offer: itemOfferPersisted,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
