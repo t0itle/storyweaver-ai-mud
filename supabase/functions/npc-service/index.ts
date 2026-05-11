@@ -45,8 +45,17 @@ Deno.serve(async (req) => {
       if (!service_key) return json({ error: "service_key required" }, 400);
       const svc = (services ?? []).find(s => s.key === service_key);
       if (!svc) return json({ error: "no such service" }, 404);
-      if ((profile.gold ?? 0) < svc.price_gold)
-        return json({ error: `You lack the silver. ${svc.name} costs ${svc.price_gold}g.` }, 400);
+
+      // Honor a personal price-offer if one is currently active and cheaper.
+      const { data: offer } = await admin.from("npc_service_offers")
+        .select("id, price_gold")
+        .eq("npc_id", npc_id).eq("user_id", user.id).eq("service_key", svc.key)
+        .is("used_at", null).gt("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false }).limit(1).maybeSingle();
+      const finalPrice = offer && offer.price_gold < svc.price_gold ? offer.price_gold : svc.price_gold;
+
+      if ((profile.gold ?? 0) < finalPrice)
+        return json({ error: `You lack the silver. ${svc.name} costs ${finalPrice}g.` }, 400);
 
       let note = "";
       let hpAfter = profile.hp;
