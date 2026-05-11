@@ -95,6 +95,7 @@ const HELP = [
   ["camp", "make camp in the wilds — partial heal, may be ambushed"],
   ["services", "list services any NPC here will sell you"],
   ["pay <npc> <service>", "pay an NPC for a service (e.g. pay senna bind)"],
+  ["buy <npc> [item]", "buy an item from an NPC after striking a verbal deal"],
   ["help", "show this list"],
 ];
 
