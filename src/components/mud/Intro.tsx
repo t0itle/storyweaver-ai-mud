@@ -91,6 +91,7 @@ export default function Intro({ onDone }: { onDone: () => void }) {
   const skip = () => {
     if (skipped) return;
     setSkipped(true);
+    audiosRef.current.forEach((a) => { try { a.pause(); a.src = ""; } catch {} });
     onDone();
   };
 
