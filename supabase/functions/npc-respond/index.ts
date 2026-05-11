@@ -745,6 +745,7 @@ Do not mention these tags in your prose.`;
       amity: { score: newScore, word: amityWord(newScore) },
       quest_offer: offeredQuest, quest_resolution: questResolution,
       artifact_rumor: rumorPersisted,
+      price_offer: priceOfferPersisted,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
