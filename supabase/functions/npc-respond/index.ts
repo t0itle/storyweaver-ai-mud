@@ -658,6 +658,33 @@ Do not mention these tags in your prose.`;
       );
     }
 
+    // ── Persist NPC's personal price offer for this player on a service ──
+    let priceOfferPersisted: { service_key: string; service_name: string; price_gold: number; reason: string } | null = null;
+    if (priceOfferRaw?.service_key && Number.isFinite(Number(priceOfferRaw.price_gold))) {
+      const svc = (npcServices ?? []).find((s: any) => s.key === priceOfferRaw!.service_key);
+      if (svc) {
+        // Floor: half list (rounded up), min 1g. Cap: list price.
+        const floor = Math.max(1, Math.ceil(svc.price_gold / 2));
+        const proposed = Math.round(Number(priceOfferRaw.price_gold));
+        const clamped = Math.max(floor, Math.min(svc.price_gold, proposed));
+        if (clamped < svc.price_gold) {
+          // Invalidate prior unused offers on this service for this player.
+          await admin.from("npc_service_offers")
+            .update({ used_at: new Date().toISOString() })
+            .eq("npc_id", npc.id).eq("user_id", user.id)
+            .eq("service_key", svc.key).is("used_at", null);
+          await admin.from("npc_service_offers").insert({
+            npc_id: npc.id, user_id: user.id, service_key: svc.key,
+            price_gold: clamped, reason: String(priceOfferRaw.reason ?? "").slice(0, 200),
+          });
+          priceOfferPersisted = {
+            service_key: svc.key, service_name: svc.name,
+            price_gold: clamped, reason: String(priceOfferRaw.reason ?? ""),
+          };
+        }
+      }
+    }
+
     // ── Persist quest offer (if any, and if no existing offered/active with this NPC) ──
     let offeredQuest: any = null;
     const validKinds = new Set(["fetch","deliver","slay","visit","talk","favor"]);
