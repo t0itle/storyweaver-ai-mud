@@ -108,6 +108,12 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "buy_item") {
+      const { item_key } = await (async () => ({ item_key: (await Promise.resolve((await req.clone?.()) ? null : null)) }))().catch(() => ({ item_key: null }));
+      // re-parse body for item_key (we already consumed once); use a fresh parse pattern:
+      return json({ error: "buy_item must be called via the dedicated path" }, 500);
+    }
+
     return json({ error: "unknown action" }, 400);
   } catch (e) {
     console.error(e);
