@@ -208,6 +208,24 @@ export default function GameClient({ session }: { session: Session }) {
     return () => clearInterval(id);
   }, [profile, room]);
 
+  // When the time-of-day flips, re-pull NPCs so shop owners vanish at deepnight
+  // and reappear at dawn without requiring the player to leave and return.
+  useEffect(() => {
+    if (!profile?.current_room) return;
+    const slug = profile.current_room;
+    let cancelled = false;
+    (async () => {
+      const { data: n } = await supabase.from("npcs").select("*").eq("room", slug)
+        .or(`dead_until.is.null,dead_until.lte.${new Date().toISOString()}`);
+      const { data: d } = await supabase.from("player_npc_discoveries")
+        .select("npc_id").eq("user_id", profile.id);
+      const found = new Set((d ?? []).map((x: any) => x.npc_id));
+      if (cancelled) return;
+      setNpcs(filterNpcsForBucket(((n ?? []) as any[]).filter((x: any) => !x.hidden || found.has(x.id)) as Npc[], bucket));
+    })();
+    return () => { cancelled = true; };
+  }, [bucket, profile?.id, profile?.current_room]);
+
   const reloadInventory = async () => {
     const { data } = await supabase.from("player_items")
       .select("*, items(*), item_runes(*, runes(*))")
