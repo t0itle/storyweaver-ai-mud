@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -273,6 +273,35 @@ export default function GameClient({ session }: { session: Session }) {
     const timeout = window.setTimeout(() => setProfileLoadFailed(true), 5000);
     return () => window.clearTimeout(timeout);
   }, [profile]);
+
+  // Wound-state portrait variant for HUD (auto-fetches when hurt)
+  const woundState = useMemo<"healthy" | "scratched" | "wounded" | "bloodied">(() => {
+    if (!profile) return "healthy";
+    const pct = profile.max_hp > 0 ? profile.hp / profile.max_hp : 1;
+    if (pct >= 0.75) return "healthy";
+    if (pct >= 0.5) return "scratched";
+    if (pct >= 0.25) return "wounded";
+    return "bloodied";
+  }, [profile?.hp, profile?.max_hp]);
+  const woundKind = (profile as any)?.last_damage_kind ?? "physical";
+  const woundCacheKey = `${woundState}:${woundKind}`;
+  const cachedWoundPortrait: string | null =
+    woundState === "healthy" ? null : ((profile as any)?.portrait_variants ?? {})[woundCacheKey] ?? null;
+  const hudPortrait = cachedWoundPortrait ?? profile?.portrait_url ?? null;
+  useEffect(() => {
+    if (!profile?.portrait_url || woundState === "healthy" || cachedWoundPortrait) return;
+    let cancelled = false;
+    supabase.functions.invoke("portrait-state-variant", { body: { state: woundState, kind: woundKind } })
+      .then(({ data }) => {
+        if (cancelled || !data?.portrait_url) return;
+        setProfile((p: any) => p ? {
+          ...p,
+          portrait_variants: { ...(p.portrait_variants ?? {}), [woundCacheKey]: data.portrait_url },
+        } : p);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [profile?.portrait_url, woundState, woundKind, woundCacheKey, cachedWoundPortrait]);
 
   // Corpses in this room (dead players you could potentially revive)
   useEffect(() => {
@@ -1377,8 +1406,8 @@ export default function GameClient({ session }: { session: Session }) {
             className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 text-left group"
             title="Open character sheet"
           >
-            {profile.portrait_url ? (
-              <img src={profile.portrait_url} alt={profile.username}
+            {hudPortrait ? (
+              <img src={hudPortrait} alt={profile.username}
                 className="w-8 h-8 sm:w-10 sm:h-10 object-cover border border-ember/60 rounded-sm shrink-0 group-hover:border-ember transition-colors" />
             ) : (
               <Flame className="w-5 h-5 text-ember ember-flicker shrink-0" />
