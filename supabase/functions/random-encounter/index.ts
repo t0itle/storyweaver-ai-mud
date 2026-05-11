@@ -92,9 +92,11 @@ Deno.serve(async (req) => {
     const { room } = await req.json();
     if (!room || typeof room !== "string") return json({ error: "room required" }, 400);
 
-    const { data: roomRow } = await admin.from("rooms").select("slug, kind, name").eq("slug", room).maybeSingle();
+    const { data: roomRow } = await admin.from("rooms").select("slug, kind, name, town_key").eq("slug", room).maybeSingle();
     if (!roomRow) return json({ ok: false, reason: "no-room" });
     if (!ELIGIBLE_KINDS.has(roomRow.kind)) return json({ ok: false, reason: "biome" });
+    // City walls keep the wilds out — guards and other players can still strike.
+    if (roomRow.town_key) return json({ ok: false, reason: "in-city" });
 
     const { data: profile } = await admin.from("profiles")
       .select("username, last_encounter_at, in_combat_id, downed, dead, gold, xp")
