@@ -805,9 +805,30 @@ Do not mention these tags in your prose.`;
           if (existed) {
             it = existed as any;
           } else {
+            // Infer slot + base stats from the item name so the verbal deal
+            // can actually be equipped/used after purchase.
+            const lname = synthName.toLowerCase();
+            const has = (...ws: string[]) => ws.some(w => lname.includes(w));
+            let slot = "misc";
+            let base_damage = 0;
+            let base_armor = 0;
+            let heal_amount = 0;
+            if (has("shield", "buckler", "targe")) { slot = "off_hand"; base_armor = 2; }
+            else if (has("sword", "blade", "axe", "mace", "hammer", "spear", "dagger", "knife", "club", "staff", "scimitar", "rapier", "halberd", "glaive", "polearm", "flail", "morningstar", "longsword", "shortsword", "greatsword", "warhammer", "battleaxe", "handaxe", "bow", "crossbow")) {
+              slot = "main_hand"; base_damage = has("great", "long", "war", "battle", "halberd", "glaive") ? 4 : has("dagger", "knife", "hand") ? 2 : 3;
+            }
+            else if (has("helm", "helmet", "cap", "hood", "coif", "circlet", "crown")) { slot = "head"; base_armor = 1; }
+            else if (has("boot", "shoe", "sandal", "greaves")) { slot = "feet"; base_armor = 1; }
+            else if (has("greave", "leggings", "trouser", "pants", "breeches")) { slot = "legs"; base_armor = 1; }
+            else if (has("armor", "armour", "mail", "cuirass", "breastplate", "robe", "tunic", "jerkin", "vest", "hauberk", "plate")) { slot = "body"; base_armor = has("plate", "mail", "cuirass", "breastplate", "hauberk") ? 3 : 2; }
+            else if (has("amulet", "necklace", "pendant", "talisman")) { slot = "neck"; }
+            else if (has("ring", "band", "signet")) { slot = "ring"; }
+            else if (has("focus", "orb", "wand", "rod", "tome")) { slot = "focus"; }
+            else if (has("potion", "elixir", "draught", "tonic", "philter")) { slot = "consumable"; heal_amount = 6; }
             const { data: ins } = await admin.from("items").insert({
-              key: synthKey, name: synthName, slot: "misc", weight: 2,
-              value: price, description: String(itemOfferRaw.reason ?? `A ${synthName} offered by ${npc.name}.`).slice(0, 240),
+              key: synthKey, name: synthName, slot, weight: 2,
+              value: price, base_damage, base_armor, heal_amount,
+              description: String(itemOfferRaw.reason ?? `A ${synthName} offered by ${npc.name}.`).slice(0, 240),
             }).select("key,name,value").maybeSingle();
             if (ins) it = ins as any;
           }
