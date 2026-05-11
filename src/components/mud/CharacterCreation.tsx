@@ -54,6 +54,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<"direction" | "choose">("direction");
   const [direction, setDirection] = useState<Direction | null>(null);
+  const [name, setName] = useState("");
 
   const buildDescription = (): string => {
     if (!chosen || !gender) return "";
