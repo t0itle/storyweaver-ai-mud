@@ -81,12 +81,7 @@ export default function Intro({ onDone }: { onDone: () => void }) {
     audiosRef.current.forEach((a) => { try { a.pause(); a.src = ""; } catch {} });
     audiosRef.current = [];
   }, []);
-      setT(now - startRef.current);
-      raf = requestAnimationFrame(loop);
-    };
-    raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
-  }, []);
+
 
   useEffect(() => {
     if (skipped) return;
