@@ -27,10 +27,60 @@ export default function Intro({ onDone }: { onDone: () => void }) {
   const [skipped, setSkipped] = useState(false);
   const startRef = useRef<number>(performance.now());
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audiosRef = useRef<HTMLAudioElement[]>([]);
+  const playedRef = useRef<Set<number>>(new Set());
+  const versesAudioRef = useRef<{ at: number; url: string }[]>([]);
+
+  // Fetch (and cache) per-verse narration urls once.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.functions.invoke("intro-narration", { body: {} });
+        if (cancelled) return;
+        if (data?.verses?.length) {
+          versesAudioRef.current = data.verses;
+          // Preload
+          data.verses.forEach((v: { at: number; url: string }) => {
+            const a = new Audio(v.url);
+            a.preload = "auto";
+            a.volume = 0.95;
+            audiosRef.current.push(a);
+          });
+        }
+      } catch { /* ignore — intro still plays silently */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let raf = 0;
     const loop = (now: number) => {
+      setT(now - startRef.current);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Trigger each verse's audio at its `at` ms.
+  useEffect(() => {
+    const list = versesAudioRef.current;
+    if (!list.length) return;
+    list.forEach((v, i) => {
+      if (!playedRef.current.has(i) && t >= v.at) {
+        playedRef.current.add(i);
+        const a = audiosRef.current[i];
+        if (a) a.play().catch(() => { /* gesture needed */ });
+      }
+    });
+  }, [t]);
+
+  // Stop all audio on unmount/skip.
+  useEffect(() => () => {
+    audiosRef.current.forEach((a) => { try { a.pause(); a.src = ""; } catch {} });
+    audiosRef.current = [];
+  }, []);
       setT(now - startRef.current);
       raf = requestAnimationFrame(loop);
     };
