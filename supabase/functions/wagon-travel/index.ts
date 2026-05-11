@@ -42,15 +42,20 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "You have never set foot there. Walk it first." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    if ((profile.gold ?? 0) < route.cost_gold) {
-      return new Response(JSON.stringify({ error: `The wagonmaster wants ${route.cost_gold}g; you have ${profile.gold ?? 0}g.` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // Skill: Map-Sense — 20% wagon discount.
+    const { data: mapSense } = await admin.from("player_skills")
+      .select("node_key").eq("user_id", user.id).eq("node_key", "map_sense").maybeSingle();
+    const cost = mapSense ? Math.max(1, Math.ceil(route.cost_gold * 0.8)) : route.cost_gold;
+
+    if ((profile.gold ?? 0) < cost) {
+      return new Response(JSON.stringify({ error: `The wagonmaster wants ${cost}g; you have ${profile.gold ?? 0}g.` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { data: destRoom } = await admin.from("rooms").select("name").eq("slug", destination).maybeSingle();
     const destName = destRoom?.name ?? destination;
 
     await admin.from("profiles").update({
-      gold: profile.gold - route.cost_gold,
+      gold: profile.gold - cost,
       current_room: destination,
     }).eq("id", user.id);
 
