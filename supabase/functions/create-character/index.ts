@@ -29,10 +29,11 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supa.auth.getUser();
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const { race_key, description, direction } = await req.json();
+    const { race_key, description, direction, name } = await req.json();
     if (!race_key || typeof description !== "string" || description.trim().length < 8) {
       return json({ error: "Provide race and a description (min 8 chars)" }, 400);
     }
+    const chosenName = typeof name === "string" ? name.trim().slice(0, 32) : "";
     // Every player wakes on the road just outside the First City's great gate.
     // The chosen direction colours their first journal entry but no longer
     // changes the spawn point.
