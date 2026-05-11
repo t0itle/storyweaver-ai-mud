@@ -54,9 +54,15 @@ Subject: ${race?.visual_traits ?? "a wanderer"}.
 Self-description: ${desc}
 
 Currently worn & wielded:
-${gearLines || "- nothing equipped (only bare cloth or skin)"}
+${gearLines || "- nothing equipped"}
 
-Render visible armor pieces, weapons in hand, cloaks, helms etc. exactly as listed. If a slot is empty, do not invent gear for it. Painterly fantasy concept art, parchment-and-ember palette, dramatic warm rim light, dark backdrop, no text, no logo. Frank Frazetta meets Greg Rutkowski.`;
+CRITICAL CLOTHING RULES:
+- Render ONLY the gear listed above. If a body slot (head / body / legs / feet / cloak) is NOT listed, that area must be visibly bare skin — do NOT invent shirts, tunics, trousers, robes, or coverings to fill in unlisted slots.
+- A bare body slot means the actual flesh is shown: bare arms, bare chest, bare legs, bare feet — whatever the missing slot would have covered.
+- Modesty floor: regardless of what is unequipped, characters always retain a basic plain undergarment over the groin (a simple loincloth or briefs). Female-presenting characters additionally retain a basic plain band/wrap covering the breasts. These undergarments are unadorned, neutral-colored, and never sexualized — they exist only to keep the portrait safe-for-work.
+- Do not add belts, sashes, jewelry, or accessories that are not in the equipment list.
+
+Painterly fantasy concept art, parchment-and-ember palette, dramatic warm rim light, dark backdrop, no text, no logo. Frank Frazetta meets Greg Rutkowski. Tasteful, non-sexualized, heroic framing.`;
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
