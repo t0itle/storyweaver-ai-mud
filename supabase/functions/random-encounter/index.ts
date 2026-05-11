@@ -177,14 +177,40 @@ Deno.serve(async (req) => {
             name: npc!.name, hp: npcMax, max_hp: npcMax,
             initiative: npcInit, turn_order: npcFirst ? 0 : 1 },
         ]).select("id, turn_order");
-        const first = (combatants ?? []).sort((a: any, b: any) => a.turn_order - b.turn_order)[0];
-        await admin.from("combats").update({ current_combatant_id: first.id }).eq("id", combat!.id);
+        const ordered = (combatants ?? []).sort((a: any, b: any) => a.turn_order - b.turn_order);
+        const playerCombatant = ordered.find((c: any) => c.turn_order === (npcFirst ? 1 : 0))!;
+        const npcCombatant = ordered.find((c: any) => c.turn_order === (npcFirst ? 0 : 1))!;
         await admin.from("profiles").update({ in_combat_id: combat!.id, last_encounter_at: now }).eq("id", user.id);
         await admin.from("combat_actions").insert({
           combat_id: combat!.id, turn_number: 1, actor_id: null,
           actor_name: npc!.name, action: "system", target_name: prof2?.username ?? "you",
           text: `${npc!.name} springs the ambush!`, damage: 0,
         });
+
+        // If the NPC won initiative, resolve their opening strike inline so the
+        // player isn't stuck waiting for an NPC turn that nothing drives.
+        if (npcFirst) {
+          const dmg = Math.max(1, 2 + SR(4));
+          const newHp = Math.max(0, playerHp - dmg);
+          const downed = newHp <= 0;
+          await admin.from("combatants").update({ hp: newHp, defeated: downed }).eq("id", playerCombatant.id);
+          await admin.from("profiles").update({
+            hp: newHp, last_damage_kind: "physical",
+            ...(downed ? { downed: true, downed_at: new Date().toISOString(), downed_combat_id: combat!.id } : {}),
+          }).eq("id", user.id);
+          await admin.from("combat_actions").insert({
+            combat_id: combat!.id, turn_number: 1, actor_id: null,
+            actor_name: npc!.name, action: "attack", target_name: prof2?.username ?? "you",
+            text: `${npc!.name} strikes ${prof2?.username ?? "you"} for ${dmg} damage.${downed ? " You fall!" : ""}`,
+            damage: dmg,
+          });
+          await admin.from("messages").insert({
+            room, user_id: null, author_name: "—", kind: "system",
+            content: `⚔ ${npc!.name} strikes ${prof2?.username ?? "you"} for ${dmg} damage.${downed ? " You fall!" : ""}`,
+          });
+        }
+        // Hand the turn to the player either way.
+        await admin.from("combats").update({ current_combatant_id: playerCombatant.id }).eq("id", combat!.id);
         return json({ ok: true, kind, npc_id: npc?.id, npc_name: npc?.name, combat_id: combat!.id });
       }
       await admin.from("profiles").update({ last_encounter_at: now }).eq("id", user.id);
