@@ -274,6 +274,34 @@ Deno.serve(async (req) => {
         }).join("\n")
       : "(you sell no formal services)";
 
+    // ── Item-for-sale context: surface candidate items when player input mentions item words,
+    //    plus any active personal item offers from this NPC to this player. ──
+    const itemWords = inputLower.match(/[a-z][a-z\-]{2,}/g) ?? [];
+    const itemSearchTerms = [...new Set(itemWords.filter(w => w.length >= 4))].slice(0, 8);
+    let itemCandidates: Array<{ key: string; name: string; slot: string; value: number; description: string }> = [];
+    if (itemSearchTerms.length) {
+      const orParts = itemSearchTerms.flatMap(w => [`name.ilike.%${w}%`, `key.ilike.%${w}%`]).join(",");
+      const { data: hits } = await supabase.from("items")
+        .select("key,name,slot,value,description").or(orParts).limit(20);
+      itemCandidates = hits ?? [];
+    }
+    const { data: liveItemOffers } = await supabase.from("npc_item_offers")
+      .select("item_key, price_gold, expires_at")
+      .eq("npc_id", npc_id).eq("user_id", user.id)
+      .is("used_at", null).gt("expires_at", new Date().toISOString());
+    const itemOfferMap = new Map<string, number>();
+    for (const o of (liveItemOffers ?? [])) itemOfferMap.set(o.item_key, o.price_gold);
+    const itemContextBlock = itemCandidates.length
+      ? itemCandidates.map((it: any) => {
+          const cur = itemOfferMap.get(it.key);
+          const priceLine = cur != null ? `your standing offer to them: **${cur}g** (catalog value ${it.value}g)` : `catalog value ${it.value}g`;
+          return `- key:${it.key} | "${it.name}" (${it.slot}) — ${priceLine} — ${it.description}`;
+        }).join("\n")
+      : "(no specific items in mind right now)";
+    const standingItemOffersBlock = (liveItemOffers ?? []).length
+      ? (liveItemOffers ?? []).map((o: any) => `- ${o.item_key} for **${o.price_gold}g** (good until ${new Date(o.expires_at).toISOString().slice(11,16)} UTC)`).join("\n")
+      : "(none right now)";
+
     const otherPlayers = (presentPlayers ?? []).filter((p: any) => p.id !== user.id);
     const otherNpcs = (presentNpcs ?? []).filter((n: any) => n.id !== npc_id);
     const presentBlock = [
