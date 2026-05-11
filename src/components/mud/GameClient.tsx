@@ -45,6 +45,7 @@ interface Profile {
   downed: boolean; downed_at: string | null; downed_combat_id: string | null;
   dead: boolean; dead_at: string | null; death_room: string | null;
   zombified: boolean; revived_by: string | null; revived_at: string | null;
+  talent_points?: number;
 }
 interface Room {
   slug: string; name: string; description: string;
