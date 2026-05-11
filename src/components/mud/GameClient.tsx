@@ -95,6 +95,7 @@ const HELP = [
   ["camp", "make camp in the wilds — partial heal, may be ambushed"],
   ["services", "list services any NPC here will sell you"],
   ["pay <npc> <service>", "pay an NPC for a service (e.g. pay senna bind)"],
+  ["buy <npc> [item]", "buy an item from an NPC after striking a verbal deal"],
   ["help", "show this list"],
 ];
 
@@ -1001,6 +1002,11 @@ export default function GameClient({ session }: { session: Session }) {
           toast.success(`✦ ${npc.name} cuts you a deal: ${p.service_name} for ${p.price_gold}g`, { description: "Use the pay command within 2 hours." });
           setMessages((mm) => [...mm, localSys(`✦ ${npc.name} agrees: **${p.service_name}** for **${p.price_gold}g** (good for ~2h). Use \`pay ${npc.name.split(" ")[0].toLowerCase()} ${p.service_key.split("-")[0]}\`.`)]);
         }
+        if (data?.item_offer) {
+          const p = data.item_offer;
+          toast.success(`✦ ${npc.name} will sell you ${p.item_name} for ${p.price_gold}g`, { description: "Use the buy command within 2 hours." });
+          setMessages((mm) => [...mm, localSys(`✦ ${npc.name} agrees to sell **${p.item_name}** for **${p.price_gold}g** (good for ~2h). Use \`buy ${npc.name.split(" ")[0].toLowerCase()} ${p.item_key.split("-")[0]}\`.`)]);
+        }
         // NPCs may name places — but the world is fixed. We no longer auto-create rooms.
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
@@ -1057,6 +1063,38 @@ export default function GameClient({ session }: { session: Session }) {
         reloadProfile();
       } catch (e) { toast.error(e instanceof Error ? e.message : "The deal does not take."); }
       setQuestsOpen(true);
+    } else if (c === "buy") {
+      // Buy an item from an NPC against a verbal offer they've made you.
+      const m1 = args.match(/^(\S+)(?:\s+(.+))?$/);
+      if (!m1) { setMessages((m) => [...m, localSys('Try: buy <npc> [item]. Example: "buy trik longsword".')]); return; }
+      const [, target, itemArg] = m1;
+      const npc = npcs.find((n) => n.name.toLowerCase().startsWith(target.toLowerCase()));
+      if (!npc) { setMessages((m) => [...m, localSys(`No one called "${target}" is here.`)]); return; }
+      const { data: offers } = await supabase.from("npc_item_offers" as any)
+        .select("item_key, price_gold, expires_at")
+        .eq("npc_id", npc.id).eq("user_id", profile.id)
+        .is("used_at", null).gt("expires_at", new Date().toISOString());
+      const liveOffers = (offers ?? []) as any[];
+      if (liveOffers.length === 0) { setMessages((m) => [...m, localSys(`${npc.name} hasn't agreed a price with you on any item. Talk it through first.`)]); return; }
+      const { data: itemRows } = await supabase.from("items")
+        .select("key,name").in("key", liveOffers.map(o => o.item_key));
+      const itemNameMap = new Map<string, string>((itemRows ?? []).map((r: any) => [r.key, r.name]));
+      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      let chosen = liveOffers;
+      if (itemArg) {
+        const needle = norm(itemArg);
+        chosen = liveOffers.filter(o => norm(o.item_key).includes(needle) || norm(itemNameMap.get(o.item_key) ?? "").includes(needle));
+      }
+      if (chosen.length === 0) { setMessages((m) => [...m, localSys(`No standing offer from ${npc.name} matches "${itemArg}". Their offers: ${liveOffers.map(o => itemNameMap.get(o.item_key) ?? o.item_key).join(" / ")}.`)]); return; }
+      if (chosen.length > 1) { setMessages((m) => [...m, localSys(`Be specific — ${npc.name} has offered you: ${chosen.map(o => `${itemNameMap.get(o.item_key) ?? o.item_key} (${o.price_gold}g)`).join(" / ")}.`)]); return; }
+      try {
+        const { data, error } = await supabase.functions.invoke("npc-service", {
+          body: { action: "buy_item", npc_id: npc.id, item_key: chosen[0].item_key },
+        });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        setMessages((mm) => [...mm, localSys(`✦ ${data.note}`)]);
+        reloadProfile();
+      } catch (e) { toast.error(e instanceof Error ? e.message : "The deal does not take."); }
     } else if (c === "accept" || c === "decline" || c === "abandon") {
       const wantStatus = c === "abandon" ? "active" : "offered";
       const { data: allMatches } = await supabase.from("quests")

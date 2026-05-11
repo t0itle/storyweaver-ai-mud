@@ -808,6 +808,42 @@ export type Database = {
         }
         Relationships: []
       }
+      npc_item_offers: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          item_key: string
+          npc_id: string
+          price_gold: number
+          reason: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          item_key: string
+          npc_id: string
+          price_gold: number
+          reason?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          item_key?: string
+          npc_id?: string
+          price_gold?: number
+          reason?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       npc_memories: {
         Row: {
           created_at: string

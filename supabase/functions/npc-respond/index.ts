@@ -274,6 +274,34 @@ Deno.serve(async (req) => {
         }).join("\n")
       : "(you sell no formal services)";
 
+    // ── Item-for-sale context: surface candidate items when player input mentions item words,
+    //    plus any active personal item offers from this NPC to this player. ──
+    const itemWords = inputLower.match(/[a-z][a-z\-]{2,}/g) ?? [];
+    const itemSearchTerms = [...new Set(itemWords.filter(w => w.length >= 4))].slice(0, 8);
+    let itemCandidates: Array<{ key: string; name: string; slot: string; value: number; description: string }> = [];
+    if (itemSearchTerms.length) {
+      const orParts = itemSearchTerms.flatMap(w => [`name.ilike.%${w}%`, `key.ilike.%${w}%`]).join(",");
+      const { data: hits } = await supabase.from("items")
+        .select("key,name,slot,value,description").or(orParts).limit(20);
+      itemCandidates = hits ?? [];
+    }
+    const { data: liveItemOffers } = await supabase.from("npc_item_offers")
+      .select("item_key, price_gold, expires_at")
+      .eq("npc_id", npc_id).eq("user_id", user.id)
+      .is("used_at", null).gt("expires_at", new Date().toISOString());
+    const itemOfferMap = new Map<string, number>();
+    for (const o of (liveItemOffers ?? [])) itemOfferMap.set(o.item_key, o.price_gold);
+    const itemContextBlock = itemCandidates.length
+      ? itemCandidates.map((it: any) => {
+          const cur = itemOfferMap.get(it.key);
+          const priceLine = cur != null ? `your standing offer to them: **${cur}g** (catalog value ${it.value}g)` : `catalog value ${it.value}g`;
+          return `- key:${it.key} | "${it.name}" (${it.slot}) — ${priceLine} — ${it.description}`;
+        }).join("\n")
+      : "(no specific items in mind right now)";
+    const standingItemOffersBlock = (liveItemOffers ?? []).length
+      ? (liveItemOffers ?? []).map((o: any) => `- ${o.item_key} for **${o.price_gold}g** (good until ${new Date(o.expires_at).toISOString().slice(11,16)} UTC)`).join("\n")
+      : "(none right now)";
+
     const otherPlayers = (presentPlayers ?? []).filter((p: any) => p.id !== user.id);
     const otherNpcs = (presentNpcs ?? []).filter((n: any) => n.id !== npc_id);
     const presentBlock = [
@@ -387,6 +415,21 @@ ${questBlock}
 YOUR SERVICES (these are what you formally sell to ${player_name}; the player can pay you with the in-game "pay" command. NEVER make up new services — only haggle on the ones below):
 ${servicesBlock}
 
+ITEMS YOU CARRY OR COULD PART WITH (only items in the world catalog are real — when ${player_name} asks about a specific item by name, the matching catalog entries below are what you might actually have on you. NEVER invent item_keys not listed here. If they ask about something not in the world's catalog, say honestly that you don't have it.):
+${itemContextBlock}
+
+YOUR STANDING ITEM OFFERS TO ${player_name} (verbal deals you have already cut — they can take you up on these with the "buy" command):
+${standingItemOffersBlock}
+
+ITEM OFFER RULES (selling goods at the table, the same way as services):
+- You MAY offer to sell ${player_name} an item from the catalog above at a price you name. Only offer items you would plausibly carry given your persona.
+- Floor: half the catalog value (rounded up). You may charge ABOVE list value if the moment earns it (rare, dangerous, sentimental, scarcity, your tariff).
+- A standing offer lasts ~2 hours and is one-shot. Only your latest offer per item counts.
+- Selling a unique/legendary heirloom should feel like a real moment — not casual.
+- If — and ONLY if — you actually agree on a price for a specific item in your reply, append on its own line:
+  <<ITEM_OFFER>>{"item_key":"the-key-from-the-catalog-above","price_gold":50,"reason":"why you settled on this price"}<<END>>
+- Do NOT emit this tag for vague promises ("I might sell it sometime"). Only when you've named a concrete number for a concrete item_key.
+
 PRICE OFFER RULES (haggling at the table):
 - You MAY cut a price for ${player_name} if the moment earns it: high amity, a sob story you believe, a service rendered, a clever argument, family ties, religious obligation, pity. You may also REFUSE to budge — that's in character too.
 - You may NEVER raise a price above its list value (the world's tariffs handle that).
@@ -440,6 +483,8 @@ QUEST_OFFER (optional, ONLY if no active/offered quest exists with this player a
 <<QUEST_OFFER>>{"title":"The Locket of Renn","description":"A short paragraph from your POV.","objective":"Bring me the silver locket from the dunes.","kind":"fetch","severity":"minor","target_kind":"item","target_ref":"silver-locket","rewards":{"gold":15,"xp":25,"amity":4,"item_key":null,"rune_key":null,"kanji_key":null}}<<END>>
 QUEST_RESOLVE (ONLY if there is an ACTIVE QUEST above and you judge ${player_name} has either fulfilled or failed it RIGHT NOW based on what they said/did):
 <<QUEST_RESOLVE>>{"quest_id":"<id from QUEST_ID above>","outcome":"complete|fail|in_progress","note":"brief reason"}<<END>>
+ITEM_OFFER (ONLY when you have actually agreed a price for a specific item from the catalog above — omit otherwise):
+<<ITEM_OFFER>>{"item_key":"pitted-longsword","price_gold":50,"reason":"why you settled on this price"}<<END>>
 PLACES: list any specific named travelable place you mentioned, or [].
 MEMORY: structured markdown summary; importance 1-5; or <<MEMORY>>null<<END>>.
 AMITY: integer delta from -10 to +10. Use 0 for unchanged.
@@ -535,6 +580,13 @@ Do not mention these tags in your prose.`;
       try { priceOfferRaw = JSON.parse(priceMatch[1]); } catch { /* ignore */ }
     }
 
+    // Strip and parse <<ITEM_OFFER>>{...}<<END>> tag (NPC offered to sell a specific item)
+    const itemOfferMatch = rawContent.match(/<<ITEM_OFFER>>\s*(\{[\s\S]*?\})\s*<<END>>/);
+    let itemOfferRaw: { item_key?: string; price_gold?: number; reason?: string } | null = null;
+    if (itemOfferMatch) {
+      try { itemOfferRaw = JSON.parse(itemOfferMatch[1]); } catch { /* ignore */ }
+    }
+
     content = rawContent
       .replace(/\s*<<PLACES>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<MEMORY>>[\s\S]*?<<END>>\s*/g, "")
@@ -545,6 +597,7 @@ Do not mention these tags in your prose.`;
       .replace(/\s*<<TEACH_RUNE>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<TEACH_KANJI>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<PRICE_OFFER>>[\s\S]*?<<END>>\s*/g, "")
+      .replace(/\s*<<ITEM_OFFER>>[\s\S]*?<<END>>\s*/g, "")
       .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
@@ -685,7 +738,31 @@ Do not mention these tags in your prose.`;
       }
     }
 
-    // ── Persist quest offer (if any, and if no existing offered/active with this NPC) ──
+    // ── Persist NPC's personal item offer for this player ──
+    let itemOfferPersisted: { item_key: string; item_name: string; price_gold: number; reason: string } | null = null;
+    if (itemOfferRaw?.item_key && Number.isFinite(Number(itemOfferRaw.price_gold))) {
+      const { data: it } = await admin.from("items")
+        .select("key,name,value").eq("key", String(itemOfferRaw.item_key)).maybeSingle();
+      if (it) {
+        // Floor: half catalog value (rounded up), min 1g. NPCs may charge above value.
+        const floor = Math.max(1, Math.ceil((it.value ?? 0) / 2));
+        const proposed = Math.round(Number(itemOfferRaw.price_gold));
+        const clamped = Math.max(floor, proposed);
+        await admin.from("npc_item_offers")
+          .update({ used_at: new Date().toISOString() })
+          .eq("npc_id", npc.id).eq("user_id", user.id)
+          .eq("item_key", it.key).is("used_at", null);
+        await admin.from("npc_item_offers").insert({
+          npc_id: npc.id, user_id: user.id, item_key: it.key,
+          price_gold: clamped, reason: String(itemOfferRaw.reason ?? "").slice(0, 200),
+        });
+        itemOfferPersisted = {
+          item_key: it.key, item_name: it.name,
+          price_gold: clamped, reason: String(itemOfferRaw.reason ?? ""),
+        };
+      }
+    }
+
     let offeredQuest: any = null;
     const validKinds = new Set(["fetch","deliver","slay","visit","talk","favor"]);
     const validSeverities = new Set(["trivial","minor","standard","major","legendary"]);
@@ -746,6 +823,7 @@ Do not mention these tags in your prose.`;
       quest_offer: offeredQuest, quest_resolution: questResolution,
       artifact_rumor: rumorPersisted,
       price_offer: priceOfferPersisted,
+      item_offer: itemOfferPersisted,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
