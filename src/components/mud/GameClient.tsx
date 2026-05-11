@@ -414,7 +414,7 @@ export default function GameClient({ session }: { session: Session }) {
                 const { data: d2 } = await supabase.from("player_npc_discoveries")
                   .select("npc_id").eq("user_id", profile.id);
                 const found = new Set((d2 ?? []).map((d: any) => d.npc_id));
-                setNpcs(((n2 ?? []) as any[]).filter((x: any) => !x.hidden || found.has(x.id)) as Npc[]);
+                setNpcs(filterNpcsForBucket(((n2 ?? []) as any[]).filter((x: any) => !x.hidden || found.has(x.id)) as Npc[], getTimeBucket()));
               }, 400);
             }
           })
