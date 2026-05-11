@@ -93,6 +93,8 @@ const HELP = [
   ["wagon", "hire the wagonmaster (open the fast-travel panel)"],
   ["rest", "sleep at an inn — full heal, costs gold"],
   ["camp", "make camp in the wilds — partial heal, may be ambushed"],
+  ["services", "list services any NPC here will sell you"],
+  ["pay <npc> <service>", "pay an NPC for a service (e.g. pay senna bind)"],
   ["help", "show this list"],
 ];
 
