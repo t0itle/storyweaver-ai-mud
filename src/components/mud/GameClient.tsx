@@ -274,6 +274,35 @@ export default function GameClient({ session }: { session: Session }) {
     return () => window.clearTimeout(timeout);
   }, [profile]);
 
+  // Wound-state portrait variant for HUD (auto-fetches when hurt)
+  const woundState = useMemo<"healthy" | "scratched" | "wounded" | "bloodied">(() => {
+    if (!profile) return "healthy";
+    const pct = profile.max_hp > 0 ? profile.hp / profile.max_hp : 1;
+    if (pct >= 0.75) return "healthy";
+    if (pct >= 0.5) return "scratched";
+    if (pct >= 0.25) return "wounded";
+    return "bloodied";
+  }, [profile?.hp, profile?.max_hp]);
+  const woundKind = (profile as any)?.last_damage_kind ?? "physical";
+  const woundCacheKey = `${woundState}:${woundKind}`;
+  const cachedWoundPortrait: string | null =
+    woundState === "healthy" ? null : ((profile as any)?.portrait_variants ?? {})[woundCacheKey] ?? null;
+  const hudPortrait = cachedWoundPortrait ?? profile?.portrait_url ?? null;
+  useEffect(() => {
+    if (!profile?.portrait_url || woundState === "healthy" || cachedWoundPortrait) return;
+    let cancelled = false;
+    supabase.functions.invoke("portrait-state-variant", { body: { state: woundState, kind: woundKind } })
+      .then(({ data }) => {
+        if (cancelled || !data?.portrait_url) return;
+        setProfile((p: any) => p ? {
+          ...p,
+          portrait_variants: { ...(p.portrait_variants ?? {}), [woundCacheKey]: data.portrait_url },
+        } : p);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [profile?.portrait_url, woundState, woundKind, woundCacheKey, cachedWoundPortrait]);
+
   // Corpses in this room (dead players you could potentially revive)
   useEffect(() => {
     if (!profile) { setCorpses([]); return; }
