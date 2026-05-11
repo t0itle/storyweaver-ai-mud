@@ -2,6 +2,8 @@
 // Cache key = sha256(room + presence-NPCs + recent player count). Same key reuses image.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
+const SCENE_PROMPT_VERSION = "2026-05-11-no-text-v2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -78,7 +80,7 @@ Deno.serve(async (req) => {
     const mood = pickMood(room);
 
     const npcKey = (npcs ?? []).map((n: any) => n.name).sort().join(",");
-    const cacheKey = await sha256(`${roomSlug}|${npcKey}|${context_extra ?? ""}`);
+    const cacheKey = await sha256(`${SCENE_PROMPT_VERSION}|${roomSlug}|${npcKey}|${context_extra ?? ""}`);
 
     // Check cache
     const { data: cached } = await admin.from("room_scenes")
@@ -93,9 +95,14 @@ Deno.serve(async (req) => {
       ? `Recent events that have visibly altered this place: ${context_extra}. Show those scars on the world — burn marks, broken stone, fresh graves, ash in the air, signs of struggle — woven naturally into the scene.`
       : "";
 
+    const textSafeLine = /underbazaar|market|bazaar|stall|shop/i.test(`${room.slug} ${room.name} ${room.description ?? ""}`)
+      ? "This location must contain zero readable lettering. Every stall sign, hanging placard, label, poster, chalkboard, receipt, coin stamp, crate mark, and inscription must be omitted, turned away, cropped out, blurred into abstract paint, or replaced with blank shapes and pictograms only."
+      : "This location must contain zero readable lettering or symbols that resemble an alphabet.";
+
     const prompt = `Painterly fantasy environment concept art, oil-painted, cinematic wide shot. Palette: ${mood.palette}. Mood: ${mood.mood}. Atmospheric volumetric light, no characters in the foreground. Do NOT default to fire, embers, ash, or grimdark unless the scene explicitly calls for it.
 
 ABSOLUTELY NO TEXT of any kind in the image — no signs, no banners, no shop signage, no painted lettering on walls or stalls, no carved inscriptions, no scrolls with writing, no maps with labels, no runes meant to read as letters, no logos, no watermarks, no captions. If a sign would normally appear, render it as a blank wooden plank or a pictographic symbol only.
+${textSafeLine}
 
 Scene: ${room.name}.
 ${room.description}
