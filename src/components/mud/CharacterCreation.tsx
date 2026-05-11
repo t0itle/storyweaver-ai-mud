@@ -195,6 +195,24 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
           </p>
         </div>
 
+        <div className="space-y-2">
+          <label className="font-mono text-[11px] uppercase tracking-widest text-ash">
+            Speak your name {name.trim().length >= 2 && <span className="text-ember normal-case tracking-normal">— {name.trim()} ✓</span>}
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value.slice(0, 32))}
+            disabled={busy}
+            placeholder="e.g. Caelin Ash-walker"
+            maxLength={32}
+            className="w-full bg-card/40 border border-border focus:border-ember outline-none p-2 font-body text-parchment placeholder:text-ash/40 text-sm"
+          />
+          <p className="font-body text-[11px] text-ash/70 italic">
+            {isNorth ? "The Veiled will write this above the gate." : "The desert will whisper this back to you on still nights."}
+          </p>
+        </div>
+
         <div>
           <div className="font-mono text-[11px] uppercase tracking-widest text-ash mb-2">
             Choose your blood {chosen && <span className="text-ember normal-case tracking-normal">— {chosen.name} chosen ✓</span>}
