@@ -255,6 +255,25 @@ Deno.serve(async (req) => {
       ? `(You have already offered "${pendingOffer.title}" but they haven't yet accepted. Do not offer another quest.)`
       : `(No active quests with this player. You MAY offer one if a need arises naturally — but only ONE per reply, and only if it fits the moment.)`;
 
+    // ── Services this NPC sells, and any active personal price-offers for THIS player ──
+    const { data: npcServices } = await supabase.from("npc_services")
+      .select("key, name, blurb, kind, price_gold").eq("npc_id", npc_id);
+    const { data: liveOffers } = await supabase.from("npc_service_offers")
+      .select("service_key, price_gold, expires_at")
+      .eq("npc_id", npc_id).eq("user_id", user.id)
+      .is("used_at", null).gt("expires_at", new Date().toISOString());
+    const offerByKey = new Map<string, number>();
+    for (const o of (liveOffers ?? [])) offerByKey.set(o.service_key, o.price_gold);
+    const servicesBlock = (npcServices ?? []).length
+      ? (npcServices ?? []).map((s: any) => {
+          const cur = offerByKey.get(s.key);
+          const priceLine = cur != null && cur < s.price_gold
+            ? `list ${s.price_gold}g, your standing offer to them: **${cur}g**`
+            : `${s.price_gold}g`;
+          return `- key:${s.key} | "${s.name}" — ${priceLine} — ${s.blurb}`;
+        }).join("\n")
+      : "(you sell no formal services)";
+
     const otherPlayers = (presentPlayers ?? []).filter((p: any) => p.id !== user.id);
     const otherNpcs = (presentNpcs ?? []).filter((n: any) => n.id !== npc_id);
     const presentBlock = [
