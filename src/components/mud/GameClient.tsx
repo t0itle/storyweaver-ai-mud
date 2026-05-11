@@ -1406,8 +1406,8 @@ export default function GameClient({ session }: { session: Session }) {
             className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 text-left group"
             title="Open character sheet"
           >
-            {profile.portrait_url ? (
-              <img src={profile.portrait_url} alt={profile.username}
+            {hudPortrait ? (
+              <img src={hudPortrait} alt={profile.username}
                 className="w-8 h-8 sm:w-10 sm:h-10 object-cover border border-ember/60 rounded-sm shrink-0 group-hover:border-ember transition-colors" />
             ) : (
               <Flame className="w-5 h-5 text-ember ember-flicker shrink-0" />
