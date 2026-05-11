@@ -741,8 +741,34 @@ Do not mention these tags in your prose.`;
     // ── Persist NPC's personal item offer for this player ──
     let itemOfferPersisted: { item_key: string; item_name: string; price_gold: number; reason: string } | null = null;
     if (itemOfferRaw?.item_key && Number.isFinite(Number(itemOfferRaw.price_gold))) {
-      const { data: it } = await admin.from("items")
-        .select("key,name,value").eq("key", String(itemOfferRaw.item_key)).maybeSingle();
+      const wanted = String(itemOfferRaw.item_key).toLowerCase().trim();
+      // 1) exact key match
+      let { data: it } = await admin.from("items")
+        .select("key,name,value").eq("key", wanted).maybeSingle();
+      // 2) fuzzy: prefer items already surfaced in the prompt context (matched the player's words)
+      if (!it && itemCandidates.length) {
+        const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        const w = norm(wanted);
+        const tokens = w.split(" ").filter(t => t.length >= 3);
+        const scored = itemCandidates.map((c) => {
+          const hay = norm(`${c.key} ${c.name}`);
+          const score = tokens.reduce((s, t) => s + (hay.includes(t) ? 1 : 0), 0);
+          return { c, score };
+        }).sort((a, b) => b.score - a.score);
+        if (scored[0]?.score > 0) {
+          it = { key: scored[0].c.key, name: scored[0].c.name, value: scored[0].c.value } as any;
+        }
+      }
+      // 3) last-ditch: ilike search across the catalog by the loose key/name words
+      if (!it) {
+        const tokens = wanted.replace(/[^a-z0-9]+/g, " ").split(" ").filter(t => t.length >= 4);
+        if (tokens.length) {
+          const orParts = tokens.flatMap(t => [`name.ilike.%${t}%`, `key.ilike.%${t}%`]).join(",");
+          const { data: hits } = await admin.from("items")
+            .select("key,name,value").or(orParts).limit(10);
+          if (hits && hits.length) it = hits[0] as any;
+        }
+      }
       if (it) {
         // Floor: half catalog value (rounded up), min 1g. NPCs may charge above value.
         const floor = Math.max(1, Math.ceil((it.value ?? 0) / 2));
@@ -760,6 +786,8 @@ Do not mention these tags in your prose.`;
           item_key: it.key, item_name: it.name,
           price_gold: clamped, reason: String(itemOfferRaw.reason ?? ""),
         };
+      } else {
+        console.log("[npc-respond] item offer dropped — no item match for:", wanted);
       }
     }
 
