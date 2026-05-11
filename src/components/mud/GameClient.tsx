@@ -386,7 +386,7 @@ export default function GameClient({ session }: { session: Session }) {
         const lines = tagList.map((t) => hintMap[t]).filter(Boolean);
         if (lines.length) hintMsg = localSys(lines.map((l) => `*${l}*`).join("  "));
       }
-      setNpcs((n ?? []) as Npc[]);
+      setNpcs(filterNpcsForBucket((n ?? []) as Npc[], getTimeBucket()));
       setDragons((dr ?? []) as any);
       setRoomEvents((ev ?? []) as any);
       const baseMsgs = ((m ?? []) as Message[]).reverse();
