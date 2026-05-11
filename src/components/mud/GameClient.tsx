@@ -980,13 +980,14 @@ export default function GameClient({ session }: { session: Session }) {
     } else if (c === "accept" || c === "decline" || c === "abandon") {
       if (!args) { setMessages((m) => [...m, localSys(`${c} which quest? Try "quests" to see your offers.`)]); return; }
       const wantStatus = c === "abandon" ? "active" : "offered";
-      const { data: matches } = await supabase.from("quests")
+      const { data: allMatches } = await supabase.from("quests")
         .select("id, title, status")
         .eq("user_id", profile.id)
-        .eq("status", wantStatus)
-        .ilike("title", `%${args.trim()}%`)
-        .limit(2);
-      if (!matches || matches.length === 0) {
+        .eq("status", wantStatus);
+      const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      const needle = norm(args);
+      const matches = (allMatches ?? []).filter(q => norm(q.title).includes(needle));
+      if (matches.length === 0) {
         setMessages((m) => [...m, localSys(`No ${wantStatus} quest matches "${args}".`)]); return;
       }
       if (matches.length > 1) {
