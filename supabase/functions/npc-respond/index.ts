@@ -341,14 +341,13 @@ Deno.serve(async (req) => {
       { name: "INTERRUPTED", desc: "Start one thought, break off mid-sentence with — , then say something else entirely." },
     ]);
     const openingBeat = pick([
-      "Open with a small physical action in *asterisks* before any words.",
       "Open with a question fired back at them, no preamble.",
       "Open mid-thought, as if continuing something they didn't hear you start.",
       "Open with a single word — a name, a curse, a greeting — then a beat, then the rest.",
       "Open with a fragment of a saying, song, prayer, or proverb from your culture.",
       "No greeting. No preamble. Just the answer or the deflection.",
-      "Open by ignoring what they said and commenting on something else — the weather, their boots, a sound outside.",
-      "Open with a long, quiet pause described in *asterisks*.",
+      "Open by commenting on something other than what they said — the weather, a sound outside, an old memory.",
+      "Open with a low murmur — half to yourself, half to them.",
     ]);
     const flavorBeat = pick([
       "Use a sensory detail nobody asked about (a smell, a draft, a distant bell, the taste of the air).",
@@ -356,7 +355,7 @@ Deno.serve(async (req) => {
       "Misunderstand one word they used and answer the wrong question on purpose.",
       "Address them by something other than their name (traveler, otherworlder, child, friend, you).",
       "End on a question that hangs in the air.",
-      "End with an action, not words.",
+      "End on a clipped, final-sounding line.",
       "Reference what someone else in the room is doing or not doing.",
       "Use one piece of dialect or an oath specific to your persona.",
       "",
@@ -459,8 +458,8 @@ STYLE THIS REPLY (rolled fresh — DIFFERENT every turn, do NOT settle into a pa
 
 RULES:
 - Stay strictly in character. Never break the fourth wall, never mention AI, models, or game mechanics. Never speak the amity number aloud — it's an inner feeling.
-- Obey the STYLE THIS REPLY block above. Do NOT default to two evocative paragraphs every time — vary length, vary openings, vary cadence. Sometimes you snap one line. Sometimes you ramble. Sometimes you say almost nothing and just *act*.
-- You may include actions in *asterisks*. A reply may even be MOSTLY an action with a single muttered word.
+- Obey the STYLE THIS REPLY block above. Do NOT default to two evocative paragraphs every time — vary length, vary openings, vary cadence. Sometimes you snap one line. Sometimes you ramble. Sometimes you say almost nothing.
+- SPEAK ONLY. Do NOT narrate your own physical actions, gestures, expressions, or stage directions. No *asterisk actions*, no "she sighs", no "*leans on the counter*", no third-person description of yourself. The player only ever hears your voice — their client renders the room around them. If you want to convey a feeling, put it in your WORDS (a sigh becomes "...hhh. fine."), not in narration.
 - Reference world details naturally — the seven Aethers, the Veiled, the EverBloom in the deep dunes, the Ash Road, the Whispering Wastes — when it fits the conversation. Never lecture or info-dump.
 - React to what ${player_name} just said or did. Lean on YOUR MEMORIES and YOUR FEELING. Pick up old threads, hold grudges, warm to friends.
 - If recent events make you wary of ${player_name}'s race or kind, show it — but stay true to your persona.
@@ -598,6 +597,11 @@ Do not mention these tags in your prose.`;
       .replace(/\s*<<TEACH_KANJI>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<PRICE_OFFER>>[\s\S]*?<<END>>\s*/g, "")
       .replace(/\s*<<ITEM_OFFER>>[\s\S]*?<<END>>\s*/g, "")
+      // Strip self-narrated stage directions: *leans on counter*, _sighs_, (smirks)
+      .replace(/(^|\s)[\*_]{1,2}[^*_\n]{1,200}?[\*_]{1,2}(?=\s|[.,!?;:]|$)/g, "$1")
+      .replace(/(^|\s)\([^)\n]{1,200}?\)(?=\s|[.,!?;:]|$)/g, "$1")
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
       .trim();
 
     // Insert NPC message (user_id null is allowed by RLS)
