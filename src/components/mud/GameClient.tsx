@@ -1794,6 +1794,7 @@ export default function GameClient({ session }: { session: Session }) {
       )}
       {kinOpen && <KinPanel userId={profile.id} onClose={() => setKinOpen(false)} />}
       <BoardModal open={boardOpen} onClose={() => setBoardOpen(false)} userId={profile.id} onProfileChange={() => reloadProfile()} />
+      <BankModal open={bankOpen} onClose={() => setBankOpen(false)} onProfileChange={() => reloadProfile()} />
       <MarketModal open={!!marketMerchant} merchantId={marketMerchant} onClose={() => setMarketMerchant(null)} onChanged={() => { reloadProfile(); reloadInventory(); }} />
       <GuildModal open={!!guildmaster} guildmasterId={guildmaster} onClose={() => setGuildmaster(null)} onChanged={() => { reloadProfile(); reloadInventory(); reloadRunes(); reloadQuestCounts(); }} />
       <ArtifactsPanel open={artifactsOpen} onClose={() => setArtifactsOpen(false)} onChanged={() => { reloadProfile(); }} />
