@@ -171,6 +171,7 @@ export default function GameClient({ session }: { session: Session }) {
   const [offeredQuestCount, setOfferedQuestCount] = useState(0);
   const [wagonOpen, setWagonOpen] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
+  const [bankOpen, setBankOpen] = useState(false);
   const [artifactsOpen, setArtifactsOpen] = useState(false);
   const [marketMerchant, setMarketMerchant] = useState<string | null>(null);
   const [guildmaster, setGuildmaster] = useState<string | null>(null);
