@@ -47,9 +47,10 @@ Deno.serve(async (req) => {
     if (profile.dead || profile.downed) return json({ error: "you cannot do business in this state" }, 400);
 
     const { data: room } = await admin.from("rooms")
-      .select("slug, town_key").eq("slug", profile.current_room).maybeSingle();
+      .select("slug, town_key, kind").eq("slug", profile.current_room).maybeSingle();
     const town_key = room?.town_key;
     if (!town_key) return json({ error: "There is no board here. Find the capital." }, 400);
+    const at_bank = room?.kind === "bank";
 
     const { data: town } = await admin.from("towns").select("*").eq("key", town_key).maybeSingle();
     if (!town) return json({ error: "town missing" }, 500);
