@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import introVideo from "@/assets/intro-creation.mp4.asset.json";
-import { supabase } from "@/integrations/supabase/client";
 
 // Kingdom-Hearts-style intimate lead-in, then the creation myth, then the question.
 // Each line fades in, holds, fades out. Small form, one breath at a time.
@@ -28,32 +27,6 @@ export default function Intro({ onDone }: { onDone: () => void }) {
   const [started, setStarted] = useState(false);
   const startRef = useRef<number>(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const audiosRef = useRef<HTMLAudioElement[]>([]);
-  const playedRef = useRef<Set<number>>(new Set());
-  const versesAudioRef = useRef<{ at: number; url: string }[]>([]);
-  const [audioReady, setAudioReady] = useState(false);
-
-  // Fetch (and cache) per-verse narration urls once.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await supabase.functions.invoke("intro-narration", { body: {} });
-        if (cancelled) return;
-        if (data?.verses?.length) {
-          versesAudioRef.current = data.verses;
-          data.verses.forEach((v: { at: number; url: string }) => {
-            const a = new Audio(v.url);
-            a.preload = "auto";
-            a.volume = 0.95;
-            audiosRef.current.push(a);
-          });
-          setAudioReady(true);
-        }
-      } catch { /* ignore — intro still plays silently */ }
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   useEffect(() => {
     if (!started) return;
@@ -66,26 +39,6 @@ export default function Intro({ onDone }: { onDone: () => void }) {
     return () => cancelAnimationFrame(raf);
   }, [started]);
 
-  // Trigger each verse's audio at its `at` ms.
-  useEffect(() => {
-    const list = versesAudioRef.current;
-    if (!list.length) return;
-    list.forEach((v, i) => {
-      if (!playedRef.current.has(i) && t >= v.at) {
-        playedRef.current.add(i);
-        const a = audiosRef.current[i];
-        if (a) a.play().catch(() => { /* gesture needed */ });
-      }
-    });
-  }, [t]);
-
-  // Stop all audio on unmount/skip.
-  useEffect(() => () => {
-    audiosRef.current.forEach((a) => { try { a.pause(); a.src = ""; } catch {} });
-    audiosRef.current = [];
-  }, []);
-
-
   useEffect(() => {
     if (skipped) return;
     if (t >= TOTAL) onDone();
@@ -95,24 +48,11 @@ export default function Intro({ onDone }: { onDone: () => void }) {
     if (!started) return;
     if (skipped) return;
     setSkipped(true);
-    audiosRef.current.forEach((a) => { try { a.pause(); a.src = ""; } catch {} });
     onDone();
   };
 
   const begin = () => {
     if (started) return;
-    // Unlock audio inside the user gesture: prime each element with a silent play+pause.
-    audiosRef.current.forEach((a) => {
-      try {
-        a.muted = true;
-        const p = a.play();
-        if (p && typeof p.then === "function") {
-          p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
-        } else {
-          a.pause(); a.currentTime = 0; a.muted = false;
-        }
-      } catch {}
-    });
     startRef.current = performance.now();
     setStarted(true);
   };
@@ -158,13 +98,12 @@ export default function Intro({ onDone }: { onDone: () => void }) {
           </h1>
           <button
             onClick={begin}
-            disabled={!audioReady}
-            className="font-mono text-xs uppercase tracking-[0.5em] text-parchment border border-parchment/60 hover:border-parchment hover:bg-parchment/10 px-6 py-3 transition-colors disabled:opacity-40 disabled:cursor-wait"
+            className="font-mono text-xs uppercase tracking-[0.5em] text-parchment border border-parchment/60 hover:border-parchment hover:bg-parchment/10 px-6 py-3 transition-colors"
           >
-            {audioReady ? "begin ›" : "kindling…"}
+            begin ›
           </button>
           <p className="font-mono text-[10px] uppercase tracking-[0.4em] text-ash/50">
-            tap to begin — narrated
+            tap to begin
           </p>
         </div>
       )}
