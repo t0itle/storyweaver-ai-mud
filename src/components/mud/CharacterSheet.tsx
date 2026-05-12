@@ -75,17 +75,21 @@ const SLOT_ICON: Record<string, any> = {
 };
 
 export function CharacterSheet({
-  open, onClose, profile, inventory, onPortraitUpdated, onRestarted,
+  open, onClose, profile, inventory, onPortraitUpdated, onRestarted, onRenamed,
 }: {
   open: boolean; onClose: () => void;
   profile: SheetProfile;
   inventory: InvItem[];
   onPortraitUpdated?: (url: string) => void;
   onRestarted?: () => void;
+  onRenamed?: (name: string) => void;
 }) {
   const [restyling, setRestyling] = useState(false);
   const [confirmRestart, setConfirmRestart] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(profile.username);
+  const [renaming, setRenaming] = useState(false);
   const equipped = inventory.filter(i => i.equipped_slot);
   const findSlot = (slot: string) => equipped.find(i => i.equipped_slot === slot);
 
