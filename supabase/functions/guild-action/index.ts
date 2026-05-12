@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
           status: "complete", completed_at: new Date().toISOString(),
         }).eq("id", mem!.initiation_quest_id);
         await admin.from("world_events").insert({
-          kind: "quest_completed", actor_id: user.id, room: profile?.current_room ?? null,
+          kind: "quest_completed", actor_id: user.id,
           target_kind: "quest", target_name: "Initiation",
           details: { title: "Initiation", giver: guild?.name ?? "the guild" },
         });
