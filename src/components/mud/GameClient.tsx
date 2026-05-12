@@ -1978,6 +1978,17 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
   if (m.kind === "shadow") {
     return <ShadowWhisper content={m.content} />;
   }
+  if (m.kind === "performance") {
+    const match = m.content.match(/\[\[audio:([^\]]+)\]\]/);
+    const audioUrl = match?.[1] ?? null;
+    const text = m.content.replace(/\[\[audio:[^\]]+\]\]\n?\n?/, "");
+    return (
+      <div className="border-l-2 border-moss/60 pl-3 space-y-2">
+        <div className="text-parchment whitespace-pre-line italic">{text}</div>
+        {audioUrl && <audio controls src={audioUrl} className="w-full max-w-md" />}
+      </div>
+    );
+  }
   if (m.kind === "npc") {
     return (
       <div className="border-l-2 border-whisper/60 pl-3">
