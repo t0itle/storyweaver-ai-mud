@@ -107,6 +107,22 @@ export function CharacterSheet({
     } finally { setRestarting(false); }
   };
 
+  const rename = async () => {
+    const trimmed = nameDraft.trim();
+    if (trimmed.length < 2) { toast.error("A name needs at least two letters."); return; }
+    if (trimmed === profile.username) { setEditingName(false); return; }
+    setRenaming(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rename-character", { body: { name: trimmed } });
+      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      toast.success("The world now knows you as " + trimmed + ".");
+      setEditingName(false);
+      onRenamed?.(trimmed);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The name would not take.");
+    } finally { setRenaming(false); }
+  };
+
   const restyle = async () => {
     setRestyling(true);
     try {
