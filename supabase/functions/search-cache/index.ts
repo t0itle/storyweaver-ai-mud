@@ -112,12 +112,22 @@ Deno.serve(async (req) => {
     }
 
     // First successful find — claim, award, and reveal the cache to the room forever.
-    // Mark this player as having "searched here" so they don't keep rolling forever.
     await admin.from("player_room_cache_claims").insert({ user_id: user.id, room });
     await admin.from("room_caches").update({
       revealed_at: new Date().toISOString(),
       revealed_by_name: profile.username,
     }).eq("room", room);
+
+    // Special: some caches also unlock a hidden passage for the finder.
+    const HIDDEN_EXITS: Record<string, { dir: string; to_room: string; label: string }> = {
+      "ruin-sun-orphanage": { dir: "down", to_room: "well-mouth", label: "down the well-shaft" },
+    };
+    const unlock = HIDDEN_EXITS[room];
+    if (unlock) {
+      await admin.from("player_room_extra_exits").upsert({
+        user_id: user.id, room, dir: unlock.dir, to_room: unlock.to_room, label: unlock.label,
+      }, { onConflict: "user_id,room,dir" });
+    }
 
     // Drop the contents on the floor as a loot pile — anyone in the room can `take` it now.
     if (cache.gold) {
