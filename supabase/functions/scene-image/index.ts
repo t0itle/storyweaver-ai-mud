@@ -2,7 +2,26 @@
 // Cache key = sha256(room + presence-NPCs + recent player count). Same key reuses image.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const SCENE_PROMPT_VERSION = "2026-05-11-no-text-v2";
+const SCENE_PROMPT_VERSION = "2026-05-12-npc-actions-tod-v1";
+
+type TimeBucket = "deepnight" | "dawn" | "morning" | "midday" | "dusk" | "night";
+function getTimeBucket(d: Date = new Date()): TimeBucket {
+  const h = d.getUTCHours();
+  if (h < 5) return "deepnight";
+  if (h < 8) return "dawn";
+  if (h < 12) return "morning";
+  if (h < 16) return "midday";
+  if (h < 20) return "dusk";
+  return "night";
+}
+const TOD_LIGHT: Record<TimeBucket, string> = {
+  deepnight: "the small hours past midnight — deep indigo darkness, sparse cold moonlight, lanterns and candleflame as the only warmth, long inky shadows",
+  dawn:      "first light of dawn — pale rose and apricot horizon, low soft sidelight, mist rising, dew-damp surfaces, long pale shadows",
+  morning:   "clean morning light — fresh, clear, slightly cool sunlight at a low angle, crisp shadows, hopeful air",
+  midday:    "high midday sun — bright, near-overhead light, short hard shadows, sun-bleached colour, heat shimmer where appropriate",
+  dusk:      "golden-hour dusk — burnt-orange and magenta sky, long warm raking light, dust catching the last sun, deep cool shadows pooling",
+  night:     "true night — black-blue sky, stars or overcast, lantern glow, hearths and braziers as the dominant warm light, everything else in cool shadow",
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
