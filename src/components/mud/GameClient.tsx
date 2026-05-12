@@ -1449,6 +1449,7 @@ export default function GameClient({ session }: { session: Session }) {
                 const { data, error } = await supabase.functions.invoke("restart-character", { body: {} });
                 if (error || data?.error) throw new Error(data?.error ?? error?.message);
                 toast.success("The wind takes your old name. A new road waits.");
+                try { sessionStorage.removeItem("everbloom-intro-seen"); } catch {}
                 window.location.reload();
               } catch (e) {
                 toast.error(e instanceof Error ? e.message : "The wind refuses.");
