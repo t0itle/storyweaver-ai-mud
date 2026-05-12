@@ -962,6 +962,7 @@ export type Database = {
           home_room: string | null
           id: string
           is_aether: boolean
+          is_bard: boolean
           is_fence: boolean
           is_guildmaster: boolean
           is_merchant: boolean
@@ -991,6 +992,7 @@ export type Database = {
           home_room?: string | null
           id?: string
           is_aether?: boolean
+          is_bard?: boolean
           is_fence?: boolean
           is_guildmaster?: boolean
           is_merchant?: boolean
@@ -1020,6 +1022,7 @@ export type Database = {
           home_room?: string | null
           id?: string
           is_aether?: boolean
+          is_bard?: boolean
           is_fence?: boolean
           is_guildmaster?: boolean
           is_merchant?: boolean
@@ -1556,6 +1559,35 @@ export type Database = {
           },
         ]
       }
+      player_songs: {
+        Row: {
+          learned_at: string
+          song_key: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          learned_at?: string
+          song_key: string
+          source?: string
+          user_id: string
+        }
+        Update: {
+          learned_at?: string
+          song_key?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_songs_song_key_fkey"
+            columns: ["song_key"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       player_speaker_artifacts: {
         Row: {
           acquired_at: string
@@ -1754,6 +1786,7 @@ export type Database = {
           talent_points: number
           updated_at: string
           username: string
+          voice: string
           xp: number
           zombified: boolean
         }
@@ -1801,6 +1834,7 @@ export type Database = {
           talent_points?: number
           updated_at?: string
           username: string
+          voice?: string
           xp?: number
           zombified?: boolean
         }
@@ -1848,6 +1882,7 @@ export type Database = {
           talent_points?: number
           updated_at?: string
           username?: string
+          voice?: string
           xp?: number
           zombified?: boolean
         }
@@ -2312,6 +2347,60 @@ export type Database = {
           name?: string
           sort_order?: number
           tier?: number
+        }
+        Relationships: []
+      }
+      songs: {
+        Row: {
+          amity_gain: number
+          audio_url: string | null
+          base_tip: number
+          created_at: string
+          description: string
+          duration_seconds: number
+          instrument_key: string | null
+          key: string
+          merit_gain: number
+          music_prompt: string
+          rarity: string
+          scroll_item_key: string | null
+          title: string
+          vendor_price: number | null
+          vocal_part: string
+        }
+        Insert: {
+          amity_gain?: number
+          audio_url?: string | null
+          base_tip?: number
+          created_at?: string
+          description?: string
+          duration_seconds?: number
+          instrument_key?: string | null
+          key: string
+          merit_gain?: number
+          music_prompt: string
+          rarity?: string
+          scroll_item_key?: string | null
+          title: string
+          vendor_price?: number | null
+          vocal_part?: string
+        }
+        Update: {
+          amity_gain?: number
+          audio_url?: string | null
+          base_tip?: number
+          created_at?: string
+          description?: string
+          duration_seconds?: number
+          instrument_key?: string | null
+          key?: string
+          merit_gain?: number
+          music_prompt?: string
+          rarity?: string
+          scroll_item_key?: string | null
+          title?: string
+          vendor_price?: number | null
+          vocal_part?: string
         }
         Relationships: []
       }
