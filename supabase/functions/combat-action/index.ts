@@ -231,10 +231,17 @@ Deno.serve(async (req) => {
         }
       }
       const fallback = `${npc.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`;
+      let actorTitle: string | null = null;
+      if (npc.npc_id) {
+        const { data: nrow } = await admin.from("npcs").select("title").eq("id", npc.npc_id).maybeSingle();
+        actorTitle = nrow?.title ?? null;
+      }
+      const actorBeast = inferBeastForm(npc.name, actorTitle);
       const ai = await narrateLine({
         actor: npc.name, verb: "strikes", target: target.name,
-        armor: targetGear.armorName ?? undefined,
+        armor: actorBeast ? undefined : (targetGear.armorName ?? undefined),
         damage: final, defeated,
+        actorBeast,
       });
       await pushAction(combatId, combat!.turn_number, null, npc.name, "attack", target.name, ai ?? fallback, final);
       await advanceTurn(combatId);
