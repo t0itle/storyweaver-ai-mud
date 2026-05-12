@@ -12,6 +12,7 @@ import { BoardModal } from "./BoardModal";
 import { MarketModal } from "./MarketModal";
 import { BankModal } from "./BankModal";
 import { GuildModal } from "./GuildModal";
+import { MusicModal } from "./MusicModal";
 
 import { ArtifactsPanel } from "./ArtifactsPanel";
 import { CharacterSheet } from "./CharacterSheet";
@@ -55,7 +56,7 @@ interface Room {
   kind?: string; label?: string;
   town_key?: string | null;
 }
-interface Npc { id: string; room: string; name: string; title: string | null; greeting: string | null; current_activity?: string | null; is_merchant?: boolean | null; merchant_town?: string | null; is_guildmaster?: boolean | null; guild_key?: string | null; is_soul?: boolean | null; is_fence?: boolean | null; }
+interface Npc { id: string; room: string; name: string; title: string | null; greeting: string | null; current_activity?: string | null; is_merchant?: boolean | null; merchant_town?: string | null; is_guildmaster?: boolean | null; guild_key?: string | null; is_soul?: boolean | null; is_fence?: boolean | null; is_bard?: boolean | null; }
 interface Message {
   id: string; room: string; author_name: string;
   kind: string; content: string; created_at: string;
@@ -174,6 +175,8 @@ export default function GameClient({ session }: { session: Session }) {
   const [artifactsOpen, setArtifactsOpen] = useState(false);
   const [marketMerchant, setMarketMerchant] = useState<string | null>(null);
   const [guildmaster, setGuildmaster] = useState<string | null>(null);
+  const [bardId, setBardId] = useState<string | null>(null);
+  const [musicOpen, setMusicOpen] = useState(false);
   const [wagonRoutes, setWagonRoutes] = useState<{ destination: string; cost_gold: number; flavor: string; name?: string; visited?: boolean }[]>([]);
   const [hasCache, setHasCache] = useState(false);
   const [cacheClaimed, setCacheClaimed] = useState(false);
@@ -1692,16 +1695,18 @@ export default function GameClient({ session }: { session: Session }) {
                       onClick={() => {
                         if (n.is_merchant) { setMarketMerchant(n.id); }
                         else if (n.is_guildmaster) { setGuildmaster(n.id); }
+                        else if (n.is_bard) { setBardId(n.id); setMusicOpen(true); }
                         else { setInput(`ask ${n.name.split(" ")[0]} `); inputRef.current?.focus(); }
                       }}
                       className="flex-1 text-left font-body text-parchment hover:text-ember transition-colors">
-                      <span className={n.is_fence ? "text-whisper" : n.is_merchant ? "text-ember" : n.is_guildmaster ? "text-accent" : "text-accent"}>
-                        {n.is_fence ? "✥" : n.is_merchant ? "⚖" : n.is_guildmaster ? (n.guild_key === "warriors" ? "⚔" : n.guild_key === "traders" ? "⚖" : "✶") : "●"}
+                      <span className={n.is_fence ? "text-whisper" : n.is_merchant ? "text-ember" : n.is_bard ? "text-moss" : n.is_guildmaster ? "text-accent" : "text-accent"}>
+                        {n.is_fence ? "✥" : n.is_merchant ? "⚖" : n.is_bard ? "♪" : n.is_guildmaster ? (n.guild_key === "warriors" ? "⚔" : n.guild_key === "traders" ? "⚖" : "✶") : "●"}
                       </span> {n.name}
                       {n.title && <span className="text-ash italic"> — {n.title}</span>}
                       {word && <span className={`text-[10px] italic ml-1 ${tone}`}> ({word})</span>}
                       {n.is_merchant && <span className="text-[10px] text-ember/70 ml-1">[trade]</span>}
                       {n.is_fence && <span className="text-[10px] text-whisper/80 ml-1">[fence]</span>}
+                      {n.is_bard && <span className="text-[10px] text-moss/80 ml-1">[bard]</span>}
                       {n.is_guildmaster && !n.is_fence && <span className="text-[10px] text-accent/70 ml-1">[guild]</span>}
                     </button>
                   </div>
@@ -1786,6 +1791,7 @@ export default function GameClient({ session }: { session: Session }) {
       <BankModal open={bankOpen} onClose={() => setBankOpen(false)} onProfileChange={() => reloadProfile()} />
       <MarketModal open={!!marketMerchant} merchantId={marketMerchant} onClose={() => setMarketMerchant(null)} onChanged={() => { reloadProfile(); reloadInventory(); }} />
       <GuildModal open={!!guildmaster} guildmasterId={guildmaster} onClose={() => setGuildmaster(null)} onChanged={() => { reloadProfile(); reloadInventory(); reloadRunes(); reloadQuestCounts(); }} />
+      <MusicModal open={musicOpen} bardId={bardId} onClose={() => { setMusicOpen(false); setBardId(null); }} onChanged={() => { reloadProfile(); reloadInventory(); }} />
       <ArtifactsPanel open={artifactsOpen} onClose={() => setArtifactsOpen(false)} onChanged={() => { reloadProfile(); }} />
       <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} userId={profile.id} talentPoints={profile.talent_points ?? 0} onProfileChange={reloadProfile} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} onRestarted={() => window.location.reload()} onRenamed={(name) => setProfile((p: any) => p ? { ...p, username: name } : p)} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
@@ -1971,6 +1977,17 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
   }
   if (m.kind === "shadow") {
     return <ShadowWhisper content={m.content} />;
+  }
+  if (m.kind === "performance") {
+    const match = m.content.match(/\[\[audio:([^\]]+)\]\]/);
+    const audioUrl = match?.[1] ?? null;
+    const text = m.content.replace(/\[\[audio:[^\]]+\]\]\n?\n?/, "");
+    return (
+      <div className="border-l-2 border-moss/60 pl-3 space-y-2">
+        <div className="text-parchment whitespace-pre-line italic">{text}</div>
+        {audioUrl && <audio controls src={audioUrl} className="w-full max-w-md" />}
+      </div>
+    );
   }
   if (m.kind === "npc") {
     return (
