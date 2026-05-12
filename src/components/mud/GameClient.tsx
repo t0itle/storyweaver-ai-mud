@@ -1560,8 +1560,13 @@ export default function GameClient({ session }: { session: Session }) {
             )}
           </button>
           {room?.town_key && (
-            <button onClick={() => setBoardOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Town board — quests, bounties, bank">
+            <button onClick={() => setBoardOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Town board — quests & bounties">
               <Landmark className="w-4 h-4" /><span className="hidden sm:inline">board</span>
+            </button>
+          )}
+          {room?.kind === "bank" && (
+            <button onClick={() => setBankOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-ember/60 text-ember hover:bg-ember/10 transition-colors text-xs" title="Speak to the teller">
+              <Landmark className="w-4 h-4" /><span className="hidden sm:inline">teller</span>
             </button>
           )}
           <button onClick={() => setKinOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Kin spirits — friends & private messages">
