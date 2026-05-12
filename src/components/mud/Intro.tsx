@@ -92,10 +92,29 @@ export default function Intro({ onDone }: { onDone: () => void }) {
   }, [t, skipped, onDone]);
 
   const skip = () => {
+    if (!started) return;
     if (skipped) return;
     setSkipped(true);
     audiosRef.current.forEach((a) => { try { a.pause(); a.src = ""; } catch {} });
     onDone();
+  };
+
+  const begin = () => {
+    if (started) return;
+    // Unlock audio inside the user gesture: prime each element with a silent play+pause.
+    audiosRef.current.forEach((a) => {
+      try {
+        a.muted = true;
+        const p = a.play();
+        if (p && typeof p.then === "function") {
+          p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
+        } else {
+          a.pause(); a.currentTime = 0; a.muted = false;
+        }
+      } catch {}
+    });
+    startRef.current = performance.now();
+    setStarted(true);
   };
 
   // Compute opacity for a verse: fade in over 800ms, hold, fade out over 800ms.
