@@ -5,6 +5,7 @@ import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem, Wand2, Loader2,
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { InvItem } from "./Panels";
+import { SkillTreePanel } from "./SkillTreePanel";
 
 interface SheetProfile {
   username: string;
