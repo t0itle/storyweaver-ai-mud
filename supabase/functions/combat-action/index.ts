@@ -64,23 +64,35 @@ function scoreStroke(drawn: Pt[], tpl: Pt[]): number {
 }
 
 // === AI narration ===
+const BEAST_PATTERNS = /\b(wolf|hound|dog|cur|mastiff|bear|boar|drake|dragon|wyrm|wyvern|serpent|snake|viper|adder|spider|scorpion|rat|raven|crow|hawk|owl|eagle|hyena|lion|tiger|panther|cat|feline|ox|bull|stag|elk|horse|mare|stallion|beast|hound|jackal|fox|badger|moth|wasp|hornet|bee|toad|frog|leech|slug|worm|crab|eel|shark|octopus|kraken|insect|swarm|ape|gorilla)\b/i;
+function inferBeastForm(name?: string | null, title?: string | null): string | null {
+  const hay = `${name ?? ""} ${title ?? ""}`;
+  const m = hay.match(BEAST_PATTERNS); if (!m) return null;
+  return m[0].toLowerCase();
+}
 async function narrateLine(args: {
   actor: string; verb: "strikes" | "casts" | "defends" | "is_struck"; target?: string;
   weapon?: string; armor?: string; rune?: string; runeGlyph?: string;
   damage?: number; outcome?: string; defeated?: boolean;
+  actorBeast?: string | null; targetBeast?: string | null;
 }): Promise<string | null> {
   const key = Deno.env.get("LOVABLE_API_KEY"); if (!key) return null;
   const sys = `You are a combat narrator for EverBloom, a dark fantasy world. Output ONE vivid sentence (max 28 words), present tense, third person, no second-person, no game numbers, no quest hooks. End with a hard period.
 
 STRICT RULES — DO NOT VIOLATE:
 - Use the EXACT actor and target names provided. Never invent factions, titles, races, or identities (do NOT call anyone "Veiled", "cultist", "warden", "guard", etc. unless that word appears in the provided name).
-- Only mention a weapon if a "Weapon:" line is given. If none is given, describe the strike with bare hands, fists, or unarmed motion — NEVER name a sword, blade, dagger, axe, bow, staff, etc.
-- Only mention armor if an "Armor:" line is given. If none is given, do NOT describe armor, mail, plate, robes, etc.
+- If a participant is marked as a BEAST, treat it strictly as that animal: it attacks with teeth, fangs, jaws, claws, talons, paws, hooves, horns, tail, or coils — whichever fits the species. NEVER give a beast hands, fists, knuckles, fingers, cloaks, hoods, robes, armor, weapons, or any human gear or speech.
+- For non-beast actors: only mention a weapon if a "Weapon:" line is given. If none is given, describe the strike with bare hands, fists, or unarmed motion — NEVER name a sword, blade, dagger, axe, bow, staff, etc.
+- Only mention armor if an "Armor:" line is given (and never for beasts). If none is given, do NOT describe armor, mail, plate, robes, etc.
 - Only mention a rune if a "Rune:" line is given.`;
   const lines: string[] = [`Actor: ${args.actor}`, `Action: ${args.verb}${args.target ? ` ${args.target}` : ""}`];
-  if (args.weapon) lines.push(`Weapon: ${args.weapon}`);
+  if (args.actorBeast) lines.push(`Actor form: BEAST — a ${args.actorBeast}. Attacks with natural anatomy only (fangs, claws, jaws, etc.).`);
+  if (args.targetBeast) lines.push(`Target form: BEAST — a ${args.targetBeast}.`);
+  if (args.actorBeast) {
+    lines.push(`Weapon: none — beast uses its own body.`);
+  } else if (args.weapon) lines.push(`Weapon: ${args.weapon}`);
   else lines.push(`Weapon: none (unarmed — bare hands/fists only)`);
-  if (args.armor) lines.push(`Armor: ${args.armor}`);
+  if (args.armor && !args.targetBeast) lines.push(`Armor: ${args.armor}`);
   if (args.rune) lines.push(`Rune: ${args.runeGlyph ?? ""} ${args.rune}`);
   if (typeof args.damage === "number") lines.push(`Damage dealt: ${args.damage}`);
   if (args.outcome) lines.push(`Trace outcome: ${args.outcome}`);
