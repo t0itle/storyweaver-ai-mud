@@ -200,8 +200,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── bank ───
+    // ─── bank ─── (must be standing inside the town's bank room)
     if (body.action === "bank_open") {
+      if (!at_bank) return json({ error: "You must be inside the bank to open an account." }, 400);
       if (!bank_unlocked) {
         return json({ error: `The teller refuses you. Need Merit ≥ ${MERIT_BANK_BAR} or town rep ≥ ${TOWN_REP_BANK_BAR} (you have ${town_rep}).` }, 400);
       }
@@ -214,6 +215,7 @@ Deno.serve(async (req) => {
     }
 
     if (body.action === "bank_deposit" || body.action === "bank_withdraw") {
+      if (!at_bank) return json({ error: "You must be inside the bank to handle coin." }, 400);
       const { data: account } = await admin.from("town_bank_accounts").select("*")
         .eq("user_id", user.id).eq("town_key", town_key).maybeSingle();
       if (!account) return json({ error: "Open an account first." }, 400);
