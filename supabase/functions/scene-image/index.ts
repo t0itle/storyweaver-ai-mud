@@ -2,7 +2,26 @@
 // Cache key = sha256(room + presence-NPCs + recent player count). Same key reuses image.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const SCENE_PROMPT_VERSION = "2026-05-11-no-text-v2";
+const SCENE_PROMPT_VERSION = "2026-05-12-npc-actions-tod-v1";
+
+type TimeBucket = "deepnight" | "dawn" | "morning" | "midday" | "dusk" | "night";
+function getTimeBucket(d: Date = new Date()): TimeBucket {
+  const h = d.getUTCHours();
+  if (h < 5) return "deepnight";
+  if (h < 8) return "dawn";
+  if (h < 12) return "morning";
+  if (h < 16) return "midday";
+  if (h < 20) return "dusk";
+  return "night";
+}
+const TOD_LIGHT: Record<TimeBucket, string> = {
+  deepnight: "the small hours past midnight — deep indigo darkness, sparse cold moonlight, lanterns and candleflame as the only warmth, long inky shadows",
+  dawn:      "first light of dawn — pale rose and apricot horizon, low soft sidelight, mist rising, dew-damp surfaces, long pale shadows",
+  morning:   "clean morning light — fresh, clear, slightly cool sunlight at a low angle, crisp shadows, hopeful air",
+  midday:    "high midday sun — bright, near-overhead light, short hard shadows, sun-bleached colour, heat shimmer where appropriate",
+  dusk:      "golden-hour dusk — burnt-orange and magenta sky, long warm raking light, dust catching the last sun, deep cool shadows pooling",
+  night:     "true night — black-blue sky, stars or overcast, lantern glow, hearths and braziers as the dominant warm light, everything else in cool shadow",
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,7 +56,10 @@ Deno.serve(async (req) => {
     const { room: roomSlug, context_extra } = await req.json();
     const { data: room } = await admin.from("rooms").select("*").eq("slug", roomSlug).maybeSingle();
     if (!room) return json({ error: "room not found" }, 404);
-    const { data: npcs } = await admin.from("npcs").select("name,title").eq("room", roomSlug);
+    const { data: npcs } = await admin.from("npcs")
+      .select("name,title,current_activity,persona")
+      .eq("room", roomSlug);
+    const bucket = getTimeBucket();
 
     // Pick a palette/mood from the room itself rather than forcing ember on everything.
     function pickMood(r: any): { palette: string; mood: string } {
@@ -79,8 +101,13 @@ Deno.serve(async (req) => {
     }
     const mood = pickMood(room);
 
-    const npcKey = (npcs ?? []).map((n: any) => n.name).sort().join(",");
-    const cacheKey = await sha256(`${SCENE_PROMPT_VERSION}|${roomSlug}|${npcKey}|${context_extra ?? ""}`);
+    // Cache key now includes each NPC's current activity AND the time-of-day bucket,
+    // so the painting refreshes when the world clock turns or NPCs change what they're doing.
+    const npcKey = (npcs ?? [])
+      .map((n: any) => `${n.name}:${(n.current_activity ?? "").trim().toLowerCase()}`)
+      .sort()
+      .join(",");
+    const cacheKey = await sha256(`${SCENE_PROMPT_VERSION}|${roomSlug}|${bucket}|${npcKey}|${context_extra ?? ""}`);
 
     // Check cache
     const { data: cached } = await admin.from("room_scenes")
@@ -88,8 +115,17 @@ Deno.serve(async (req) => {
     if (cached) return json({ image_url: cached.image_url, cached: true });
 
     const npcLine = (npcs ?? []).length
-      ? `Visible figures: ${(npcs ?? []).map((n: any) => `${n.name}${n.title ? `, ${n.title}` : ""}`).join("; ")}.`
-      : "";
+      ? `Figures present, painted exactly as described — pose them mid-action, not posed for portrait, integrated naturally into the environment:\n` +
+        (npcs ?? []).map((n: any) => {
+          const who = `${n.name}${n.title ? `, ${n.title}` : ""}`;
+          const doing = (n.current_activity ?? "").trim();
+          return doing
+            ? `  • ${who} — currently ${doing}. Show them visibly doing this.`
+            : `  • ${who} — at rest in this place.`;
+        }).join("\n")
+      : "No figures present — render the place as empty and still.";
+
+    const todLine = `Time of day: ${bucket}. Lighting MUST read as ${TOD_LIGHT[bucket]}. Sky, shadow length, lantern/candle presence and colour temperature must all match this hour.`;
 
     const eventsLine = (context_extra && String(context_extra).trim())
       ? `Recent events that have visibly altered this place: ${context_extra}. Show those scars on the world — burn marks, broken stone, fresh graves, ash in the air, signs of struggle — woven naturally into the scene.`
@@ -99,18 +135,21 @@ Deno.serve(async (req) => {
       ? "This location must contain zero readable lettering. Every stall sign, hanging placard, label, poster, chalkboard, receipt, coin stamp, crate mark, and inscription must be omitted, turned away, cropped out, blurred into abstract paint, or replaced with blank shapes and pictograms only."
       : "This location must contain zero readable lettering or symbols that resemble an alphabet.";
 
-    const prompt = `Painterly fantasy environment concept art, oil-painted, cinematic wide shot. Palette: ${mood.palette}. Mood: ${mood.mood}. Atmospheric volumetric light, no characters in the foreground. Do NOT default to fire, embers, ash, or grimdark unless the scene explicitly calls for it.
+    const prompt = `Painterly fantasy environment concept art, oil-painted, cinematic wide shot. Palette: ${mood.palette}. Mood: ${mood.mood}. Atmospheric volumetric light. Figures, if any, are mid-distance and shown performing their stated action — never posed centrally for portrait. Do NOT default to fire, embers, ash, or grimdark unless the scene explicitly calls for it.
 
 ABSOLUTELY NO TEXT of any kind in the image — no signs, no banners, no shop signage, no painted lettering on walls or stalls, no carved inscriptions, no scrolls with writing, no maps with labels, no runes meant to read as letters, no logos, no watermarks, no captions. If a sign would normally appear, render it as a blank wooden plank or a pictographic symbol only.
 ${textSafeLine}
 
+${todLine}
+
 Scene: ${room.name}.
 ${room.description}
 ${room.ambience ?? ""}
+
 ${npcLine}
 ${eventsLine}
 
-Style: painterly brushwork in the spirit of Studio Ghibli backgrounds and Craig Mullins — naturalistic colour, believable light, slight grain. Match the palette and mood above; let the location's true character lead the image.`;
+Style: painterly brushwork in the spirit of Studio Ghibli backgrounds and Craig Mullins — naturalistic colour, believable light, slight grain. Match the palette, mood, and time-of-day lighting above; let the location's true character lead the image, with figures honestly engaged in what they are doing right now.`;
 
     async function callImageModel(p: string) {
       return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
