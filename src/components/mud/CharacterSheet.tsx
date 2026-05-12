@@ -311,6 +311,12 @@ export function CharacterSheet({
               </div>
             </div>
 
+            {userId && (
+              <div className="border-t border-border/60 pt-4 mt-2">
+                <SkillTreePanel userId={userId} talentPoints={talentPoints ?? 0} onChanged={() => onProfileChange?.()} />
+              </div>
+            )}
+
             <div className="border-t border-border/60 pt-4 mt-2">
               <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Begin Anew</h3>
               <p className="text-xs text-whisper italic mb-2 leading-snug">
