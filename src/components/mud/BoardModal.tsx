@@ -1,4 +1,5 @@
-// Town board: Quests | Bounties | Bank.
+// Town board: Quests | Bounties.
+// (Bank is now a physical room — see BankModal, which only opens when standing in a bank.)
 // Renders only when the player is in a room with a town_key.
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2, Coins, Landmark, ScrollText, Skull, Plus } from "lucide-react";
+import { Loader2, Coins, ScrollText, Skull, Plus } from "lucide-react";
 
 interface Town { key: string; name: string; blurb: string }
 interface PostedQuest {
