@@ -177,7 +177,38 @@ export function CharacterSheet({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-display text-2xl text-ember">{profile.username}</DialogTitle>
+          <DialogTitle className="font-display text-2xl text-ember flex items-center gap-2">
+            {editingName ? (
+              <>
+                <input
+                  type="text"
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value.slice(0, 32))}
+                  onKeyDown={(e) => { if (e.key === "Enter") rename(); if (e.key === "Escape") { setEditingName(false); setNameDraft(profile.username); } }}
+                  disabled={renaming}
+                  autoFocus
+                  className="bg-card/40 border border-ember/60 focus:border-ember outline-none px-2 py-1 font-display text-2xl text-ember w-full max-w-xs"
+                />
+                <button onClick={rename} disabled={renaming} className="text-moss hover:text-ember transition-colors disabled:opacity-50" title="Save">
+                  {renaming ? <Loader2 className="w-4 h-4 animate-spin" /> : "✓"}
+                </button>
+                <button onClick={() => { setEditingName(false); setNameDraft(profile.username); }} disabled={renaming} className="text-ash hover:text-ember transition-colors disabled:opacity-50" title="Cancel">
+                  ✕
+                </button>
+              </>
+            ) : (
+              <>
+                {profile.username}
+                <button
+                  onClick={() => { setNameDraft(profile.username); setEditingName(true); }}
+                  className="text-ash/60 hover:text-ember transition-colors"
+                  title="Change your name"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </>
+            )}
+          </DialogTitle>
           <DialogDescription className="font-mono text-[10px] uppercase tracking-widest">
             {profile.race ?? "wanderer"} · level {profile.level}
             {profile.aether && <> · sworn to <span className="text-ember">{profile.aether}</span></>}
