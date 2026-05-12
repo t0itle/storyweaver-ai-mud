@@ -47,9 +47,10 @@ Deno.serve(async (req) => {
     if (profile.dead || profile.downed) return json({ error: "you cannot do business in this state" }, 400);
 
     const { data: room } = await admin.from("rooms")
-      .select("slug, town_key").eq("slug", profile.current_room).maybeSingle();
+      .select("slug, town_key, kind").eq("slug", profile.current_room).maybeSingle();
     const town_key = room?.town_key;
     if (!town_key) return json({ error: "There is no board here. Find the capital." }, 400);
+    const at_bank = room?.kind === "bank";
 
     const { data: town } = await admin.from("towns").select("*").eq("key", town_key).maybeSingle();
     if (!town) return json({ error: "town missing" }, 500);
@@ -199,8 +200,9 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ─── bank ───
+    // ─── bank ─── (must be standing inside the town's bank room)
     if (body.action === "bank_open") {
+      if (!at_bank) return json({ error: "You must be inside the bank to open an account." }, 400);
       if (!bank_unlocked) {
         return json({ error: `The teller refuses you. Need Merit ≥ ${MERIT_BANK_BAR} or town rep ≥ ${TOWN_REP_BANK_BAR} (you have ${town_rep}).` }, 400);
       }
@@ -213,6 +215,7 @@ Deno.serve(async (req) => {
     }
 
     if (body.action === "bank_deposit" || body.action === "bank_withdraw") {
+      if (!at_bank) return json({ error: "You must be inside the bank to handle coin." }, 400);
       const { data: account } = await admin.from("town_bank_accounts").select("*")
         .eq("user_id", user.id).eq("town_key", town_key).maybeSingle();
       if (!account) return json({ error: "Open an account first." }, 400);
