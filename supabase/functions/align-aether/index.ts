@@ -40,6 +40,7 @@ Deno.serve(async (req) => {
       aether: aether.key,
       faction: "aether",
       aether_chosen_at: new Date().toISOString(),
+      current_room: destination,
     };
     if (aether.key === "pyrrhus") {
       updates.max_hp = (profile.max_hp ?? 20) + 2;
@@ -52,14 +53,29 @@ Deno.serve(async (req) => {
     if (error) throw error;
 
     await admin.from("messages").insert({
-      room: "hall-of-the-seven",
+      room: profile.current_room,
       user_id: null,
       author_name: "—",
       kind: "system",
-      content: `${profile.username} kneels at the basin of ${aether.name}. The water trembles. A glyph (${aether.glyph}) burns onto their skin and is gone.\nGift: ${aether.gift}\nVow: ${aether.vow}`,
+      content: `${profile.username} kneels at the basin of ${aether.name}. The water trembles. A glyph (${aether.glyph}) burns onto their skin and is gone. The world folds — they are carried to the heart of ${aether.name}'s realm.\nGift: ${aether.gift}\nVow: ${aether.vow}`,
     });
+    if (destination !== profile.current_room) {
+      await admin.from("messages").insert({
+        room: destination,
+        user_id: null,
+        author_name: "—",
+        kind: "ambient",
+        content: `*The air parts. ${profile.username} steps from nothing, the glyph of ${aether.name} still smoking on their skin.*`,
+      });
+      await admin.from("world_events").insert({
+        kind: "aether_aligned",
+        actor_id: user.id, actor_name: profile.username,
+        target_name: aether.key, room: destination,
+        details: { aether: aether.key, from: profile.current_room },
+      });
+    }
 
-    return json({ ok: true, aether });
+    return json({ ok: true, aether, destination });
   } catch (e) {
     console.error(e);
     return json({ error: e instanceof Error ? e.message : "error" }, 500);
