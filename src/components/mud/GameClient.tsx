@@ -1519,23 +1519,6 @@ export default function GameClient({ session }: { session: Session }) {
           <button onClick={() => setInvOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Inventory">
             <Backpack className="w-4 h-4" /><span>{inventory.length}</span>
           </button>
-          <button
-            onClick={() => setSkillsOpen(true)}
-            className={`relative flex items-center gap-1 px-2 py-1 rounded border text-xs transition-colors ${
-              (profile.talent_points ?? 0) > 0
-                ? "border-amber-400/70 text-amber-200 hover:bg-amber-950/30 animate-pulse"
-                : "border-border text-whisper hover:text-ember hover:border-ember"
-            }`}
-            title="The Long Path — your talents"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span className="hidden sm:inline">talents</span>
-            {(profile.talent_points ?? 0) > 0 && (
-              <span className="ml-0.5 px-1 rounded bg-amber-500/30 text-amber-100 text-[10px]">
-                +{profile.talent_points}
-              </span>
-            )}
-          </button>
           <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Weave runes (Lesser & Greater)">
             <Flame className="w-4 h-4" /><span className="hidden sm:inline">runes</span>
           </button>
