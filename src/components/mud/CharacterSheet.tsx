@@ -76,11 +76,14 @@ const SLOT_ICON: Record<string, any> = {
 };
 
 export function CharacterSheet({
-  open, onClose, profile, inventory, onPortraitUpdated, onRestarted, onRenamed,
+  open, onClose, profile, inventory, userId, talentPoints, onProfileChange, onPortraitUpdated, onRestarted, onRenamed,
 }: {
   open: boolean; onClose: () => void;
   profile: SheetProfile;
   inventory: InvItem[];
+  userId?: string;
+  talentPoints?: number;
+  onProfileChange?: () => void;
   onPortraitUpdated?: (url: string) => void;
   onRestarted?: () => void;
   onRenamed?: (name: string) => void;
