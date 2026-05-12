@@ -1780,8 +1780,7 @@ export default function GameClient({ session }: { session: Session }) {
       <MarketModal open={!!marketMerchant} merchantId={marketMerchant} onClose={() => setMarketMerchant(null)} onChanged={() => { reloadProfile(); reloadInventory(); }} />
       <GuildModal open={!!guildmaster} guildmasterId={guildmaster} onClose={() => setGuildmaster(null)} onChanged={() => { reloadProfile(); reloadInventory(); reloadRunes(); reloadQuestCounts(); }} />
       <ArtifactsPanel open={artifactsOpen} onClose={() => setArtifactsOpen(false)} onChanged={() => { reloadProfile(); }} />
-      <SkillTreeModal open={skillsOpen} onClose={() => setSkillsOpen(false)} userId={profile.id} talentPoints={profile.talent_points ?? 0} onChanged={reloadProfile} />
-      <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} onRestarted={() => window.location.reload()} onRenamed={(name) => setProfile((p: any) => p ? { ...p, username: name } : p)} />
+      <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} userId={profile.id} talentPoints={profile.talent_points ?? 0} onProfileChange={reloadProfile} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} onRestarted={() => window.location.reload()} onRenamed={(name) => setProfile((p: any) => p ? { ...p, username: name } : p)} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
