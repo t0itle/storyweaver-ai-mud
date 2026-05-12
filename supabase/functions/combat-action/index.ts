@@ -451,11 +451,18 @@ Deno.serve(async (req) => {
       }
       const targetArmorName = target.kind === "player" ? (await playerStats(target.user_id)).armorName : null;
       const fallback = `${me.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`;
+      let targetTitle: string | null = null;
+      if (target.kind === "npc" && target.npc_id) {
+        const { data: trow } = await admin.from("npcs").select("title").eq("id", target.npc_id).maybeSingle();
+        targetTitle = trow?.title ?? null;
+      }
+      const targetBeast = inferBeastForm(target.name, targetTitle);
       const ai = await narrateLine({
         actor: me.name, verb: "strikes", target: target.name,
         weapon: stats.weaponName ?? undefined,
-        armor: targetArmorName ?? undefined,
+        armor: targetBeast ? undefined : (targetArmorName ?? undefined),
         damage: final, defeated,
+        targetBeast,
       });
       await pushAction(combatId, combat.turn_number, user.id, me.name, "attack", target.name, ai ?? fallback, final);
       // XP/gold reward on kill (only against NPCs)
