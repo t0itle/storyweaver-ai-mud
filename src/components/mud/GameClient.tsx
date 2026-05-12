@@ -1695,16 +1695,18 @@ export default function GameClient({ session }: { session: Session }) {
                       onClick={() => {
                         if (n.is_merchant) { setMarketMerchant(n.id); }
                         else if (n.is_guildmaster) { setGuildmaster(n.id); }
+                        else if (n.is_bard) { setBardId(n.id); setMusicOpen(true); }
                         else { setInput(`ask ${n.name.split(" ")[0]} `); inputRef.current?.focus(); }
                       }}
                       className="flex-1 text-left font-body text-parchment hover:text-ember transition-colors">
-                      <span className={n.is_fence ? "text-whisper" : n.is_merchant ? "text-ember" : n.is_guildmaster ? "text-accent" : "text-accent"}>
-                        {n.is_fence ? "✥" : n.is_merchant ? "⚖" : n.is_guildmaster ? (n.guild_key === "warriors" ? "⚔" : n.guild_key === "traders" ? "⚖" : "✶") : "●"}
+                      <span className={n.is_fence ? "text-whisper" : n.is_merchant ? "text-ember" : n.is_bard ? "text-moss" : n.is_guildmaster ? "text-accent" : "text-accent"}>
+                        {n.is_fence ? "✥" : n.is_merchant ? "⚖" : n.is_bard ? "♪" : n.is_guildmaster ? (n.guild_key === "warriors" ? "⚔" : n.guild_key === "traders" ? "⚖" : "✶") : "●"}
                       </span> {n.name}
                       {n.title && <span className="text-ash italic"> — {n.title}</span>}
                       {word && <span className={`text-[10px] italic ml-1 ${tone}`}> ({word})</span>}
                       {n.is_merchant && <span className="text-[10px] text-ember/70 ml-1">[trade]</span>}
                       {n.is_fence && <span className="text-[10px] text-whisper/80 ml-1">[fence]</span>}
+                      {n.is_bard && <span className="text-[10px] text-moss/80 ml-1">[bard]</span>}
                       {n.is_guildmaster && !n.is_fence && <span className="text-[10px] text-accent/70 ml-1">[guild]</span>}
                     </button>
                   </div>
