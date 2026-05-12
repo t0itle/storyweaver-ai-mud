@@ -66,7 +66,7 @@ export default function HallOfChoice({
             </p>
           ) : (
             <p className="text-parchment italic">
-              Six alcoves. Six aspects of the Speaker. Choose one — they will choose you back.
+              Seven alcoves. Seven aspects of the Speaker. Choose one — they will choose you back, and you will wake at the heart of their realm.
               <span className="text-whisper"> An oath, once sworn, cannot be unsworn.</span>
             </p>
           )}
