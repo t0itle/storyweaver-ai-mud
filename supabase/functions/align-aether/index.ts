@@ -25,13 +25,15 @@ Deno.serve(async (req) => {
 
     const { data: profile } = await admin.from("profiles").select("*").eq("id", user.id).maybeSingle();
     if (!profile) return json({ error: "No profile." }, 400);
-    if (profile.current_room !== "hall-of-the-seven")
-      return json({ error: "You can only align yourself in the Hall of Choice." }, 400);
+    const HALL_ROOMS = new Set(["sevenfold-square", "hall-of-the-seven"]);
+    if (!HALL_ROOMS.has(profile.current_room))
+      return json({ error: "You can only align yourself in the Hall of Choosing, at the heart of the First City." }, 400);
     if (profile.aether || profile.faction)
       return json({ error: `You are already sworn. The Speaker keeps oaths.` }, 400);
 
     const { data: aether } = await admin.from("aethers").select("*").eq("key", aether_key).maybeSingle();
     if (!aether)  return json({ error: "No such Aether." }, 400);
+    const destination = aether.well_room ?? profile.current_room;
 
     // Apply gift effects.
     const updates: Record<string, unknown> = {
