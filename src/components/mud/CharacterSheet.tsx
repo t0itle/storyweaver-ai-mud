@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem, Wand2, Loader2, Skull, Droplet } from "lucide-react";
+import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem, Wand2, Loader2, Skull, Droplet, Pencil } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { InvItem } from "./Panels";
@@ -75,17 +75,21 @@ const SLOT_ICON: Record<string, any> = {
 };
 
 export function CharacterSheet({
-  open, onClose, profile, inventory, onPortraitUpdated, onRestarted,
+  open, onClose, profile, inventory, onPortraitUpdated, onRestarted, onRenamed,
 }: {
   open: boolean; onClose: () => void;
   profile: SheetProfile;
   inventory: InvItem[];
   onPortraitUpdated?: (url: string) => void;
   onRestarted?: () => void;
+  onRenamed?: (name: string) => void;
 }) {
   const [restyling, setRestyling] = useState(false);
   const [confirmRestart, setConfirmRestart] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(profile.username);
+  const [renaming, setRenaming] = useState(false);
   const equipped = inventory.filter(i => i.equipped_slot);
   const findSlot = (slot: string) => equipped.find(i => i.equipped_slot === slot);
 
@@ -101,6 +105,22 @@ export function CharacterSheet({
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "The wind refuses.");
     } finally { setRestarting(false); }
+  };
+
+  const rename = async () => {
+    const trimmed = nameDraft.trim();
+    if (trimmed.length < 2) { toast.error("A name needs at least two letters."); return; }
+    if (trimmed === profile.username) { setEditingName(false); return; }
+    setRenaming(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("rename-character", { body: { name: trimmed } });
+      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      toast.success("The world now knows you as " + trimmed + ".");
+      setEditingName(false);
+      onRenamed?.(trimmed);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The name would not take.");
+    } finally { setRenaming(false); }
   };
 
   const restyle = async () => {
@@ -157,7 +177,38 @@ export function CharacterSheet({
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-display text-2xl text-ember">{profile.username}</DialogTitle>
+          <DialogTitle className="font-display text-2xl text-ember flex items-center gap-2">
+            {editingName ? (
+              <>
+                <input
+                  type="text"
+                  value={nameDraft}
+                  onChange={(e) => setNameDraft(e.target.value.slice(0, 32))}
+                  onKeyDown={(e) => { if (e.key === "Enter") rename(); if (e.key === "Escape") { setEditingName(false); setNameDraft(profile.username); } }}
+                  disabled={renaming}
+                  autoFocus
+                  className="bg-card/40 border border-ember/60 focus:border-ember outline-none px-2 py-1 font-display text-2xl text-ember w-full max-w-xs"
+                />
+                <button onClick={rename} disabled={renaming} className="text-moss hover:text-ember transition-colors disabled:opacity-50" title="Save">
+                  {renaming ? <Loader2 className="w-4 h-4 animate-spin" /> : "✓"}
+                </button>
+                <button onClick={() => { setEditingName(false); setNameDraft(profile.username); }} disabled={renaming} className="text-ash hover:text-ember transition-colors disabled:opacity-50" title="Cancel">
+                  ✕
+                </button>
+              </>
+            ) : (
+              <>
+                {profile.username}
+                <button
+                  onClick={() => { setNameDraft(profile.username); setEditingName(true); }}
+                  className="text-ash/60 hover:text-ember transition-colors"
+                  title="Change your name"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </>
+            )}
+          </DialogTitle>
           <DialogDescription className="font-mono text-[10px] uppercase tracking-widest">
             {profile.race ?? "wanderer"} · level {profile.level}
             {profile.aether && <> · sworn to <span className="text-ember">{profile.aether}</span></>}
