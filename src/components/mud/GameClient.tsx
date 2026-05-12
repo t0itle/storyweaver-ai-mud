@@ -12,6 +12,7 @@ import { BoardModal } from "./BoardModal";
 import { MarketModal } from "./MarketModal";
 import { BankModal } from "./BankModal";
 import { GuildModal } from "./GuildModal";
+import { MusicModal } from "./MusicModal";
 
 import { ArtifactsPanel } from "./ArtifactsPanel";
 import { CharacterSheet } from "./CharacterSheet";
