@@ -1475,14 +1475,19 @@ export default function GameClient({ session }: { session: Session }) {
         <div className="flex items-center justify-between gap-2">
           <button
             onClick={() => setSheetOpen(true)}
-            className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 text-left group"
-            title="Open character sheet"
+            className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 text-left group relative"
+            title={(profile.talent_points ?? 0) > 0 ? `Open character sheet — ${profile.talent_points} talent point${profile.talent_points === 1 ? "" : "s"} to spend` : "Open character sheet"}
           >
             {hudPortrait ? (
               <img src={hudPortrait} alt={profile.username}
                 className="w-8 h-8 sm:w-10 sm:h-10 object-cover border border-ember/60 rounded-sm shrink-0 group-hover:border-ember transition-colors" />
             ) : (
               <Flame className="w-5 h-5 text-ember ember-flicker shrink-0" />
+            )}
+            {(profile.talent_points ?? 0) > 0 && (
+              <span className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-amber-400 text-amber-950 text-[9px] font-bold flex items-center justify-center animate-pulse border border-amber-200 shadow-[0_0_6px_rgba(251,191,36,0.7)]" title={`${profile.talent_points} talent point${profile.talent_points === 1 ? "" : "s"}`}>
+                {profile.talent_points}
+              </span>
             )}
             <div className="min-w-0">
               <div className="font-display text-base sm:text-lg leading-tight text-parchment truncate group-hover:text-ember transition-colors">{profile.username}</div>
