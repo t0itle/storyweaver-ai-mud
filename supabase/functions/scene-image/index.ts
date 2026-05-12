@@ -56,7 +56,10 @@ Deno.serve(async (req) => {
     const { room: roomSlug, context_extra } = await req.json();
     const { data: room } = await admin.from("rooms").select("*").eq("slug", roomSlug).maybeSingle();
     if (!room) return json({ error: "room not found" }, 404);
-    const { data: npcs } = await admin.from("npcs").select("name,title").eq("room", roomSlug);
+    const { data: npcs } = await admin.from("npcs")
+      .select("name,title,current_activity,persona")
+      .eq("room", roomSlug);
+    const bucket = getTimeBucket();
 
     // Pick a palette/mood from the room itself rather than forcing ember on everything.
     function pickMood(r: any): { palette: string; mood: string } {
