@@ -12,7 +12,7 @@ import { BoardModal } from "./BoardModal";
 import { MarketModal } from "./MarketModal";
 import { BankModal } from "./BankModal";
 import { GuildModal } from "./GuildModal";
-import SkillTreeModal from "./SkillTreeModal";
+
 import { ArtifactsPanel } from "./ArtifactsPanel";
 import { CharacterSheet } from "./CharacterSheet";
 import { RuneHub } from "./RuneHub";
