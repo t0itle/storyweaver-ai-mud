@@ -58,11 +58,24 @@ Deno.serve(async (req) => {
               joined_at: null, updated_at: new Date().toISOString() } as any;
     }
 
-    // If initiation quest is complete, promote to member.
+    // If initiation quest is complete (or the player has returned to the guildmaster), promote to member.
     if (mem!.status === "initiating" && mem!.initiation_quest_id) {
       const { data: iq } = await admin.from("quests")
         .select("status").eq("id", mem!.initiation_quest_id).maybeSingle();
-      if (iq?.status === "complete") {
+      // Player is standing in front of the guildmaster right now — that *is* "returning to the hall".
+      // Auto-complete any still-open initiation quest so the prospect can be promoted.
+      if (iq && iq.status !== "complete" && iq.status !== "failed" && iq.status !== "abandoned") {
+        await admin.from("quests").update({
+          status: "complete", completed_at: new Date().toISOString(),
+        }).eq("id", mem!.initiation_quest_id);
+        await admin.from("world_events").insert({
+          kind: "quest_completed", actor_id: user.id,
+          target_kind: "quest", target_name: "Initiation",
+          details: { title: "Initiation", giver: guild?.name ?? "the guild" },
+        });
+        mem!.status = "member";
+        mem!.joined_at = new Date().toISOString();
+      } else if (iq?.status === "complete") {
         mem!.status = "member";
         mem!.joined_at = new Date().toISOString();
       }
