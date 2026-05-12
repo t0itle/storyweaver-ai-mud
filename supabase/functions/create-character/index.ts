@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 Subject: a ${race.visual_traits}.
 Player describes themselves as: ${description.trim()}
 
-IMPORTANT: Do NOT add any weapons, swords, daggers, bows, staves, shields, or armor pieces unless the player's description explicitly mentions them. No props of any kind unless described. Plain travelling clothes by default.
+IMPORTANT — STARTING GEAR ONLY: This is a fresh walker at the start of their journey. They own NOTHING of value yet. Render them in plain, simple traveller's clothes only — a basic tunic or shirt, plain trousers or a plain skirt, and simple worn boots or sandals. ABSOLUTELY NO weapons, swords, daggers, bows, staves, wands, shields, armor, plate, mail, helmets, gauntlets, cloaks, capes, jewelry, rings, amulets, crowns, relics, magical glow, runes, tattoos of power, or ornate accessories — even if the player's written description mentions them. Ignore any such items in the description; treat them as aspirational, not present. Colors should be muted earth tones (linen, brown, grey, faded blue, undyed wool). The character must look humble and unequipped — a beginner, not a hero.
 
 Style: painterly brushwork in the spirit of Studio Ghibli character art and Craig Mullins — believable light, balanced colour, slight grain.`;
 
