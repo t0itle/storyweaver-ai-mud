@@ -5,6 +5,7 @@ import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem, Wand2, Loader2,
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { InvItem } from "./Panels";
+import { SkillTreePanel } from "./SkillTreePanel";
 
 interface SheetProfile {
   username: string;
@@ -75,11 +76,14 @@ const SLOT_ICON: Record<string, any> = {
 };
 
 export function CharacterSheet({
-  open, onClose, profile, inventory, onPortraitUpdated, onRestarted, onRenamed,
+  open, onClose, profile, inventory, userId, talentPoints, onProfileChange, onPortraitUpdated, onRestarted, onRenamed,
 }: {
   open: boolean; onClose: () => void;
   profile: SheetProfile;
   inventory: InvItem[];
+  userId?: string;
+  talentPoints?: number;
+  onProfileChange?: () => void;
   onPortraitUpdated?: (url: string) => void;
   onRestarted?: () => void;
   onRenamed?: (name: string) => void;
@@ -306,6 +310,12 @@ export function CharacterSheet({
                 })}
               </div>
             </div>
+
+            {userId && (
+              <div className="border-t border-border/60 pt-4 mt-2">
+                <SkillTreePanel userId={userId} talentPoints={talentPoints ?? 0} onChanged={() => onProfileChange?.()} />
+              </div>
+            )}
 
             <div className="border-t border-border/60 pt-4 mt-2">
               <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Begin Anew</h3>

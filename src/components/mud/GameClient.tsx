@@ -3,7 +3,7 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Backpack, Flame, HelpCircle, Landmark, Loader2, LogOut, ScrollText, Sparkles, Users, Volume2, VolumeX } from "lucide-react";
+import { Backpack, Flame, HelpCircle, Landmark, Loader2, LogOut, ScrollText, Users, Volume2, VolumeX } from "lucide-react";
 import { useRoomAudio } from "./useRoomAudio";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
 import { KinPanel } from "./KinPanel";
@@ -12,7 +12,7 @@ import { BoardModal } from "./BoardModal";
 import { MarketModal } from "./MarketModal";
 import { BankModal } from "./BankModal";
 import { GuildModal } from "./GuildModal";
-import SkillTreeModal from "./SkillTreeModal";
+
 import { ArtifactsPanel } from "./ArtifactsPanel";
 import { CharacterSheet } from "./CharacterSheet";
 import { RuneHub } from "./RuneHub";
@@ -162,7 +162,6 @@ export default function GameClient({ session }: { session: Session }) {
   const [chronicleTab, setChronicleTab] = useState<"journal" | "codex">("journal");
   const [hallOpen, setHallOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [skillsOpen, setSkillsOpen] = useState(false);
   const [corpses, setCorpses] = useState<{ id: string; username: string }[]>([]);
   const [reviving, setReviving] = useState(false);
   const [kinOpen, setKinOpen] = useState(false);
@@ -1476,14 +1475,19 @@ export default function GameClient({ session }: { session: Session }) {
         <div className="flex items-center justify-between gap-2">
           <button
             onClick={() => setSheetOpen(true)}
-            className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 text-left group"
-            title="Open character sheet"
+            className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 text-left group relative"
+            title={(profile.talent_points ?? 0) > 0 ? `Open character sheet — ${profile.talent_points} talent point${profile.talent_points === 1 ? "" : "s"} to spend` : "Open character sheet"}
           >
             {hudPortrait ? (
               <img src={hudPortrait} alt={profile.username}
                 className="w-8 h-8 sm:w-10 sm:h-10 object-cover border border-ember/60 rounded-sm shrink-0 group-hover:border-ember transition-colors" />
             ) : (
               <Flame className="w-5 h-5 text-ember ember-flicker shrink-0" />
+            )}
+            {(profile.talent_points ?? 0) > 0 && (
+              <span className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-amber-400 text-amber-950 text-[9px] font-bold flex items-center justify-center animate-pulse border border-amber-200 shadow-[0_0_6px_rgba(251,191,36,0.7)]" title={`${profile.talent_points} talent point${profile.talent_points === 1 ? "" : "s"}`}>
+                {profile.talent_points}
+              </span>
             )}
             <div className="min-w-0">
               <div className="font-display text-base sm:text-lg leading-tight text-parchment truncate group-hover:text-ember transition-colors">{profile.username}</div>
@@ -1519,23 +1523,6 @@ export default function GameClient({ session }: { session: Session }) {
         <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
           <button onClick={() => setInvOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Inventory">
             <Backpack className="w-4 h-4" /><span>{inventory.length}</span>
-          </button>
-          <button
-            onClick={() => setSkillsOpen(true)}
-            className={`relative flex items-center gap-1 px-2 py-1 rounded border text-xs transition-colors ${
-              (profile.talent_points ?? 0) > 0
-                ? "border-amber-400/70 text-amber-200 hover:bg-amber-950/30 animate-pulse"
-                : "border-border text-whisper hover:text-ember hover:border-ember"
-            }`}
-            title="The Long Path — your talents"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span className="hidden sm:inline">talents</span>
-            {(profile.talent_points ?? 0) > 0 && (
-              <span className="ml-0.5 px-1 rounded bg-amber-500/30 text-amber-100 text-[10px]">
-                +{profile.talent_points}
-              </span>
-            )}
           </button>
           <button onClick={() => setTracerOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Weave runes (Lesser & Greater)">
             <Flame className="w-4 h-4" /><span className="hidden sm:inline">runes</span>
@@ -1798,8 +1785,7 @@ export default function GameClient({ session }: { session: Session }) {
       <MarketModal open={!!marketMerchant} merchantId={marketMerchant} onClose={() => setMarketMerchant(null)} onChanged={() => { reloadProfile(); reloadInventory(); }} />
       <GuildModal open={!!guildmaster} guildmasterId={guildmaster} onClose={() => setGuildmaster(null)} onChanged={() => { reloadProfile(); reloadInventory(); reloadRunes(); reloadQuestCounts(); }} />
       <ArtifactsPanel open={artifactsOpen} onClose={() => setArtifactsOpen(false)} onChanged={() => { reloadProfile(); }} />
-      <SkillTreeModal open={skillsOpen} onClose={() => setSkillsOpen(false)} userId={profile.id} talentPoints={profile.talent_points ?? 0} onChanged={reloadProfile} />
-      <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} onRestarted={() => window.location.reload()} onRenamed={(name) => setProfile((p: any) => p ? { ...p, username: name } : p)} />
+      <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} userId={profile.id} talentPoints={profile.talent_points ?? 0} onProfileChange={reloadProfile} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} onRestarted={() => window.location.reload()} onRenamed={(name) => setProfile((p: any) => p ? { ...p, username: name } : p)} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
