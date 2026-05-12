@@ -565,7 +565,8 @@ export default function GameClient({ session }: { session: Session }) {
 
   // Auto-open Hall of the Seven when player enters it (only if not yet sworn)
   useEffect(() => {
-    if (profile?.current_room === "hall-of-the-seven" && !profile.aether) setHallOpen(true);
+    const inHall = profile?.current_room === "sevenfold-square" || profile?.current_room === "hall-of-the-seven";
+    if (inHall && !profile?.aether) setHallOpen(true);
   }, [profile?.current_room, profile?.aether]);
 
   // The Shadow whispers in unspoken places — and follows refusers everywhere.
