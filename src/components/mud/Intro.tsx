@@ -25,11 +25,13 @@ const TOTAL = 30800;
 export default function Intro({ onDone }: { onDone: () => void }) {
   const [t, setT] = useState(0);
   const [skipped, setSkipped] = useState(false);
-  const startRef = useRef<number>(performance.now());
+  const [started, setStarted] = useState(false);
+  const startRef = useRef<number>(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audiosRef = useRef<HTMLAudioElement[]>([]);
   const playedRef = useRef<Set<number>>(new Set());
   const versesAudioRef = useRef<{ at: number; url: string }[]>([]);
+  const [audioReady, setAudioReady] = useState(false);
 
   // Fetch (and cache) per-verse narration urls once.
   useEffect(() => {
@@ -40,13 +42,13 @@ export default function Intro({ onDone }: { onDone: () => void }) {
         if (cancelled) return;
         if (data?.verses?.length) {
           versesAudioRef.current = data.verses;
-          // Preload
           data.verses.forEach((v: { at: number; url: string }) => {
             const a = new Audio(v.url);
             a.preload = "auto";
             a.volume = 0.95;
             audiosRef.current.push(a);
           });
+          setAudioReady(true);
         }
       } catch { /* ignore — intro still plays silently */ }
     })();
@@ -54,6 +56,7 @@ export default function Intro({ onDone }: { onDone: () => void }) {
   }, []);
 
   useEffect(() => {
+    if (!started) return;
     let raf = 0;
     const loop = (now: number) => {
       setT(now - startRef.current);
@@ -61,7 +64,7 @@ export default function Intro({ onDone }: { onDone: () => void }) {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [started]);
 
   // Trigger each verse's audio at its `at` ms.
   useEffect(() => {
