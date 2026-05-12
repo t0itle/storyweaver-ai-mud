@@ -85,10 +85,9 @@ export function BoardModal({ open, onClose, userId, onProfileChange }: Props) {
           <div className="flex items-center justify-center py-10 text-ash"><Loader2 className="animate-spin mr-2" /> opening the ledger…</div>
         ) : (
           <Tabs defaultValue="quests">
-            <TabsList className="grid grid-cols-3 w-full">
+            <TabsList className="grid grid-cols-2 w-full">
               <TabsTrigger value="quests"><ScrollText className="w-4 h-4 mr-1" /> Quests</TabsTrigger>
               <TabsTrigger value="bounties"><Skull className="w-4 h-4 mr-1" /> Bounties</TabsTrigger>
-              <TabsTrigger value="bank"><Landmark className="w-4 h-4 mr-1" /> Bank</TabsTrigger>
             </TabsList>
 
             <TabsContent value="quests">
@@ -96,9 +95,6 @@ export function BoardModal({ open, onClose, userId, onProfileChange }: Props) {
             </TabsContent>
             <TabsContent value="bounties">
               <BountiesTab data={data} busy={busy} call={call} userId={userId} />
-            </TabsContent>
-            <TabsContent value="bank">
-              <BankTab data={data} busy={busy} call={call} />
             </TabsContent>
           </Tabs>
         )}
