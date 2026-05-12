@@ -99,6 +99,7 @@ export function CharacterSheet({
       const { data, error } = await supabase.functions.invoke("restart-character", { body: {} });
       if (error || data?.error) throw new Error(data?.error ?? error?.message);
       toast.success("The wind takes your old name. A new road waits.");
+      try { sessionStorage.removeItem("everbloom-intro-seen"); } catch {}
       setConfirmRestart(false);
       onClose();
       onRestarted?.();
