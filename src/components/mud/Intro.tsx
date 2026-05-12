@@ -25,11 +25,13 @@ const TOTAL = 30800;
 export default function Intro({ onDone }: { onDone: () => void }) {
   const [t, setT] = useState(0);
   const [skipped, setSkipped] = useState(false);
-  const startRef = useRef<number>(performance.now());
+  const [started, setStarted] = useState(false);
+  const startRef = useRef<number>(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audiosRef = useRef<HTMLAudioElement[]>([]);
   const playedRef = useRef<Set<number>>(new Set());
   const versesAudioRef = useRef<{ at: number; url: string }[]>([]);
+  const [audioReady, setAudioReady] = useState(false);
 
   // Fetch (and cache) per-verse narration urls once.
   useEffect(() => {
@@ -40,13 +42,13 @@ export default function Intro({ onDone }: { onDone: () => void }) {
         if (cancelled) return;
         if (data?.verses?.length) {
           versesAudioRef.current = data.verses;
-          // Preload
           data.verses.forEach((v: { at: number; url: string }) => {
             const a = new Audio(v.url);
             a.preload = "auto";
             a.volume = 0.95;
             audiosRef.current.push(a);
           });
+          setAudioReady(true);
         }
       } catch { /* ignore — intro still plays silently */ }
     })();
@@ -54,6 +56,7 @@ export default function Intro({ onDone }: { onDone: () => void }) {
   }, []);
 
   useEffect(() => {
+    if (!started) return;
     let raf = 0;
     const loop = (now: number) => {
       setT(now - startRef.current);
@@ -61,7 +64,7 @@ export default function Intro({ onDone }: { onDone: () => void }) {
     };
     raf = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [started]);
 
   // Trigger each verse's audio at its `at` ms.
   useEffect(() => {
@@ -89,10 +92,29 @@ export default function Intro({ onDone }: { onDone: () => void }) {
   }, [t, skipped, onDone]);
 
   const skip = () => {
+    if (!started) return;
     if (skipped) return;
     setSkipped(true);
     audiosRef.current.forEach((a) => { try { a.pause(); a.src = ""; } catch {} });
     onDone();
+  };
+
+  const begin = () => {
+    if (started) return;
+    // Unlock audio inside the user gesture: prime each element with a silent play+pause.
+    audiosRef.current.forEach((a) => {
+      try {
+        a.muted = true;
+        const p = a.play();
+        if (p && typeof p.then === "function") {
+          p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
+        } else {
+          a.pause(); a.currentTime = 0; a.muted = false;
+        }
+      } catch {}
+    });
+    startRef.current = performance.now();
+    setStarted(true);
   };
 
   // Compute opacity for a verse: fade in over 800ms, hold, fade out over 800ms.
@@ -111,7 +133,10 @@ export default function Intro({ onDone }: { onDone: () => void }) {
   const videoOpacity = Math.min(1, Math.max(0.05, t / 2000));
 
   return (
-    <main className="fixed inset-0 bg-black overflow-hidden cursor-pointer" onClick={skip}>
+    <main
+      className={`fixed inset-0 bg-black overflow-hidden ${started ? "cursor-pointer" : ""}`}
+      onClick={started ? skip : undefined}
+    >
       <video
         ref={videoRef}
         src={introVideo.url}
@@ -121,14 +146,31 @@ export default function Intro({ onDone }: { onDone: () => void }) {
         loop
         onLoadedMetadata={(e) => { (e.currentTarget as HTMLVideoElement).playbackRate = 0.5; }}
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ opacity: videoOpacity, transition: "opacity 600ms ease-out" }}
+        style={{ opacity: started ? videoOpacity : 0.25, transition: "opacity 600ms ease-out" }}
       />
-      {/* darkening vignette */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/80 pointer-events-none" />
 
-      {/* verses */}
+      {!started && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-8 px-6 text-center animate-fade-in">
+          <p className="font-mono text-[10px] uppercase tracking-[0.5em] text-ash/70">— EverBloom —</p>
+          <h1 className="font-display text-3xl md:text-5xl text-parchment leading-tight max-w-2xl drop-shadow-[0_2px_30px_rgba(0,0,0,0.9)]">
+            A world is waiting for you.
+          </h1>
+          <button
+            onClick={begin}
+            disabled={!audioReady}
+            className="font-mono text-xs uppercase tracking-[0.5em] text-parchment border border-parchment/60 hover:border-parchment hover:bg-parchment/10 px-6 py-3 transition-colors disabled:opacity-40 disabled:cursor-wait"
+          >
+            {audioReady ? "begin ›" : "kindling…"}
+          </button>
+          <p className="font-mono text-[10px] uppercase tracking-[0.4em] text-ash/50">
+            tap to begin — narrated
+          </p>
+        </div>
+      )}
+
       <div className="relative h-full w-full flex items-center justify-center px-6">
-        {VERSES.map((v, i) => {
+        {started && VERSES.map((v, i) => {
           const o = verseOpacity(v.at, v.hold);
           if (o <= 0) return null;
           return (
@@ -143,15 +185,19 @@ export default function Intro({ onDone }: { onDone: () => void }) {
         })}
       </div>
 
-      <button
-        onClick={(e) => { e.stopPropagation(); skip(); }}
-        className="absolute bottom-6 right-6 font-mono text-[10px] uppercase tracking-[0.4em] text-ash/60 hover:text-parchment border border-ash/30 hover:border-parchment px-3 py-1.5 transition-colors"
-      >
-        skip ›
-      </button>
-      <p className="absolute bottom-6 left-6 font-mono text-[10px] uppercase tracking-[0.4em] text-ash/40">
-        click anywhere to skip
-      </p>
+      {started && (
+        <>
+          <button
+            onClick={(e) => { e.stopPropagation(); skip(); }}
+            className="absolute bottom-6 right-6 font-mono text-[10px] uppercase tracking-[0.4em] text-ash/60 hover:text-parchment border border-ash/30 hover:border-parchment px-3 py-1.5 transition-colors"
+          >
+            skip ›
+          </button>
+          <p className="absolute bottom-6 left-6 font-mono text-[10px] uppercase tracking-[0.4em] text-ash/40">
+            click anywhere to skip
+          </p>
+        </>
+      )}
     </main>
   );
 }
