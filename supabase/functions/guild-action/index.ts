@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
         .in("status", ["offered", "active"]);
       const usedTitles = new Set((activeGuildQuests ?? []).map((q: any) => q.title));
       const availableQuests = (tpls ?? []).filter((t: any) =>
-        !usedTitles.has(t.title) && (isMember || t.rank_required === 0));
+        !usedTitles.has(t.title) && isMember);
 
       return json({
         ok: true,

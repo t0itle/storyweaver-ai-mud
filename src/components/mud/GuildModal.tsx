@@ -141,7 +141,14 @@ export function GuildModal({ open, onClose, guildmasterId, onChanged }: Props) {
                     <div className="text-ember font-mono whitespace-nowrap text-[10px]">
                       {t.reward_gold}g · {t.reward_xp}xp
                     </div>
-                    <Button size="sm" variant="outline" disabled={busy} onClick={() => call("accept_quest", { template_id: t.id })}>Accept</Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy || data.membership.status !== "member"}
+                      onClick={() => call("accept_quest", { template_id: t.id })}
+                    >
+                      Accept
+                    </Button>
                   </div>
                 ))}
               </TabsContent>
