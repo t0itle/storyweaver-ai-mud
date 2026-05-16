@@ -479,9 +479,9 @@ Deno.serve(async (req) => {
         // === Adaptive storytelling: persist NPC death as a world event ===
         const { data: npcRow } = await admin.from("npcs").select("id,name,title,room").eq("id", target.npc_id).maybeSingle();
         if (npcRow) {
-          // NPC stays dead for 3 days, tension decays after 14 days
-          const deadUntil = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
-          const decayAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+          // PERMA-DEATH: the NPC is gone for good. Tension still decays for gossip purposes.
+          const deadUntil = "9999-12-31T00:00:00.000Z";
+          const decayAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
           await admin.from("npcs").update({ dead_until: deadUntil }).eq("id", npcRow.id);
           await admin.from("world_events").insert({
             room: profile.current_room,
