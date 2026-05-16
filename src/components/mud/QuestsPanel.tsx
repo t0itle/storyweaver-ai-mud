@@ -37,7 +37,10 @@ export function QuestsPanel({ userId, onClose, onChanged }: { userId: string; on
   const [quests, setQuests] = useState<Quest[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [tab, setTab] = useState<"active" | "offered" | "done">("active");
+  const [tab, setTab] = useState<"active" | "offered" | "vows" | "done">("active");
+  const [vow, setVow] = useState<{ kind: "aether" | "chaos"; data: any } | null>(null);
+  const [vowBusy, setVowBusy] = useState(false);
+  const [targetAether, setTargetAether] = useState<string>("");
 
   const reload = async () => {
     setLoading(true);
@@ -48,6 +51,18 @@ export function QuestsPanel({ userId, onClose, onChanged }: { userId: string; on
       .order("created_at", { ascending: false })
       .limit(100);
     setQuests((data ?? []) as Quest[]);
+
+    // Pull active vow chain (Aether → Light, otherwise check chaos).
+    const { data: profile } = await supabase.from("profiles").select("faction, aether").eq("id", userId).maybeSingle();
+    if (profile?.faction === "aether" && profile.aether) {
+      const { data } = await supabase.functions.invoke("aether-loyalty-action", { body: { action: "list" } });
+      if (data && !data.error) setVow({ kind: "aether", data });
+    } else if (profile?.faction === "chaos") {
+      const { data } = await supabase.functions.invoke("chaos-path-action", { body: { action: "list" } });
+      if (data && !data.error) setVow({ kind: "chaos", data });
+    } else {
+      setVow(null);
+    }
     setLoading(false);
   };
 
