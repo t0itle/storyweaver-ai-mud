@@ -1033,6 +1033,7 @@ export type Database = {
           is_aether: boolean
           is_bard: boolean
           is_fence: boolean
+          is_guard: boolean
           is_guildmaster: boolean
           is_merchant: boolean
           is_soul: boolean
@@ -1063,6 +1064,7 @@ export type Database = {
           is_aether?: boolean
           is_bard?: boolean
           is_fence?: boolean
+          is_guard?: boolean
           is_guildmaster?: boolean
           is_merchant?: boolean
           is_soul?: boolean
@@ -1093,6 +1095,7 @@ export type Database = {
           is_aether?: boolean
           is_bard?: boolean
           is_fence?: boolean
+          is_guard?: boolean
           is_guildmaster?: boolean
           is_merchant?: boolean
           is_soul?: boolean
