@@ -101,22 +101,52 @@ export function QuestsPanel({ userId, onClose, onChanged }: { userId: string; on
         </div>
 
         <div className="flex border-b border-border text-xs font-mono">
-          {(["active","offered","done"] as const).map((t) => (
+          {(["active","offered","vows","done"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex-1 px-3 py-2 uppercase tracking-widest ${tab === t ? "text-ember border-b border-ember" : "text-ash hover:text-parchment"}`}>
-              {t} ({quests.filter(q =>
-                t === "active" ? q.status === "active"
-                : t === "offered" ? q.status === "offered"
-                : ["complete","failed","abandoned","declined"].includes(q.status)).length})
+              {t === "vows"
+                ? `vows${vow ? " ●" : ""}`
+                : `${t} (${quests.filter(q =>
+                    t === "active" ? q.status === "active"
+                    : t === "offered" ? q.status === "offered"
+                    : ["complete","failed","abandoned","declined"].includes(q.status)).length})`}
             </button>
           ))}
         </div>
 
         <div className="flex-1 overflow-y-auto scrollbar-thin px-5 py-4 space-y-3">
           {loading && <div className="text-ash italic text-sm">Gathering your debts…</div>}
-          {!loading && filtered.length === 0 && (
+
+          {!loading && tab === "vows" && (
+            <VowsView
+              vow={vow}
+              busy={vowBusy}
+              targetAether={targetAether}
+              setTargetAether={setTargetAether}
+              onAdvance={async () => {
+                if (!vow) return;
+                setVowBusy(true);
+                try {
+                  const fn = vow.kind === "aether" ? "aether-loyalty-action" : "chaos-path-action";
+                  const body: Record<string, unknown> = { action: "advance" };
+                  if (vow.kind === "chaos" && vow.data?.current_step === 6 && targetAether) body.target_aether_key = targetAether;
+                  const { data, error } = await supabase.functions.invoke(fn, { body });
+                  if (error || data?.error) throw new Error(data?.error ?? error?.message);
+                  toast.success(data?.isFinal ? "The vow is sealed." : "A step is fulfilled.");
+                  await reload();
+                  onChanged?.();
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "no");
+                } finally { setVowBusy(false); }
+              }}
+            />
+          )}
+
+          {!loading && tab !== "vows" && filtered.length === 0 && (
             <div className="text-ash italic text-sm">Nothing here. {tab === "active" ? "No one has set you a task." : tab === "offered" ? "No standing offers." : "Your ledger is clean."}</div>
           )}
+          {tab !== "vows" && (<>
+
           {filtered.map((q) => (
             <div key={q.id} className="border border-border p-3 bg-background/40">
               <div className="flex items-start justify-between gap-2">
