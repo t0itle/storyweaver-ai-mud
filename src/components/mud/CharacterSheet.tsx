@@ -265,71 +265,89 @@ export function CharacterSheet({
             )}
           </div>
 
-          {/* Stats + level + xp + equipment */}
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-baseline justify-between">
-                <span className="font-mono text-[10px] uppercase tracking-widest text-ash">Experience</span>
-                <span className="font-mono text-[10px] text-ash">
-                  {intoLevel} / {span} ({profile.xp} total)
-                </span>
-              </div>
-              <div className="h-2 bg-border relative overflow-hidden mt-1">
-                <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-accent to-ember" style={{ width: `${pct}%` }} />
-              </div>
-              <div className="font-mono text-[10px] text-ash mt-1">
-                next: level {profile.level + 1} at {nextThreshold} xp
-              </div>
-            </div>
+          {/* Stats / Skills tabs */}
+          <div>
+            <Tabs defaultValue="stats" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 bg-card/40 border border-border">
+                <TabsTrigger value="stats" className="font-mono text-[10px] uppercase tracking-widest">Stats & Gear</TabsTrigger>
+                <TabsTrigger value="skills" className="font-mono text-[10px] uppercase tracking-widest relative">
+                  <Sparkles className="w-3 h-3 mr-1" /> Skills
+                  {(talentPoints ?? 0) > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-400 text-amber-950 text-[9px] font-bold flex items-center justify-center animate-pulse border border-amber-200 shadow-[0_0_6px_rgba(251,191,36,0.7)]">
+                      {talentPoints}
+                    </span>
+                  )}
+                </TabsTrigger>
+              </TabsList>
 
-            <div className="grid grid-cols-2 gap-2 font-mono text-xs">
-              <Stat label="Health" value={`${profile.hp} / ${profile.max_hp}`} tone="text-ember" />
-              <Stat label="Damage" value={`+${dmg}`} tone="text-parchment" />
-              <Stat label="Armor" value={`+${armor}`} tone="text-accent" />
-              <Stat label="Gold" value={`${profile.gold}`} tone="text-parchment" />
-              <Stat label="Merit" value={`${profile.merit}`} tone="text-moss" />
-              <Stat label="Corruption" value={`${profile.corruption} / 100`} tone="text-whisper" />
-            </div>
+              <TabsContent value="stats" className="space-y-4 mt-4">
+                <div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-ash">Experience</span>
+                    <span className="font-mono text-[10px] text-ash">
+                      {intoLevel} / {span} ({profile.xp} total)
+                    </span>
+                  </div>
+                  <div className="h-2 bg-border relative overflow-hidden mt-1">
+                    <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-accent to-ember" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="font-mono text-[10px] text-ash mt-1">
+                    next: level {profile.level + 1} at {nextThreshold} xp
+                  </div>
+                </div>
 
-            <div>
-              <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Worn & Wielded</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                {SLOT_ORDER.map(slot => {
-                  const it = findSlot(slot);
-                  const Icon = SLOT_ICON[slot] ?? Circle;
-                  return (
-                    <div key={slot} className={`flex items-center gap-2 px-2 py-1.5 border ${it ? "border-ember/40 bg-ember/5" : "border-border"}`}>
-                      <Icon className={`w-3.5 h-3.5 ${it ? "text-ember" : "text-ash/50"}`} />
-                      <div className="min-w-0 flex-1">
-                        <div className="font-mono text-[9px] uppercase tracking-widest text-ash">{SLOT_LABEL[slot]}</div>
-                        <div className={`text-xs truncate ${it ? "text-parchment" : "text-ash/50 italic"}`}>
-                          {it ? it.items.name : "—"}
+                <div className="grid grid-cols-2 gap-2 font-mono text-xs">
+                  <Stat label="Health" value={`${profile.hp} / ${profile.max_hp}`} tone="text-ember" />
+                  <Stat label="Damage" value={`+${dmg}`} tone="text-parchment" />
+                  <Stat label="Armor" value={`+${armor}`} tone="text-accent" />
+                  <Stat label="Gold" value={`${profile.gold}`} tone="text-parchment" />
+                  <Stat label="Merit" value={`${profile.merit}`} tone="text-moss" />
+                  <Stat label="Corruption" value={`${profile.corruption} / 100`} tone="text-whisper" />
+                </div>
+
+                <div>
+                  <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Worn & Wielded</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {SLOT_ORDER.map(slot => {
+                      const it = findSlot(slot);
+                      const Icon = SLOT_ICON[slot] ?? Circle;
+                      return (
+                        <div key={slot} className={`flex items-center gap-2 px-2 py-1.5 border ${it ? "border-ember/40 bg-ember/5" : "border-border"}`}>
+                          <Icon className={`w-3.5 h-3.5 ${it ? "text-ember" : "text-ash/50"}`} />
+                          <div className="min-w-0 flex-1">
+                            <div className="font-mono text-[9px] uppercase tracking-widest text-ash">{SLOT_LABEL[slot]}</div>
+                            <div className={`text-xs truncate ${it ? "text-parchment" : "text-ash/50 italic"}`}>
+                              {it ? it.items.name : "—"}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
-            {userId && (
-              <div className="border-t border-border/60 pt-4 mt-2">
-                <SkillTreePanel userId={userId} talentPoints={talentPoints ?? 0} onChanged={() => onProfileChange?.()} />
-              </div>
-            )}
+                <div className="border-t border-border/60 pt-4 mt-2">
+                  <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Begin Anew</h3>
+                  <p className="text-xs text-whisper italic mb-2 leading-snug">
+                    Walk away from this life entirely. Your name, your face, your gold, your runes — all surrendered to the wind. A new walker stands up at the dunes' edge.
+                  </p>
+                  <button
+                    onClick={() => setConfirmRestart(true)}
+                    className="w-full font-mono text-[10px] uppercase tracking-widest text-ash hover:text-ember border border-border hover:border-ember/60 px-2 py-1.5 transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Skull className="w-3 h-3" /> begin a new adventure
+                  </button>
+                </div>
+              </TabsContent>
 
-            <div className="border-t border-border/60 pt-4 mt-2">
-              <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Begin Anew</h3>
-              <p className="text-xs text-whisper italic mb-2 leading-snug">
-                Walk away from this life entirely. Your name, your face, your gold, your runes — all surrendered to the wind. A new walker stands up at the dunes' edge.
-              </p>
-              <button
-                onClick={() => setConfirmRestart(true)}
-                className="w-full font-mono text-[10px] uppercase tracking-widest text-ash hover:text-ember border border-border hover:border-ember/60 px-2 py-1.5 transition-colors flex items-center justify-center gap-1.5"
-              >
-                <Skull className="w-3 h-3" /> begin a new adventure
-              </button>
-            </div>
+              <TabsContent value="skills" className="mt-4">
+                {userId ? (
+                  <SkillTreePanel userId={userId} talentPoints={talentPoints ?? 0} onChanged={() => onProfileChange?.()} />
+                ) : (
+                  <p className="text-xs text-ash italic">Sign in to spend your talents.</p>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </DialogContent>
