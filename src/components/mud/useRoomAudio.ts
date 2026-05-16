@@ -35,7 +35,7 @@ function fade(audio: HTMLAudioElement, to: number, ms = 600) {
   const start = performance.now();
   const step = (now: number) => {
     const t = Math.min(1, (now - start) / ms);
-    audio.volume = from + (to - from) * t;
+    audio.volume = Math.max(0, Math.min(1, from + (to - from) * t));
     if (t < 1) requestAnimationFrame(step);
     else if (to === 0) audio.pause();
   };
