@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.intro-narration]
 verify_jwt = false
+
+[functions.intro-music]
+verify_jwt = false
