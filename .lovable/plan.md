@@ -1,100 +1,84 @@
-## Skill Tree — "The Long Path"
+# Bake in the Light & Chaos quest lines
 
-A talent tree the player opens on level-up. Each node grants a small, almost-invisible benefit. Nodes connect along three braided branches; deep nodes unlock subtle but decisive endgame effects.
+## What exists today
+- **Alignment moments only**: `align-aether`, `declare-non-serviam`, `refuse-aethers`, `shadow-tempt`, `HallOfChoice.tsx` — these set `profiles.aether` / `profiles.faction` but **no quests follow**.
+- `aether_loyalty(user_id, aether_key, step, status, completed_at)` exists and is **completely empty/unused**.
+- No equivalent table or chain for the Chaos path.
+- 7 Aethers live in `aethers` table; each has a `throne_room` and 12 wardens.
 
-### Earning points
-- 1 talent point per level (retroactive on first open — players keep the points they've already earned).
-- Points are spent in `skill_tree` modal; nothing happens automatically.
+## What we'll build
 
-### The three branches
+### 1. Light path — Aether loyalty chain (7 quests per Aether)
+For every Aether the player aligns with, a fixed 7-step questline unlocks at their throne city, themed to that Aether's domain & vow:
 
-Each branch has 8 nodes (24 total). Tiers 1–3 are tiny percentages; tier 4 is a small but distinctive capstone.
+```text
+Step 1 — "Kneel & Listen"     (visit throne room, hear the charge)
+Step 2 — "A Small Mercy"      (themed deed in the capital — e.g. Solastin: shield a beggar; Morvayne: harvest grain for the poor)
+Step 3 — "Mark of the Vow"    (cast/learn a rune tied to the Aether's element)
+Step 4 — "Hunt a Heretic"     (defeat 1 Chaos-touched NPC in the wilds)
+Step 5 — "The Warden's Word"  (talk to 3 specific wardens scattered in the kingdom)
+Step 6 — "Bring the Relic"    (recover one Speaker artifact and gift it to the Aether)
+Step 7 — "Take the Vow"       (final throne-room rite → Devout status, faction-locked reward)
+```
 
-**Steel — body, blade, road**
-1. Sure Footing — +1 max HP per level already earned, capped at +20 (retroactive nudge).
-2. Patience of Stone — +1 to all `defend` mitigation.
-3. Long Wind — heal 1 extra HP per `rest`.
-4. Iron Edge — +1 weapon damage on opening blow of a fight.
-5. Mule's Back — +5 carry weight.
-6. Second Strike — 10% chance any hit becomes a 2-hit flurry.
-7. Wound-Reading — see exact NPC HP in combat (currently rough).
-8. **Capstone — Last Breath:** the first killing blow per real day instead drops you to 1 HP and ends combat (one-shot anti-death).
+Implementation:
+- New table `aether_quest_steps` (seed data: 7 steps × 7 Aethers = 49 rows; reuses domain/vow flavor).
+- Use existing `aether_loyalty.step` (0–7) to track progress.
+- New edge function `aether-loyalty-action` (list / accept / advance / complete) called from a new **"Vows"** tab in `QuestsPanel`.
+- Final reward: a unique faction-locked item per Aether + Merit +100 + `aether_loyalty.status = 'devout'`.
+- Player can only walk one Aether's chain at a time; switching aethers resets progress.
 
-**Whisper — silver, secrets, sleight**
-1. Quick Tongue — +5% NPC starting amity on first meeting.
-2. Light Fingers — +1 to steal d20 rolls.
-3. Trader's Eye — see merchant base price beside their ask.
-4. Coin-Purse — pickpocket gold rounds up; never returns 0 on success.
-5. Ear to the Wall — gossip lines bleed amity 50% farther.
-6. Quiet Step — fence rate 0.55 → 0.62.
-7. Map-Sense — wagon fast-travel costs −20%.
-8. **Capstone — Names in the Dark:** infamy decays 2× faster; one open bounty per real day quietly expires at dawn.
+### 2. Chaos path — Non Serviam chain (7 quests)
+Triggered the moment `profiles.faction = 'chaos'` (after Non Serviam declared):
 
-**Sigil — runes, kanji, the Speaker's grain**
-1. Steady Hand — +5 to lesser-rune trace score.
-2. Open Ear — first meaning of any new kanji is revealed for free.
-3. Deep Memory — woven runes on items get +1 max charge.
-4. Echo — 10% chance a successful lesser-rune cast doesn't consume its charge.
-5. True Stroke — kanji backfire chance halved.
-6. Four-Stroke — compound rune attempts get +1 component window.
-7. Quiet Mouth — Speaker artifacts regain 1 charge per real day (max 1 above base).
-8. **Capstone — The Unspoken:** unlocks a 4th Greater Rune slot in your spellbook (currently 3) and reveals one random undiscovered compound recipe.
+```text
+Step 1 — "Burn the Veil"       (kill 3 Veiled in or near the First City)
+Step 2 — "Whispers in the Tomb"(descend Tomb-Below, find the Unspoken Sigil)
+Step 3 — "Crack a Warden"      (kill any 1 Aether warden of your choice)
+Step 4 — "Spread the Pressure" (raise chaos_pressure in 3 different towns via NPC kills)
+Step 5 — "Shadow's Pact"       (visit hidden Chaos altar, accept a corruption gift)
+Step 6 — "Topple a Pillar"     (slay 6 wardens of a single Aether to weaken them)
+Step 7 — "Crown of Refusal"    (return to gates-approach and broadcast the world event)
+```
 
-### Gating
-- Tier 2 needs 1 point in tier 1 of same branch.
-- Tier 3 needs 2 points in tiers 1–2 of same branch.
-- Tier 4 (capstone) needs 5 total points in that branch.
-- No rebuild/respec — choices stick (matches the game's tone).
+Implementation:
+- New table `chaos_path(user_id PK, step, status, target_aether_key, last_advanced_at)`.
+- New edge function `chaos-path-action` (list / accept / advance) — also a "Vows" tab entry, shown only when faction='chaos'.
+- Step 4 already has infra: hook to `world_events` of kind `npc_killed` grouped by `r.town_key`.
+- Final reward: unique relic + Merit +150 + unlocks Chaos-only encounters/whispers and a hidden epilogue trigger when ALL 7 Aethers are fallen.
 
-### Data model
+### 3. UI surface
+- Add a **"Vows"** tab to `QuestsPanel.tsx` showing the current chain's step, objective, and "Advance" / "Accept" actions.
+- When in a throne room or Chaos altar, surface the next step inline as a button (similar to existing Hall of Choice buttons).
+- Journal entries auto-write via existing `write_journal_from_world_event` trigger (we'll add `aether_step_completed` and `chaos_step_completed` kinds).
 
-New tables:
-- `skill_nodes` (seeded, immutable): `key`, `branch` (steel/whisper/sigil), `tier` (1–4), `name`, `description`, `effect` (jsonb), `sort_order`.
-- `player_skills`: `(user_id, node_key) PK`, `acquired_at`. RLS: own rows only readable; spend goes through edge function.
+### 4. Hooks into existing systems
+- `align-aether` → on success, insert/reset `aether_loyalty` row at step 0, status 'active'.
+- `declare-non-serviam` → on success, insert `chaos_path` row at step 0.
+- `restart-character` → wipe both tables for that user.
+- `world-tick` (already cron) → no changes needed; the chains advance on player actions, not time.
 
-New profile column: `talent_points int default 0`.
+## Technical details
 
-`handle_profile_xp_change` trigger gains: when `level` increases, `talent_points := talent_points + (new_level - old_level)`. On first open of the modal (or via the spend function), back-fill so total points = `level − 1` (clamped, never reduced).
+**Migrations**:
+- `aether_quest_steps(aether_key, step_index, title, objective, target_kind, target_ref, reward_xp, reward_gold, flavor)` + RLS readable.
+- `chaos_path(user_id PK, step, status, target_aether_key, last_advanced_at)` + RLS own-row readable.
+- Seed 49 aether_quest_steps rows in a follow-up `insert` call.
 
-### Edge function
-`spend-talent` — validates branch gating + point balance, inserts into `player_skills`, decrements `talent_points`. Single source of truth.
+**New edge functions** (both `verify_jwt = false` in code, JWT validated manually):
+- `aether-loyalty-action` — actions: `list`, `accept`, `advance`, `claim`.
+- `chaos-path-action` — same surface.
 
-### Engine integration (light touches in existing code)
-Read `player_skills` once on session start into a `skills: Set<string>` on the client and into edge functions as needed:
-- `combat-action`: `iron_edge`, `second_strike`, `patience_stone`, `wound_reading`, `last_breath`.
-- `rest-action`: `long_wind`.
-- `steal-from-npc`: `light_fingers`, `coin_purse`.
-- `npc-respond` / amity helpers: `quick_tongue`, `ear_wall`.
-- `fence-item`: `quiet_step`.
-- `wagon-travel`: `map_sense`.
-- `lesser-rune-cast`: `steady_hand`, `echo`.
-- `kanji-cast` / `kanji-practice`: `open_ear`, `true_stroke`, `four_stroke`.
-- `artifact-action` / world-tick: `quiet_mouth`, `names_dark` (infamy decay).
-- Inventory weight cap: `mules_back`.
+**Edited**:
+- `align-aether/index.ts` — seed `aether_loyalty` on success.
+- `declare-non-serviam/index.ts` — seed `chaos_path` on success.
+- `QuestsPanel.tsx` — add "Vows" tab + step display.
+- `GameClient.tsx` — surface "Continue Vow" button when in throne room / Chaos altar.
+- `restart-character/index.ts` — wipe both progress tables.
 
-### UI
+## Out of scope (for now)
+- Full unique Chaos altar rooms (we'll reuse `gates-approach` Hall basin for Chaos Step 5 — placeholder).
+- Per-step custom artwork or voice lines.
+- PvP enforcement of faction conflicts.
 
-New `SkillTreeModal.tsx` opened from Character Sheet ("Talents") and from a new pulsing badge on the HUD whenever `talent_points > 0`.
-
-Layout: three vertical branches side by side, each a 4-tier ladder of node cards. Acquired nodes glow; locked nodes show their gating; available nodes have a "Take" button.
-
-Aesthetic: muted parchment, branch tinted by color token (steel = ash blue, whisper = umber, sigil = ember). No flashy animations — tiny ink-bloom on acquire.
-
-### Files
-
-New:
-- `supabase/migrations/<ts>_skill_tree.sql`
-- `supabase/functions/spend-talent/index.ts`
-- `src/components/mud/SkillTreeModal.tsx`
-- `src/hooks/usePlayerSkills.ts`
-
-Edited:
-- `src/components/mud/GameClient.tsx` — load skills, talent-point HUD badge, modal mount, pass skills into client-side helpers.
-- `src/components/mud/CharacterSheet.tsx` — Talents button.
-- All edge functions listed above — read `player_skills` and apply the small numeric tweaks. Kept additive so removing a node never silently breaks a flow.
-
-### Out of scope (this pass)
-- Respec / refund.
-- Class-specific trees.
-- Cosmetic node unlocks.
-- AI-narrated talent vignettes (could be a follow-up).
+Want me to proceed with this scope, or trim/expand any part first?
