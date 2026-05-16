@@ -41,6 +41,45 @@ export type Database = {
         }
         Relationships: []
       }
+      aether_quest_steps: {
+        Row: {
+          aether_key: string
+          flavor: string
+          objective: string
+          reward_artifact_key: string | null
+          reward_gold: number
+          reward_merit: number
+          reward_xp: number
+          step_index: number
+          themed_rune_key: string | null
+          title: string
+        }
+        Insert: {
+          aether_key: string
+          flavor?: string
+          objective: string
+          reward_artifact_key?: string | null
+          reward_gold?: number
+          reward_merit?: number
+          reward_xp?: number
+          step_index: number
+          themed_rune_key?: string | null
+          title: string
+        }
+        Update: {
+          aether_key?: string
+          flavor?: string
+          objective?: string
+          reward_artifact_key?: string | null
+          reward_gold?: number
+          reward_merit?: number
+          reward_xp?: number
+          step_index?: number
+          themed_rune_key?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       aethers: {
         Row: {
           alive: boolean
@@ -144,6 +183,36 @@ export type Database = {
             referencedColumns: ["key"]
           },
         ]
+      }
+      chaos_path: {
+        Row: {
+          completed_at: string | null
+          last_advanced_at: string
+          started_at: string
+          status: string
+          step: number
+          target_aether_key: string | null
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          last_advanced_at?: string
+          started_at?: string
+          status?: string
+          step?: number
+          target_aether_key?: string | null
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          last_advanced_at?: string
+          started_at?: string
+          status?: string
+          step?: number
+          target_aether_key?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       combat_actions: {
         Row: {

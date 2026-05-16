@@ -36,6 +36,13 @@ Deno.serve(async (req) => {
       chaos_pressure: 0, // pressure released — the choice is made
     }).eq("id", user.id);
 
+    // Seed the Chaos chain.
+    await admin.from("chaos_path").upsert({
+      user_id: user.id, step: 0, status: "active",
+      started_at: new Date().toISOString(),
+      last_advanced_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+
     // World event (kicks the journal trigger).
     await admin.from("world_events").insert({
       kind: "non_serviam_declared",

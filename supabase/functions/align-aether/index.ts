@@ -52,6 +52,15 @@ Deno.serve(async (req) => {
     const { error } = await admin.from("profiles").update(updates).eq("id", user.id);
     if (error) throw error;
 
+    // Seed (or reset) the Aether loyalty chain for this player.
+    await admin.from("aether_loyalty").upsert({
+      user_id: user.id,
+      aether_key: aether.key,
+      step: 0,
+      status: "active",
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id,aether_key" });
+
     await admin.from("messages").insert({
       room: profile.current_room,
       user_id: null,

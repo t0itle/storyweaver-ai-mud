@@ -47,6 +47,8 @@ Deno.serve(async (req) => {
       "npc_amity",
       "npc_memories",
       "quests",
+      "aether_loyalty",
+      "chaos_path",
     ];
     for (const t of tables) {
       await admin.from(t).delete().eq("user_id", user.id);
