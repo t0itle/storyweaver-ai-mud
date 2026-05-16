@@ -271,7 +271,18 @@ export default function GameClient({ session }: { session: Session }) {
   useEffect(() => {
     const ch = supabase.channel(`profile:${session.user.id}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${session.user.id}` },
-        (p) => setProfile((prev) => prev ? { ...prev, ...(p.new as Profile) } : (p.new as Profile)))
+        (p) => setProfile((prev) => {
+          const next = p.new as Profile;
+          if (prev && next.level > prev.level) {
+            const gained = next.level - prev.level;
+            const tp = Math.max(0, (next.talent_points ?? 0) - (prev.talent_points ?? 0));
+            toast.success(`✦ You rise to level ${next.level}`, {
+              description: `+${gained} max HP · ${tp} talent point${tp === 1 ? "" : "s"} to spend`,
+              duration: 6000,
+            });
+          }
+          return prev ? { ...prev, ...next } : next;
+        }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [session.user.id]);
