@@ -191,8 +191,121 @@ export function QuestsPanel({ userId, onClose, onChanged }: { userId: string; on
               </div>
             </div>
           ))}
+          </>)}
         </div>
       </div>
     </div>
   );
 }
+
+const AETHER_KEYS = ["solastin","khalvaris","nyxara","thalvora","lazareth","velithria","morvayne"];
+
+function VowsView({
+  vow, busy, targetAether, setTargetAether, onAdvance,
+}: {
+  vow: { kind: "aether" | "chaos"; data: any } | null;
+  busy: boolean;
+  targetAether: string;
+  setTargetAether: (v: string) => void;
+  onAdvance: () => void;
+}) {
+  if (!vow) {
+    return (
+      <div className="text-ash italic text-sm">
+        You walk under no vow. Kneel at the Hall of the Seven to swear to an Aether — or cry *Non Serviam* in the open world to bind yourself to Chaos.
+      </div>
+    );
+  }
+
+  if (vow.kind === "aether") {
+    const { aether, steps, current, current_step, loyalty, canAdvance } = vow.data;
+    if (!current) {
+      return (
+        <div className="border border-moss/40 p-4 bg-moss/5 space-y-2">
+          <div className="font-display text-lg text-moss">Devout of {aether?.name}</div>
+          <p className="text-sm text-whisper italic">You have walked the full chain. The Aether knows your name.</p>
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-3">
+        <div className="border border-ember/40 p-4 bg-ember/5">
+          <div className="font-mono text-[10px] uppercase tracking-widest text-ash">Vow of {aether?.name} — Step {current_step} of {steps?.length}</div>
+          <div className="font-display text-lg text-parchment mt-1">{current.title}</div>
+          <p className="text-sm text-parchment mt-1"><span className="text-ash">›</span> {current.objective}</p>
+          {current.flavor && <p className="text-xs text-whisper italic mt-2">{current.flavor}</p>}
+          <div className="flex items-center justify-between mt-3">
+            <div className="text-[10px] font-mono text-ash">
+              {current.reward_gold > 0 && <>⚜ {current.reward_gold}g · </>}
+              {current.reward_xp > 0 && <>✦ {current.reward_xp}xp · </>}
+              {current.reward_merit > 0 && <>❖ {current.reward_merit} merit</>}
+            </div>
+            <button disabled={busy || !canAdvance} onClick={onAdvance}
+              className="text-xs font-mono px-3 py-1 border border-ember text-ember hover:bg-ember/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+              {canAdvance ? "fulfill" : "not yet"}
+            </button>
+          </div>
+        </div>
+        <div className="text-[10px] font-mono text-ash uppercase tracking-widest">The chain</div>
+        <ol className="space-y-1">
+          {(steps as any[])?.map((s) => (
+            <li key={s.step_index} className={`text-xs font-mono ${s.step_index < current_step ? "text-moss" : s.step_index === current_step ? "text-parchment" : "text-ash"}`}>
+              {s.step_index < current_step ? "✓" : s.step_index === current_step ? "›" : "·"} {s.title}
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  }
+
+  // CHAOS
+  const { steps, current, current_step, path, canAdvance } = vow.data;
+  if (!current) {
+    return (
+      <div className="border border-ember/40 p-4 bg-ember/5 space-y-2">
+        <div className="font-display text-lg text-ember">Crown of Refusal</div>
+        <p className="text-sm text-whisper italic">The chain is finished. You wear no name the Aethers can call.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3">
+      <div className="border border-ember/40 p-4 bg-ember/5">
+        <div className="font-mono text-[10px] uppercase tracking-widest text-ash">Chain of Refusal — Step {current_step} of {steps?.length}</div>
+        <div className="font-display text-lg text-parchment mt-1">{current.title}</div>
+        <p className="text-sm text-parchment mt-1"><span className="text-ash">›</span> {current.objective}</p>
+        {current.flavor && <p className="text-xs text-whisper italic mt-2">{current.flavor}</p>}
+        {current_step === 6 && !path?.target_aether_key && (
+          <div className="mt-3">
+            <div className="text-[10px] font-mono text-ash uppercase mb-1">Choose an Aether to topple</div>
+            <select value={targetAether} onChange={(e) => setTargetAether(e.target.value)}
+              className="bg-background border border-border text-parchment text-xs font-mono px-2 py-1">
+              <option value="">— pick one —</option>
+              {AETHER_KEYS.map((k) => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </div>
+        )}
+        <div className="flex items-center justify-between mt-3">
+          <div className="text-[10px] font-mono text-ash">
+            {current.reward_gold > 0 && <>⚜ {current.reward_gold}g · </>}
+            {current.reward_xp > 0 && <>✦ {current.reward_xp}xp · </>}
+            {current.reward_merit > 0 && <>❖ {current.reward_merit} merit</>}
+          </div>
+          <button disabled={busy || !canAdvance || (current_step === 6 && !path?.target_aether_key && !targetAether)} onClick={onAdvance}
+            className="text-xs font-mono px-3 py-1 border border-ember text-ember hover:bg-ember/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+            {canAdvance ? "fulfill" : "not yet"}
+          </button>
+        </div>
+      </div>
+      <div className="text-[10px] font-mono text-ash uppercase tracking-widest">The chain</div>
+      <ol className="space-y-1">
+        {(steps as any[])?.map((s) => (
+          <li key={s.index} className={`text-xs font-mono ${s.index < current_step ? "text-moss" : s.index === current_step ? "text-parchment" : "text-ash"}`}>
+            {s.index < current_step ? "✓" : s.index === current_step ? "›" : "·"} {s.title}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
