@@ -95,6 +95,12 @@ export function CharacterSheet({
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(profile.username);
   const [renaming, setRenaming] = useState(false);
+  const [aetherMark, setAetherMark] = useState<{ key: string; name: string; glyph: string; domain: string } | null>(null);
+  useEffect(() => {
+    if (!profile.aether) { setAetherMark(null); return; }
+    supabase.from("aethers").select("key,name,glyph,domain").eq("key", profile.aether).maybeSingle()
+      .then(({ data }) => { if (data) setAetherMark(data as any); });
+  }, [profile.aether]);
   const equipped = inventory.filter(i => i.equipped_slot);
   const findSlot = (slot: string) => equipped.find(i => i.equipped_slot === slot);
 
