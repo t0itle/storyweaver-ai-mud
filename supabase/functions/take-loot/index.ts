@@ -26,6 +26,19 @@ Deno.serve(async (req) => {
     if (!profile) throw new Error("no profile");
     const room = profile.current_room;
 
+    // A live aggressive boss in this room WILL NOT let you simply pocket the hoard.
+    const nowIso = new Date().toISOString();
+    const { data: guardian } = await admin.from("npcs")
+      .select("id, name, aggro_on_sight, dead_until")
+      .eq("room", room).eq("is_boss", true).eq("aggro_on_sight", true)
+      .or(`dead_until.is.null,dead_until.lt.${nowIso}`)
+      .limit(1).maybeSingle();
+    if (guardian) {
+      return new Response(JSON.stringify({
+        error: `${guardian.name} stands over the hoard, breath rising. You cannot so much as touch a coin while it lives.`,
+      }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // Charity rooms always have something to give. Refill if empty.
     // Map of room slug -> { item_key, quantity, source }.
     const CHARITY: Record<string, { item_key: string; quantity: number; source: string }> = {
