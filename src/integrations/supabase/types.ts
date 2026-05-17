@@ -1056,6 +1056,7 @@ export type Database = {
       npcs: {
         Row: {
           aether_key: string | null
+          aggro_on_sight: boolean
           base_armor: number
           boss_intro: string | null
           boss_reward_gold: number
@@ -1101,6 +1102,7 @@ export type Database = {
         }
         Insert: {
           aether_key?: string | null
+          aggro_on_sight?: boolean
           base_armor?: number
           boss_intro?: string | null
           boss_reward_gold?: number
@@ -1146,6 +1148,7 @@ export type Database = {
         }
         Update: {
           aether_key?: string | null
+          aggro_on_sight?: boolean
           base_armor?: number
           boss_intro?: string | null
           boss_reward_gold?: number
