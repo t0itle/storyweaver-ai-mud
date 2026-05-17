@@ -467,7 +467,9 @@ Deno.serve(async (req) => {
         }).eq("id", user.id);
         await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
         await pushAction(combatId, combat.turn_number, user.id, me.name, "death_save", null,
-          `${me.name}'s hand fails the sigil (${Math.round(score * 100)}%). The breath leaves them. **${me.name} is dead.**`);
+          knowsLastBreath
+            ? `${me.name}'s hand fails the sigil (${Math.round(score * 100)}%). The breath leaves them. **${me.name} is dead.**`
+            : `${me.name} has no rune of life to call upon — ✚ **Sana** was never learned. The breath leaves them. **${me.name} is dead.**`);
         await admin.from("world_events").insert({
           kind: "died", actor_id: user.id, actor_name: me.name,
           room: profile.current_room, details: { combat_id: combatId, score: Math.round(score * 100) },
