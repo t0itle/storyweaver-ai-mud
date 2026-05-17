@@ -223,7 +223,9 @@ export function CharacterSheet({
           </DialogTitle>
           <DialogDescription className="font-mono text-[10px] uppercase tracking-widest">
             {profile.race ?? "wanderer"} · level {profile.level}
-            {profile.aether && <> · sworn to <span className="text-ember">{profile.aether}</span></>}
+            {aetherMark && (
+              <> · branded by <span className="text-ember">{aetherMark.glyph} {aetherMark.name}</span>, <span className="text-ash">{aetherMark.domain}</span></>
+            )}
           </DialogDescription>
         </DialogHeader>
 
