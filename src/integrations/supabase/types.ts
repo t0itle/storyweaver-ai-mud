@@ -2124,9 +2124,61 @@ export type Database = {
           },
         ]
       }
+      puzzle_pool: {
+        Row: {
+          answer: string
+          created_at: string
+          flavor: string
+          hint: string
+          id: string
+          kind: string
+          npc_id: string
+          prompt: string
+          reward_gold: number
+          reward_item_key: string | null
+          reward_merit: number
+          reward_rune_key: string | null
+          reward_xp: number
+          severity: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          flavor?: string
+          hint?: string
+          id?: string
+          kind?: string
+          npc_id: string
+          prompt: string
+          reward_gold?: number
+          reward_item_key?: string | null
+          reward_merit?: number
+          reward_rune_key?: string | null
+          reward_xp?: number
+          severity?: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          flavor?: string
+          hint?: string
+          id?: string
+          kind?: string
+          npc_id?: string
+          prompt?: string
+          reward_gold?: number
+          reward_item_key?: string | null
+          reward_merit?: number
+          reward_rune_key?: string | null
+          reward_xp?: number
+          severity?: string
+        }
+        Relationships: []
+      }
       quests: {
         Row: {
           accepted_at: string | null
+          attempts: number
           completed_at: string | null
           created_at: string
           description: string
@@ -2146,6 +2198,8 @@ export type Database = {
           reward_rune_key: string | null
           reward_xp: number
           severity: string
+          solution: string | null
+          solution_hint: string | null
           source_guild: string | null
           source_guild_town: string | null
           status: string
@@ -2157,6 +2211,7 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string | null
+          attempts?: number
           completed_at?: string | null
           created_at?: string
           description?: string
@@ -2176,6 +2231,8 @@ export type Database = {
           reward_rune_key?: string | null
           reward_xp?: number
           severity?: string
+          solution?: string | null
+          solution_hint?: string | null
           source_guild?: string | null
           source_guild_town?: string | null
           status?: string
@@ -2187,6 +2244,7 @@ export type Database = {
         }
         Update: {
           accepted_at?: string | null
+          attempts?: number
           completed_at?: string | null
           created_at?: string
           description?: string
@@ -2206,6 +2264,8 @@ export type Database = {
           reward_rune_key?: string | null
           reward_xp?: number
           severity?: string
+          solution?: string | null
+          solution_hint?: string | null
           source_guild?: string | null
           source_guild_town?: string | null
           status?: string
