@@ -1122,6 +1122,37 @@ export default function GameClient({ session }: { session: Session }) {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "no riddle to solve");
       }
+    } else if (c === "lichen") {
+      // Multi-step Lichen King quest chain.
+      const sub = (args || "list").toLowerCase();
+      try {
+        if (sub === "list" || sub === "status") {
+          const { data, error } = await supabase.functions.invoke("lichen-king-action", { body: { action: "list" } });
+          if (error || data?.error) throw new Error(data?.error ?? error?.message);
+          if (data?.crowned) {
+            setMessages((mm) => [...mm, localSys("🌿 You wear the **Crown of the Lichen King**. Moss-Voice has nothing more to ask of you.")]);
+          } else if (data?.current_step) {
+            const s = data.current_step;
+            const ready = data.canAdvance ? "  ·  type `lichen advance` (in his grove)" : "";
+            setMessages((mm) => [...mm, localSys(`🌿 **${s.title}** (step ${s.index}/4) — ${s.objective}\n_${s.flavor}_${ready}`)]);
+          } else {
+            setMessages((mm) => [...mm, localSys("🌿 The Lichen King's chain is silent.")]);
+          }
+        } else if (sub === "advance" || sub === "claim") {
+          const { data, error } = await supabase.functions.invoke("lichen-king-action", { body: { action: "advance" } });
+          if (error || data?.error) throw new Error(data?.error ?? error?.message);
+          if (data?.isFinal) {
+            toast.success(data?.grantedCrown ? "The Crown of the Lichen King is yours." : "Moss-Voice nods. The crown is already yours.");
+          } else {
+            toast.success(`Step ${data?.completed_step}/4 sealed.`);
+          }
+          reloadProfile(); reloadInventory();
+        } else {
+          setMessages((mm) => [...mm, localSys("Usage: `lichen` (status) or `lichen advance` (in the Lichen King's grove).")]);
+        }
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Moss-Voice does not answer.");
+      }
     } else if (c === "wagon" || c === "ride") {
       if (wagonRoutes.length === 0) {
         setMessages((m) => [...m, localSys("No wagonmaster runs from here.")]);
