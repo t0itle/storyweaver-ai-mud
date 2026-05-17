@@ -354,10 +354,25 @@ function SideColumn({ label, list, currentId }: { label: string; list: any[]; cu
   );
 }
 
-function CombatBtn({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
+function CombatBtn({ label, disabled, onClick, icon, tone = "attack" }: {
+  label: string; disabled: boolean; onClick: () => void;
+  icon?: React.ReactNode; tone?: "attack" | "defend" | "cast" | "trace" | "flee";
+}) {
+  const toneClasses: Record<string, string> = {
+    attack: "border-ember/60 text-ember hover:bg-ember/15 hover:shadow-[0_0_18px_-4px_hsl(var(--ember))] active:bg-ember/30",
+    defend: "border-sky-500/60 text-sky-300 hover:bg-sky-500/15 hover:shadow-[0_0_18px_-4px_rgb(56,189,248)] active:bg-sky-500/30",
+    cast:   "border-violet-400/60 text-violet-300 hover:bg-violet-500/15 hover:shadow-[0_0_18px_-4px_rgb(167,139,250)] active:bg-violet-500/30",
+    trace:  "border-amber-400/60 text-amber-300 hover:bg-amber-400/15 hover:shadow-[0_0_18px_-4px_rgb(251,191,36)] active:bg-amber-400/30",
+    flee:   "border-rose-500/60 text-rose-300 hover:bg-rose-500/15 hover:shadow-[0_0_18px_-4px_rgb(244,63,94)] active:bg-rose-500/30",
+  };
   return (
-    <button disabled={disabled} onClick={onClick}
-      className="font-mono text-xs uppercase tracking-wider px-3 py-1.5 border border-ember/50 text-ember hover:bg-ember/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+    <button
+      disabled={disabled}
+      onMouseEnter={() => { if (!disabled) combatFx.hover(); }}
+      onClick={onClick}
+      className={`group inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider px-3 py-1.5 border ${toneClasses[tone]} disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150 active:scale-90 active:translate-y-[1px]`}
+    >
+      {icon && <span className="group-active:rotate-12 transition-transform">{icon}</span>}
       {label}
     </button>
   );
