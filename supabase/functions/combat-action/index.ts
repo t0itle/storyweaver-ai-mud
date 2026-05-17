@@ -212,7 +212,18 @@ Deno.serve(async (req) => {
       const enemies = (list ?? []).filter((c: any) => c.side !== npc.side && !c.defeated);
       if (enemies.length === 0) { await advanceTurn(combatId); return; }
       const target = enemies[SR(enemies.length)];
-      const dmg = 2 + SR(4);
+      // Boss NPCs hit much harder. Fetch their damage range if marked.
+      let dmgMin = 2, dmgRoll = 4;
+      if (npc.npc_id) {
+        const { data: nstat } = await admin.from("npcs")
+          .select("is_boss, combat_damage_min, combat_damage_max")
+          .eq("id", npc.npc_id).maybeSingle();
+        if (nstat?.is_boss && nstat.combat_damage_min && nstat.combat_damage_max) {
+          dmgMin = nstat.combat_damage_min;
+          dmgRoll = Math.max(1, nstat.combat_damage_max - nstat.combat_damage_min + 1);
+        }
+      }
+      const dmg = dmgMin + SR(dmgRoll);
       let targetGear: { armor: number; weaponName: string | null; armorName: string | null } = { armor: 0, weaponName: null, armorName: null };
       if (target.kind === "player") targetGear = await playerStats(target.user_id);
       const final = Math.max(1, dmg - targetGear.armor - (target.defending ? 2 : 0));
