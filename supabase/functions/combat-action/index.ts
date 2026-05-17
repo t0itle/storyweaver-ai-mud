@@ -285,6 +285,23 @@ Deno.serve(async (req) => {
       }
       if (!target) throw new Error(`No one called "${body.target_name}" is here to fight.`);
 
+      // === Sustained boss check: a risen bone-thing without its necromancer collapses. ===
+      if (target.kind === "npc" && target.sustained_by_npc_id) {
+        const { data: sustainer } = await admin.from("npcs")
+          .select("id, dead_until, name").eq("id", target.sustained_by_npc_id).maybeSingle();
+        const sNow = new Date();
+        const sustainerDead = !sustainer || (sustainer.dead_until && new Date(sustainer.dead_until) > sNow);
+        if (sustainerDead) {
+          const long = "9999-12-31T00:00:00.000Z";
+          await admin.from("npcs").update({ dead_until: long }).eq("id", target.id);
+          await admin.from("messages").insert({
+            room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+            content: `✶ ${target.name} shudders, then folds in on itself — its sustaining hand has been cut. The bones clatter to the floor and lie still.`,
+          });
+          throw new Error(`${target.name} collapses without its sustainer. The fight is already over.`);
+        }
+      }
+
       const stats = await playerStats(user.id);
       const playerMaxHp = (stats.prof?.max_hp ?? 20) + stats.hpBonus;
       const playerHp = Math.min(stats.prof?.hp ?? 20, playerMaxHp);
