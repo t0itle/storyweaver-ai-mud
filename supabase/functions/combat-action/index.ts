@@ -379,7 +379,7 @@ Deno.serve(async (req) => {
       });
       await admin.from("profiles").update({ in_combat_id: combat.id }).eq("id", user.id);
       await pushAction(combat.id, combat.turn_number, user.id, profile.username, "system", null,
-        `${profile.username} joins the fray on side A.`);
+        `${profile.username} throws themselves into the fight, blade rising to join the fray.`);
       return ok({ ok: true });
     }
 
