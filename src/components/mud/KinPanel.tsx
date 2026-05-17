@@ -22,6 +22,13 @@ type PrivateMessage = {
   created_at: string;
 };
 
+type PartyMember = {
+  id: string;
+  name: string;
+  title: string | null;
+  room: string | null;
+};
+
 export function KinPanel({ userId, onClose }: { userId: string; onClose: () => void }) {
   const [friendships, setFriendships] = useState<Friendship[]>([]);
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
@@ -30,7 +37,26 @@ export function KinPanel({ userId, onClose }: { userId: string; onClose: () => v
   const [draft, setDraft] = useState("");
   const [searchName, setSearchName] = useState("");
   const [sending, setSending] = useState(false);
+  const [party, setParty] = useState<PartyMember[]>([]);
   const logRef = useRef<HTMLDivElement>(null);
+
+  const loadParty = async () => {
+    const { data: prof } = await supabase
+      .from("profiles").select("companion_npc_id").eq("id", userId).maybeSingle();
+    const cid = (prof as any)?.companion_npc_id;
+    if (!cid) { setParty([]); return; }
+    const { data: npc } = await supabase
+      .from("npcs").select("id, name, title, room").eq("id", cid).maybeSingle();
+    if (!npc) { setParty([]); return; }
+    setParty([{ id: npc.id, name: npc.name, title: npc.title ?? null, room: npc.room ?? null }]);
+  };
+
+  const dismissCompanion = async (npcName: string) => {
+    const { error } = await supabase.from("profiles").update({ companion_npc_id: null }).eq("id", userId);
+    if (error) { toast.error(error.message); return; }
+    toast(`${npcName} parts ways with you.`);
+    loadParty();
+  };
 
   // Load friendships + the related profiles
   const loadFriendships = async () => {
@@ -53,9 +79,12 @@ export function KinPanel({ userId, onClose }: { userId: string; onClose: () => v
 
   useEffect(() => {
     loadFriendships();
+    loadParty();
     const ch = supabase
       .channel(`kin-friendships:${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, () => loadFriendships())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` }, () => loadParty())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "npcs" }, () => loadParty())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -211,6 +240,32 @@ export function KinPanel({ userId, onClose }: { userId: string; onClose: () => v
                 })}
               </div>
             )}
+
+            <div className="space-y-1">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-ash flex items-center justify-between">
+                <span>Your Party</span>
+                <span className="text-whisper">{party.length}</span>
+              </div>
+              {party.length === 0 && (
+                <p className="text-ash italic text-xs">You walk alone. Hire a sellsword or befriend an NPC, then <code className="text-ember">follow</code> them.</p>
+              )}
+              {party.map(m => (
+                <div key={m.id} className="flex items-center justify-between gap-2 p-2 border-l-2 border-ember/60 bg-ember/5">
+                  <div className="min-w-0">
+                    <div className="text-sm text-parchment truncate">{m.name}</div>
+                    {m.title && <div className="font-mono text-[9px] text-whisper truncate italic">{m.title}</div>}
+                    {m.room && <div className="font-mono text-[9px] text-ash/70 truncate">at {m.room.replace(/-/g, " ")}</div>}
+                  </div>
+                  <button
+                    onClick={() => dismissCompanion(m.name)}
+                    className="p-1 border border-border text-ash hover:text-ember hover:border-ember/60"
+                    title="Dismiss companion"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
 
             <div className="space-y-1">
               <div className="font-mono text-[10px] uppercase tracking-widest text-ash">Bound kin</div>
