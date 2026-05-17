@@ -93,6 +93,8 @@ const HELP = [
   ["accept <title>", "accept an offered quest"],
   ["decline <title>", "refuse an offered quest"],
   ["abandon <title>", "drop an active quest (NPC will remember)"],
+  ["riddle <npc>", "ask an NPC to set you a riddle or puzzle"],
+  ["solve <answer>", "submit an answer to your active riddle"],
   ["search", "search the room for hidden caches"],
   ["wagon", "hire the wagonmaster (open the fast-travel panel)"],
   ["rest", "sleep at an inn — full heal, costs gold"],
