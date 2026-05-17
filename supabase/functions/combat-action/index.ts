@@ -282,7 +282,9 @@ Deno.serve(async (req) => {
         room: profile.current_room, status: "active", turn_number: 1,
       }).select().single();
 
-      const targetHp = target.kind === "player" ? target.hp : 12 + SR(8);
+      const targetHp = target.kind === "player"
+        ? target.hp
+        : (target.is_boss && target.combat_max_hp ? target.combat_max_hp : 12 + SR(8));
       const targetMax = target.kind === "player" ? target.max_hp : targetHp;
 
       const playerInit = 10 + SR(10);
