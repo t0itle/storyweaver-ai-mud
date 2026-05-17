@@ -319,6 +319,14 @@ Deno.serve(async (req) => {
       await pushAction(combat!.id, 1, user.id, profile.username, "system", target.kind === "player" ? target.username : target.name,
         `${profile.username} draws steel against ${target.kind === "player" ? target.username : target.name}!`);
 
+      // Boss intro flourish — broadcast to the room when a boss fight begins.
+      if (target.kind === "npc" && target.is_boss && target.boss_intro) {
+        await admin.from("messages").insert({
+          room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+          content: `✦ ${target.boss_intro}`,
+        });
+      }
+
       // if NPC goes first, run its turn
       if (first.kind === "npc") await runNpcTurn(combat!.id, first.id);
 
