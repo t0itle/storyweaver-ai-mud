@@ -190,6 +190,7 @@ export default function GameClient({ session }: { session: Session }) {
   const { muted: musicMuted, setMuted: setMusicMuted, tryResume: resumeMusic } = useRoomAudio(
     profile?.current_room ?? null,
     audioMode,
+    room?.kind ?? null,
   );
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
