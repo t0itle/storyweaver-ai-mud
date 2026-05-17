@@ -121,7 +121,7 @@ export function useRoomAudio(
 
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roomSlug, mode]);
+  }, [roomSlug, mode, roomKind]);
 
   // Cleanup
   useEffect(() => () => {
