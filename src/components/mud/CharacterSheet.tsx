@@ -95,6 +95,12 @@ export function CharacterSheet({
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(profile.username);
   const [renaming, setRenaming] = useState(false);
+  const [aetherMark, setAetherMark] = useState<{ key: string; name: string; glyph: string; domain: string } | null>(null);
+  useEffect(() => {
+    if (!profile.aether) { setAetherMark(null); return; }
+    supabase.from("aethers").select("key,name,glyph,domain").eq("key", profile.aether).maybeSingle()
+      .then(({ data }) => { if (data) setAetherMark(data as any); });
+  }, [profile.aether]);
   const equipped = inventory.filter(i => i.equipped_slot);
   const findSlot = (slot: string) => equipped.find(i => i.equipped_slot === slot);
 
@@ -217,7 +223,9 @@ export function CharacterSheet({
           </DialogTitle>
           <DialogDescription className="font-mono text-[10px] uppercase tracking-widest">
             {profile.race ?? "wanderer"} · level {profile.level}
-            {profile.aether && <> · sworn to <span className="text-ember">{profile.aether}</span></>}
+            {aetherMark && (
+              <> · branded by <span className="text-ember">{aetherMark.glyph} {aetherMark.name}</span>, <span className="text-ash">{aetherMark.domain}</span></>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -248,6 +256,14 @@ export function CharacterSheet({
               {variantLoading && !usingAiVariant && (
                 <div className="absolute top-1 right-1 bg-background/70 rounded-full p-1" title="painting wounds…">
                   <Loader2 className="w-3 h-3 animate-spin text-ember" />
+                </div>
+              )}
+              {aetherMark && (
+                <div
+                  className="absolute top-1 left-1 w-9 h-9 rounded-full flex items-center justify-center text-ember font-display text-xl bg-background/40 backdrop-blur-sm border border-ember/70 shadow-[0_0_14px_hsl(var(--ember)/0.7)] animate-pulse"
+                  title={`Brand of ${aetherMark.name} — ${aetherMark.domain}. Burned into your skin the moment you swore the vow.`}
+                >
+                  {aetherMark.glyph}
                 </div>
               )}
             </div>
