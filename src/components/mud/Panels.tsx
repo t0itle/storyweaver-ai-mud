@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Backpack, Sparkles, X, Sword, Shield, Gem, HardHat, Shirt, Footprints, Circle } from "lucide-react";
+import { combatFx, type CombatFxKind } from "./combatFx";
 
 export interface InvItem {
   id: string;
@@ -257,6 +258,28 @@ export function CombatHUD({
 
   const activeRunes = knownRunes.filter(r => r.runes.kind === "active");
 
+  const fireFlash = (kind: CombatFxKind) => {
+    if (typeof document === "undefined") return;
+    const el = document.createElement("div");
+    const color =
+      kind === "attack" ? "hsl(var(--ember) / 0.35)" :
+      kind === "defend" ? "hsl(210 60% 50% / 0.30)" :
+      kind === "cast"   ? "hsl(280 70% 60% / 0.30)" :
+      kind === "trace"  ? "hsl(45 90% 60% / 0.28)" :
+                          "hsl(0 70% 50% / 0.30)";
+    el.style.cssText = `position:fixed;inset:0;background:${color};pointer-events:none;z-index:9999;opacity:0;transition:opacity 80ms ease-out;mix-blend-mode:screen;`;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => { el.style.opacity = "1"; });
+    setTimeout(() => { el.style.opacity = "0"; }, 80);
+    setTimeout(() => { el.remove(); }, 260);
+  };
+
+  const tactileAct = (kind: CombatFxKind, action: string, args?: Record<string, unknown>) => {
+    combatFx[kind]();
+    fireFlash(kind);
+    onAct(action, args);
+  };
+
   return (
     <div className="border border-ember/60 bg-card/80 p-3 mb-3 shadow-[0_0_25px_-12px_hsl(var(--ember))]">
       <div className="flex items-center justify-between mb-2">
@@ -279,11 +302,11 @@ export function CombatHUD({
 
       {combat.status === "active" && (
         <div className="flex flex-wrap gap-2">
-          <CombatBtn label="attack" disabled={!myTurn} onClick={() => onAct("attack")} />
-          <CombatBtn label="defend" disabled={!myTurn} onClick={() => onAct("defend")} />
-          <CombatBtn label={castOpen ? "cancel cast" : "cast"} disabled={!myTurn || activeRunes.length === 0} onClick={() => setCastOpen(o => !o)} />
-          <CombatBtn label="trace ✶" disabled={!myTurn} onClick={() => onAct("trace_lesser")} />
-          <CombatBtn label="flee" disabled={!myTurn} onClick={() => onAct("flee")} />
+          <CombatBtn label="attack" icon={<Sword className="w-3.5 h-3.5" />} tone="attack" disabled={!myTurn} onClick={() => tactileAct("attack", "attack")} />
+          <CombatBtn label="defend" icon={<Shield className="w-3.5 h-3.5" />} tone="defend" disabled={!myTurn} onClick={() => tactileAct("defend", "defend")} />
+          <CombatBtn label={castOpen ? "cancel cast" : "cast"} icon={<Sparkles className="w-3.5 h-3.5" />} tone="cast" disabled={!myTurn || activeRunes.length === 0} onClick={() => { combatFx.cast(); setCastOpen(o => !o); }} />
+          <CombatBtn label="trace ✶" tone="trace" disabled={!myTurn} onClick={() => tactileAct("trace", "trace_lesser")} />
+          <CombatBtn label="flee" tone="flee" disabled={!myTurn} onClick={() => tactileAct("flee", "flee")} />
           {!myTurn && <span className="font-mono text-[10px] text-ash self-center italic">…waiting your turn</span>}
         </div>
       )}
@@ -293,8 +316,8 @@ export function CombatHUD({
           <div className="font-mono text-[10px] text-ash uppercase tracking-widest mb-1">Cast which rune?</div>
           <div className="flex flex-wrap gap-1">
             {activeRunes.map(r => (
-              <button key={r.rune_key} onClick={() => { setCastOpen(false); onAct("cast", { rune_key: r.rune_key }); }}
-                className="font-mono text-xs text-ember border border-ember/40 hover:bg-ember/10 px-2 py-1">
+              <button key={r.rune_key} onClick={() => { combatFx.cast(); fireFlash("cast"); setCastOpen(false); onAct("cast", { rune_key: r.rune_key }); }}
+                className="font-mono text-xs text-ember border border-ember/40 hover:bg-ember/10 active:scale-95 active:bg-ember/20 transition-all px-2 py-1">
                 {r.runes.glyph} {r.runes.name}
               </button>
             ))}
@@ -331,10 +354,25 @@ function SideColumn({ label, list, currentId }: { label: string; list: any[]; cu
   );
 }
 
-function CombatBtn({ label, disabled, onClick }: { label: string; disabled: boolean; onClick: () => void }) {
+function CombatBtn({ label, disabled, onClick, icon, tone = "attack" }: {
+  label: string; disabled: boolean; onClick: () => void;
+  icon?: React.ReactNode; tone?: "attack" | "defend" | "cast" | "trace" | "flee";
+}) {
+  const toneClasses: Record<string, string> = {
+    attack: "border-ember/60 text-ember hover:bg-ember/15 hover:shadow-[0_0_18px_-4px_hsl(var(--ember))] active:bg-ember/30",
+    defend: "border-sky-500/60 text-sky-300 hover:bg-sky-500/15 hover:shadow-[0_0_18px_-4px_rgb(56,189,248)] active:bg-sky-500/30",
+    cast:   "border-violet-400/60 text-violet-300 hover:bg-violet-500/15 hover:shadow-[0_0_18px_-4px_rgb(167,139,250)] active:bg-violet-500/30",
+    trace:  "border-amber-400/60 text-amber-300 hover:bg-amber-400/15 hover:shadow-[0_0_18px_-4px_rgb(251,191,36)] active:bg-amber-400/30",
+    flee:   "border-rose-500/60 text-rose-300 hover:bg-rose-500/15 hover:shadow-[0_0_18px_-4px_rgb(244,63,94)] active:bg-rose-500/30",
+  };
   return (
-    <button disabled={disabled} onClick={onClick}
-      className="font-mono text-xs uppercase tracking-wider px-3 py-1.5 border border-ember/50 text-ember hover:bg-ember/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+    <button
+      disabled={disabled}
+      onMouseEnter={() => { if (!disabled) combatFx.hover(); }}
+      onClick={onClick}
+      className={`group inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-wider px-3 py-1.5 border ${toneClasses[tone]} disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150 active:scale-90 active:translate-y-[1px]`}
+    >
+      {icon && <span className="group-active:rotate-12 transition-transform">{icon}</span>}
       {label}
     </button>
   );

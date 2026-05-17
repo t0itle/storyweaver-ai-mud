@@ -15,16 +15,65 @@ const supa = createClient(SUPABASE_URL, SERVICE_KEY);
 
 // special pseudo-rooms for combat / rest
 const SPECIAL: Record<string, { music: string; ambient: string; name: string }> = {
+  __combat_default__: {
+    name: "Combat",
+    music: "Tense driving orchestral combat. Low brass, urgent strings, taiko percussion. Dark fantasy, cinematic, seamless 30s loop.",
+    ambient: "Distant clashing of blades, ragged breathing, leather creaking, no music.",
+  },
+  __combat_city__: {
+    name: "City Combat",
+    music: "Frantic city skirmish — staccato strings, ringing bells, shouts in the distance, urgent military snare, dark fantasy, cinematic, seamless 30s loop.",
+    ambient: "Boots on cobblestone, shouting townsfolk, clattering market stalls, bells.",
+  },
+  __combat_road__: {
+    name: "Road Combat",
+    music: "Highwayman ambush — galloping rhythmic percussion, urgent fiddle and low brass, traveling-theme turned sinister, seamless 30s loop.",
+    ambient: "Hooves, crunching gravel, snapping reins, wind across the road.",
+  },
+  __combat_wilds__: {
+    name: "Wilds Combat",
+    music: "Primal forest battle — pounding tribal drums, howling horns, dissonant strings, beastly low brass, dark fantasy, seamless 30s loop.",
+    ambient: "Snapping branches, beast growls, leaves thrashing, panicked birdcalls.",
+  },
+  __combat_desert__: {
+    name: "Desert Combat",
+    music: "Searing desert duel — driving frame drums, snarling oud, ney flute shrieks, low choir, blistering and exotic, seamless 30s loop.",
+    ambient: "Sand hissing underfoot, hot wind, ringing scimitars, distant horns.",
+  },
+  __combat_cave__: {
+    name: "Cave Combat",
+    music: "Claustrophobic cavern fight — booming low drums echoing, scraping metal strings, deep brass swells, oppressive, seamless 30s loop.",
+    ambient: "Reverberant clashes, falling pebbles, dripping water, monstrous breathing.",
+  },
+  __combat_ruin__: {
+    name: "Ruin Combat",
+    music: "Haunted ruin skirmish — broken bells, ghostly choir stabs, urgent strings, brass crescendo, mournful and tense, seamless 30s loop.",
+    ambient: "Crumbling stone, wind through arches, whispered echoes, clashing steel.",
+  },
+  __combat_crypt__: {
+    name: "Crypt Combat",
+    music: "Necrotic crypt battle — deep church organ, whispering choir, slow ominous percussion building to violent crescendo, seamless 30s loop.",
+    ambient: "Bone scraping stone, low moans, dripping ichor, ringing iron.",
+  },
+  __combat_lair__: {
+    name: "Lair Combat",
+    music: "Monstrous boss lair — roaring low brass, massive war drums, full choir of dread, dragon-fight cinematic, terrifying, seamless 30s loop.",
+    ambient: "Beast roars, shifting treasure, gusts of hot breath, shaking stone.",
+  },
+  __combat_shore__: {
+    name: "Shore Combat",
+    music: "Coastal raid — surging strings like waves, salt-bitten brass, rhythmic war drums and crashing cymbals, seamless 30s loop.",
+    ambient: "Crashing surf, gulls, splashing footfalls, creaking timbers.",
+  },
+  // Legacy fallback key
   __combat__: {
     name: "Combat",
-    music:
-      "Tense, driving orchestral combat loop. Low brass, urgent strings, taiko-style percussion. Dark fantasy, no melody hooks, cinematic, seamless 30-second loop.",
+    music: "Tense driving orchestral combat. Low brass, urgent strings, taiko percussion. Dark fantasy, cinematic, seamless 30s loop.",
     ambient: "Distant clashing of blades, ragged breathing, leather creaking, no music.",
   },
   __rest__: {
     name: "Rest",
-    music:
-      "Soft warm acoustic lute and low strings. Calming hearthside fantasy lullaby, gentle, hopeful, seamless 30-second loop.",
+    music: "Soft warm acoustic lute and low strings. Calming hearthside fantasy lullaby, gentle, hopeful, seamless 30-second loop.",
     ambient: "Crackling fire, distant wind through wooden walls, occasional creak of timber.",
   },
 };
