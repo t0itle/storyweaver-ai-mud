@@ -907,19 +907,44 @@ export default function GameClient({ session }: { session: Session }) {
     if (profile.companion_npc_id) {
       setMessages((m) => [...m, localSys(`Dismiss your current companion first.`)]); return;
     }
-    // Amity gate: NPC must be at least Friendly (+20) to travel with you.
-    const { data: amity } = await supabase.from("npc_amity")
-      .select("score").eq("npc_id", npc.id).eq("user_id", profile.id).maybeSingle();
-    if ((amity?.score ?? 0) < 20) {
-      const have = amity?.score ?? 0;
-      setMessages((m) => [...m, localSys(`*${npc.name} regards you, but does not yet trust you enough to walk at your side.*\n_Trust ${have}/20. Earn it: \`talk ${npc.name.split(" ")[0].toLowerCase()} ...\`, run their errands, or \`give ${npc.name.split(" ")[0].toLowerCase()} <item>\`._`)]);
-      return;
+    // Fetch hire terms for this NPC
+    const { data: npcRow } = await supabase.from("npcs")
+      .select("hire_price_gold, hire_no_trust").eq("id", npc.id).maybeSingle();
+    const price = npcRow?.hire_price_gold ?? 0;
+    const noTrust = !!npcRow?.hire_no_trust;
+
+    // Trust gate (skipped for sellswords)
+    if (!noTrust) {
+      const { data: amity } = await supabase.from("npc_amity")
+        .select("score").eq("npc_id", npc.id).eq("user_id", profile.id).maybeSingle();
+      if ((amity?.score ?? 0) < 20) {
+        const have = amity?.score ?? 0;
+        setMessages((m) => [...m, localSys(`*${npc.name} regards you, but does not yet trust you enough to walk at your side.*\n_Trust ${have}/20. Earn it: \`talk ${npc.name.split(" ")[0].toLowerCase()} ...\`, run their errands, or \`give ${npc.name.split(" ")[0].toLowerCase()} <item>\`._`)]);
+        return;
+      }
     }
+
+    // Gold gate
+    if (price > 0) {
+      if ((profile.gold ?? 0) < price) {
+        setMessages((m) => [...m, localSys(`*${npc.name} folds their arms.* "My blade costs **${price}g**. You carry ${profile.gold ?? 0}g. Come back richer."`)]);
+        return;
+      }
+      await supabase.from("profiles").update({ gold: (profile.gold ?? 0) - price }).eq("id", profile.id);
+      setProfile({ ...profile, gold: (profile.gold ?? 0) - price, companion_npc_id: npc.id });
+    } else {
+      setProfile({ ...profile, companion_npc_id: npc.id });
+    }
+
     await supabase.from("profiles").update({ companion_npc_id: npc.id }).eq("id", profile.id);
-    setProfile({ ...profile, companion_npc_id: npc.id });
+    const flavor = noTrust
+      ? `*${npc.name} pockets ${price}g, spits, and falls in behind ${profile.username}.* "Lead on."`
+      : price > 0
+        ? `*${npc.name} accepts ${price}g and sets aside their work, walking with ${profile.username}.*`
+        : `*${npc.name} sets aside their work and falls in beside ${profile.username}.*`;
     await supabase.from("messages").insert({
       room: profile.current_room, author_name: "—", kind: "ambient",
-      content: `*${npc.name} sets aside their work and falls in beside ${profile.username}.*`, user_id: null,
+      content: flavor, user_id: null,
     });
   };
 
