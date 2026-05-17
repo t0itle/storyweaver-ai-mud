@@ -964,8 +964,8 @@ export default function GameClient({ session }: { session: Session }) {
       });
       lines.unshift(`  ● ${profile!.username} (you)`);
       setMessages((m) => [...m, localSys(`Here:\n${lines.join("\n")}`)]);
-    } else if (c === "follow") {
-      if (!args) { setMessages((m) => [...m, localSys("Follow whom? Try: follow <npc name>")]); return; }
+    } else if (c === "follow" || c === "hire" || c === "recruit") {
+      if (!args) { setMessages((m) => [...m, localSys(`${c === "hire" ? "Hire" : "Follow"} whom? Try: ${c} <npc name>`)]); return; }
       await followNpc(args.trim());
     } else if (c === "dismiss" || c === "unfollow" || c === "partways") {
       await dismissCompanion();
