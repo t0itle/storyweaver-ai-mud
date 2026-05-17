@@ -535,6 +535,30 @@ Deno.serve(async (req) => {
             details: { fell: true, slain_by: me.name },
             decay_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
           });
+
+          // ===== NECROMANTIC RETURN: a felled dragon-boss is scheduled to rise again =====
+          const isDragon = /dragon|drake|wyrm/i.test(`${npcRow.name} ${npcRow.title ?? ""}`);
+          if (isDragon) {
+            // Avoid stacking: only one pending resurrection per original NPC.
+            const { data: existingPR } = await admin.from("pending_resurrections")
+              .select("id").eq("original_npc_id", npcRow.id).eq("status", "pending").maybeSingle();
+            if (!existingPR) {
+              const riseAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+              await admin.from("pending_resurrections").insert({
+                original_npc_id: npcRow.id,
+                original_name: npcRow.name,
+                room: npcRow.room,
+                resurrect_at: riseAt,
+                new_name: `${npcRow.name}, Bone-Wreathed`,
+                new_title: "risen drake stitched from ${npcRow.name}'s bones",
+                new_persona: `Once ${npcRow.name}, now a vast skeleton lashed together with grave-silk and burning sigils. Smoke leaks where its heart used to beat. A pale figure stands behind it, lips moving.`,
+                new_max_hp: Math.round((npcRow.combat_max_hp ?? 240) * 1.6),
+                new_damage_min: 16,
+                new_damage_max: 34,
+                new_boss_intro: `Bone hinges grind. ${npcRow.name}'s ribcage rises like a cathedral. Behind it, a thin man in patched grey opens his mouth — and the dragon's jaw opens with him.`,
+              });
+            }
+          }
         }
         if (npcRow) {
           // PERMA-DEATH: the NPC is gone for good. Tension still decays for gossip purposes.
