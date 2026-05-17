@@ -285,6 +285,23 @@ Deno.serve(async (req) => {
       }
       if (!target) throw new Error(`No one called "${body.target_name}" is here to fight.`);
 
+      // === Sustained boss check: a risen bone-thing without its necromancer collapses. ===
+      if (target.kind === "npc" && target.sustained_by_npc_id) {
+        const { data: sustainer } = await admin.from("npcs")
+          .select("id, dead_until, name").eq("id", target.sustained_by_npc_id).maybeSingle();
+        const sNow = new Date();
+        const sustainerDead = !sustainer || (sustainer.dead_until && new Date(sustainer.dead_until) > sNow);
+        if (sustainerDead) {
+          const long = "9999-12-31T00:00:00.000Z";
+          await admin.from("npcs").update({ dead_until: long }).eq("id", target.id);
+          await admin.from("messages").insert({
+            room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+            content: `✶ ${target.name} shudders, then folds in on itself — its sustaining hand has been cut. The bones clatter to the floor and lie still.`,
+          });
+          throw new Error(`${target.name} collapses without its sustainer. The fight is already over.`);
+        }
+      }
+
       const stats = await playerStats(user.id);
       const playerMaxHp = (stats.prof?.max_hp ?? 20) + stats.hpBonus;
       const playerHp = Math.min(stats.prof?.hp ?? 20, playerMaxHp);
@@ -535,6 +552,30 @@ Deno.serve(async (req) => {
             details: { fell: true, slain_by: me.name },
             decay_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
           });
+
+          // ===== NECROMANTIC RETURN: a felled dragon-boss is scheduled to rise again =====
+          const isDragon = /dragon|drake|wyrm/i.test(`${npcRow.name} ${npcRow.title ?? ""}`);
+          if (isDragon) {
+            // Avoid stacking: only one pending resurrection per original NPC.
+            const { data: existingPR } = await admin.from("pending_resurrections")
+              .select("id").eq("original_npc_id", npcRow.id).eq("status", "pending").maybeSingle();
+            if (!existingPR) {
+              const riseAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+              await admin.from("pending_resurrections").insert({
+                original_npc_id: npcRow.id,
+                original_name: npcRow.name,
+                room: npcRow.room,
+                resurrect_at: riseAt,
+                new_name: `${npcRow.name}, Bone-Wreathed`,
+                new_title: `risen drake stitched from ${npcRow.name}'s bones`,
+                new_persona: `Once ${npcRow.name}, now a vast skeleton lashed together with grave-silk and burning sigils. Smoke leaks where its heart used to beat. A pale figure stands behind it, lips moving.`,
+                new_max_hp: Math.round((npcRow.combat_max_hp ?? 240) * 1.6),
+                new_damage_min: 16,
+                new_damage_max: 34,
+                new_boss_intro: `Bone hinges grind. ${npcRow.name}'s ribcage rises like a cathedral. Behind it, a thin man in patched grey opens his mouth — and the dragon's jaw opens with him.`,
+              });
+            }
+          }
         }
         if (npcRow) {
           // PERMA-DEATH: the NPC is gone for good. Tension still decays for gossip purposes.
