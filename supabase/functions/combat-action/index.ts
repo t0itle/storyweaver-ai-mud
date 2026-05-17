@@ -181,8 +181,12 @@ Deno.serve(async (req) => {
         // clear in_combat_id on player combatants
         const playerIds = (list ?? []).filter((c: any) => c.kind === "player").map((c: any) => c.user_id);
         if (playerIds.length) await admin.from("profiles").update({ in_combat_id: null }).in("id", playerIds);
-        await pushAction(combatId, combat!.turn_number, null, "—", "system", null,
-          `The fight ends. Side ${winner.toUpperCase()} stands.`);
+        const survivors = alive.map((c: any) => c.name).filter(Boolean).join(", ") || "the last fighter";
+        const fallen = (list ?? []).filter((c: any) => c.defeated).map((c: any) => c.name).filter(Boolean).join(", ");
+        const endTale = fallen
+          ? `The clash settles. ${survivors} stand breathing over the stillness of ${fallen}.`
+          : `The clash settles. ${survivors} remain, the fight gone out of the air.`;
+        await pushAction(combatId, combat!.turn_number, null, "—", "system", null, endTale);
         return;
       }
       // find next combatant after current
