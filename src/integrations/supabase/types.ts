@@ -2856,7 +2856,15 @@ export type Database = {
           item_key?: string
           origin_town_key?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "trade_goods_item_key_fkey"
+            columns: ["item_key"]
+            isOneToOne: true
+            referencedRelation: "items"
+            referencedColumns: ["key"]
+          },
+        ]
       }
       wagon_routes: {
         Row: {
