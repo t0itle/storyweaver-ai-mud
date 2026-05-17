@@ -550,7 +550,7 @@ Deno.serve(async (req) => {
                 room: npcRow.room,
                 resurrect_at: riseAt,
                 new_name: `${npcRow.name}, Bone-Wreathed`,
-                new_title: "risen drake stitched from ${npcRow.name}'s bones",
+                new_title: `risen drake stitched from ${npcRow.name}'s bones`,
                 new_persona: `Once ${npcRow.name}, now a vast skeleton lashed together with grave-silk and burning sigils. Smoke leaks where its heart used to beat. A pale figure stands behind it, lips moving.`,
                 new_max_hp: Math.round((npcRow.combat_max_hp ?? 240) * 1.6),
                 new_damage_min: 16,
