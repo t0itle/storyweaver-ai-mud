@@ -142,7 +142,17 @@ Generate exactly ${need} NPCs that BELONG here. They live here ("here" in schedu
 
     const bucket = timeBucket();
     const rows = (Array.isArray(parsed.npcs) ? parsed.npcs.slice(0, need) : [])
-      .filter((n: any) => n?.name && n?.persona)
+      .filter((n: any) => {
+        if (!n?.name || !n?.persona) return false;
+        const nm = String(n.name).trim().toLowerCase();
+        const first = nm.split(/\s+/)[0];
+        // Skip any name (or first-token collision) that already exists in the world.
+        if (forbidden.has(nm) || (first && forbidden.has(first))) return false;
+        // Claim it for this batch so the AI can't give us two duplicates in one response.
+        forbidden.add(nm);
+        if (first) forbidden.add(first);
+        return true;
+      })
       .map((n: any) => {
         const sched: Record<string, { room: string; activity: string }> = {};
         for (const b of ["dawn","morning","midday","dusk","night"]) {
