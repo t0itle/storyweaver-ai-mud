@@ -1021,6 +1021,13 @@ export type Database = {
       npcs: {
         Row: {
           aether_key: string | null
+          boss_intro: string | null
+          boss_reward_gold: number
+          boss_reward_merit: number
+          boss_reward_xp: number
+          combat_damage_max: number | null
+          combat_damage_min: number | null
+          combat_max_hp: number | null
           current_activity: string | null
           dead_until: string | null
           fence_rate: number
@@ -1032,6 +1039,7 @@ export type Database = {
           id: string
           is_aether: boolean
           is_bard: boolean
+          is_boss: boolean
           is_fence: boolean
           is_guard: boolean
           is_guildmaster: boolean
@@ -1052,6 +1060,13 @@ export type Database = {
         }
         Insert: {
           aether_key?: string | null
+          boss_intro?: string | null
+          boss_reward_gold?: number
+          boss_reward_merit?: number
+          boss_reward_xp?: number
+          combat_damage_max?: number | null
+          combat_damage_min?: number | null
+          combat_max_hp?: number | null
           current_activity?: string | null
           dead_until?: string | null
           fence_rate?: number
@@ -1063,6 +1078,7 @@ export type Database = {
           id?: string
           is_aether?: boolean
           is_bard?: boolean
+          is_boss?: boolean
           is_fence?: boolean
           is_guard?: boolean
           is_guildmaster?: boolean
@@ -1083,6 +1099,13 @@ export type Database = {
         }
         Update: {
           aether_key?: string | null
+          boss_intro?: string | null
+          boss_reward_gold?: number
+          boss_reward_merit?: number
+          boss_reward_xp?: number
+          combat_damage_max?: number | null
+          combat_damage_min?: number | null
+          combat_max_hp?: number | null
           current_activity?: string | null
           dead_until?: string | null
           fence_rate?: number
@@ -1094,6 +1117,7 @@ export type Database = {
           id?: string
           is_aether?: boolean
           is_bard?: boolean
+          is_boss?: boolean
           is_fence?: boolean
           is_guard?: boolean
           is_guildmaster?: boolean
