@@ -87,6 +87,40 @@ Deno.serve(async (req) => {
       last_woken_at: nowIso,
     }).eq("key", dragon.key);
 
+    // Spawn an actual fightable boss NPC for this dragon (or revive an existing one in the new room).
+    const { data: existing } = await admin.from("npcs")
+      .select("id")
+      .eq("name", dragon.name)
+      .eq("is_boss", true)
+      .maybeSingle();
+
+    const bossPayload = {
+      name: dragon.name,
+      title: dragon.epithet,
+      persona: dragon.personality || `An ancient dragon, wrathful and cruel. ${dragon.epithet}.`,
+      greeting: `*${dragon.name} fixes you with a slit-pupiled stare. The room shudders.*`,
+      room: candidateRoom,
+      home_room: candidateRoom,
+      is_boss: true,
+      aggro_on_sight: true,
+      combat_max_hp: 640,
+      combat_damage_min: 20,
+      combat_damage_max: 40,
+      base_armor: 7,
+      str: 22, dex: 12, con: 22, level: 17,
+      boss_reward_gold: 8000,
+      boss_reward_xp: 7000,
+      boss_reward_merit: 350,
+      boss_intro: `*${dragon.name}, ${dragon.epithet}, uncoils from the hoard. Wings unfurl with the sound of tearing sky. The air sears. Combat is upon you.*`,
+      dead_until: null as string | null,
+    };
+
+    if (existing?.id) {
+      await admin.from("npcs").update(bossPayload).eq("id", existing.id);
+    } else {
+      await admin.from("npcs").insert(bossPayload);
+    }
+
     await admin.from("world_events").insert({
       kind: "dragon_stirs",
       actor_name: dragon.name,
