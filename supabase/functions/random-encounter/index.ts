@@ -35,13 +35,50 @@ const CAPITAL_DESTINATIONS = [
   { slug: "first-city", name: "The First City" },
 ];
 
-const AMBUSH_NPCS = [
-  { name: "Crook-Nose Vell", title: "road bandit", greeting: "Coin or blood, traveler. I'll take either." },
-  { name: "Ash-Mouth Korin", title: "highwayman", greeting: "Wrong road, friend. Wrong day." },
-  { name: "Sister Veiled-Iron", title: "Speaker zealot", greeting: "*She lifts a strip of cloth from her mouth — only to draw a blade.*" },
-  { name: "The Burnt Wolf", title: "feral hound", greeting: "*A low, wet growl. The thing was once a wolf.*" },
-  { name: "Greel of the Cinders", title: "deserter", greeting: "I'm done running. Hand it over." },
+// Ambushers are picked from a biome-appropriate pool so encounters feel like
+// they belong to the place. Each entry also carries a `race` tag for color.
+type AmbushEntry = { name: string; title: string; greeting: string; race: string };
+
+const AMBUSH_ROAD: AmbushEntry[] = [
+  { name: "Crook-Nose Vell", title: "road bandit", race: "human", greeting: "Coin or blood, traveler. I'll take either." },
+  { name: "Ash-Mouth Korin", title: "highwayman", race: "human", greeting: "Wrong road, friend. Wrong day." },
+  { name: "Sister Veiled-Iron", title: "Speaker zealot", race: "human", greeting: "*She lifts a strip of cloth from her mouth — only to draw a blade.*" },
+  { name: "Greel of the Cinders", title: "deserter", race: "human", greeting: "I'm done running. Hand it over." },
+  { name: "Skritch the Tollkeep", title: "ratfolk brigand", race: "ratfolk", greeting: "*A long-snouted figure scampers from the ditch, cleaver raised.* \"Toll! Toll!\"" },
+  { name: "Mottle-Grin", title: "goblin road-rat", race: "goblin", greeting: "*A green-skinned imp bares too many teeth.* \"Pretty boots. Mine now.\"" },
+  { name: "Bron Oak-Knee", title: "half-orc bruiser", race: "half-orc", greeting: "*A tusked giant cracks his knuckles.* \"Down. Now.\"" },
 ];
+
+const AMBUSH_WILDS: AmbushEntry[] = [
+  { name: "The Burnt Wolf", title: "feral hound", race: "beast", greeting: "*A low, wet growl. The thing was once a wolf.*" },
+  { name: "Thistle-Eye Mob", title: "goblin pack", race: "goblin", greeting: "*Three small green shapes circle through the brush, giggling.*" },
+  { name: "Old Hollowroot", title: "treekin warden", race: "treekin", greeting: "*Bark splits open into a wooden face.* \"You walk where you should not.\"" },
+  { name: "Murk-Born", title: "bog-thing", race: "fae", greeting: "*Reeds bend wrong. Something rises from the water, leaking peat.*" },
+  { name: "Vex of the Hollow", title: "antlered feralkin", race: "feralkin", greeting: "*A horned humanoid lowers its skull-mask and charges.*" },
+];
+
+const AMBUSH_DESERT: AmbushEntry[] = [
+  { name: "Sand-Walking Ones", title: "dust-wraith", race: "wraith", greeting: "*The dust gathers into the shape of a thin, hungry figure.*" },
+  { name: "Kessik of the Dunes", title: "scorpid-folk raider", race: "scorpid", greeting: "*A chitinous warrior clicks its claws.* \"Water. Or blood. You choose.\"" },
+  { name: "The Glass-Eyed", title: "desert ghoul", race: "undead", greeting: "*A leathered corpse drags itself upright, mouth full of sand.*" },
+  { name: "Hak-Hak", title: "jackal-headed marauder", race: "beastkin", greeting: "*A jackal's grin on a man's body.* \"Lost, little walker.\"" },
+  { name: "Sister Dune", title: "veiled apostate", race: "human", greeting: "*She has cut her mouth-cloth into strips. Each is bloody.*" },
+];
+
+const AMBUSH_DARK: AmbushEntry[] = [
+  { name: "The Hollow King", title: "barrow-wight", race: "undead", greeting: "*A crown of bone tilts toward you. The eyes beneath it remember being yours.*" },
+  { name: "Skritchen Brood", title: "ratfolk swarm", race: "ratfolk", greeting: "*A thousand red eyes glint from the dark.*" },
+  { name: "Below-Born", title: "deepkin stalker", race: "deepkin", greeting: "*A pale, eyeless thing unfolds from the ceiling.*" },
+  { name: "Drelth the Pale", title: "ghoul priest", race: "undead", greeting: "*A bloodless face smiles too wide.* \"Stay. There is room at our table.\"" },
+  { name: "Iron-Boned", title: "cursed revenant", race: "undead", greeting: "*Armor walks itself out of the dark, empty inside.*" },
+];
+
+function ambushPoolFor(kind: string): AmbushEntry[] {
+  if (kind === "desert") return AMBUSH_DESERT;
+  if (kind === "wilds" || kind === "grove" || kind === "hollow" || kind === "shore") return AMBUSH_WILDS;
+  if (kind === "cave" || kind === "lair" || kind === "crypt" || kind === "ruin") return AMBUSH_DARK;
+  return AMBUSH_ROAD; // road, bridge, dock, default
+}
 
 const TRAVELERS = [
   { name: "Mira Lensbinder", title: "wandering scribe", plea: "Please — my satchel is full of letters that must reach %DEST%. The road is not safe alone." },
