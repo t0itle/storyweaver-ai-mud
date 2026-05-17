@@ -601,6 +601,29 @@ Deno.serve(async (req) => {
           const deadUntil = "9999-12-31T00:00:00.000Z";
           const decayAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
           await admin.from("npcs").update({ dead_until: deadUntil }).eq("id", npcRow.id);
+
+          // === Spill inventory + purse into room loot ===
+          const { data: corpsePurse } = await admin.from("npcs").select("purse_gold").eq("id", npcRow.id).maybeSingle();
+          if (corpsePurse?.purse_gold && corpsePurse.purse_gold > 0) {
+            await admin.from("room_loot").insert({
+              room: profile.current_room, gold: corpsePurse.purse_gold,
+              source: "corpse", placed_by_name: npcRow.name,
+            });
+            await admin.from("npcs").update({ purse_gold: 0 }).eq("id", npcRow.id);
+          }
+          const { data: carried } = await admin.from("npc_items").select("id,item_key,quantity").eq("npc_id", npcRow.id);
+          if (carried && carried.length) {
+            const dropRows = carried.map((c: any) => ({
+              room: profile.current_room, gold: 0, item_key: c.item_key, quantity: c.quantity,
+              source: "corpse", placed_by_name: npcRow.name,
+            }));
+            await admin.from("room_loot").insert(dropRows);
+            await admin.from("npc_items").delete().eq("npc_id", npcRow.id);
+            await admin.from("messages").insert({
+              room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+              content: `✶ ${npcRow.name}'s gear and pouches spill across the ground.`,
+            });
+          }
           await admin.from("world_events").insert({
             room: profile.current_room,
             kind: "npc_killed",
