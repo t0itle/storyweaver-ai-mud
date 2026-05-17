@@ -911,7 +911,8 @@ export default function GameClient({ session }: { session: Session }) {
     const { data: amity } = await supabase.from("npc_amity")
       .select("score").eq("npc_id", npc.id).eq("user_id", profile.id).maybeSingle();
     if ((amity?.score ?? 0) < 20) {
-      setMessages((m) => [...m, localSys(`*${npc.name} regards you, but does not yet trust you enough to travel at your side.*`)]);
+      const have = amity?.score ?? 0;
+      setMessages((m) => [...m, localSys(`*${npc.name} regards you, but does not yet trust you enough to walk at your side.*\n_Trust ${have}/20. Earn it: \`talk ${npc.name.split(" ")[0].toLowerCase()} ...\`, run their errands, or \`give ${npc.name.split(" ")[0].toLowerCase()} <item>\`._`)]);
       return;
     }
     await supabase.from("profiles").update({ companion_npc_id: npc.id }).eq("id", profile.id);
