@@ -242,6 +242,32 @@ export function KinPanel({ userId, onClose }: { userId: string; onClose: () => v
             )}
 
             <div className="space-y-1">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-ash flex items-center justify-between">
+                <span>Your Party</span>
+                <span className="text-whisper">{party.length}</span>
+              </div>
+              {party.length === 0 && (
+                <p className="text-ash italic text-xs">You walk alone. Hire a sellsword or befriend an NPC, then <code className="text-ember">follow</code> them.</p>
+              )}
+              {party.map(m => (
+                <div key={m.id} className="flex items-center justify-between gap-2 p-2 border-l-2 border-ember/60 bg-ember/5">
+                  <div className="min-w-0">
+                    <div className="text-sm text-parchment truncate">{m.name}</div>
+                    {m.title && <div className="font-mono text-[9px] text-whisper truncate italic">{m.title}</div>}
+                    {m.room && <div className="font-mono text-[9px] text-ash/70 truncate">at {m.room.replace(/-/g, " ")}</div>}
+                  </div>
+                  <button
+                    onClick={() => dismissCompanion(m.name)}
+                    className="p-1 border border-border text-ash hover:text-ember hover:border-ember/60"
+                    title="Dismiss companion"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-1">
               <div className="font-mono text-[10px] uppercase tracking-widest text-ash">Bound kin</div>
               {accepted.length === 0 && <p className="text-ash italic text-xs">No threads bound yet.</p>}
               {accepted.map(f => {
