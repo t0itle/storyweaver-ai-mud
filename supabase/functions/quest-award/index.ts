@@ -39,13 +39,25 @@ export async function completeQuest(admin: any, questId: string, note = "") {
     }, { onConflict: "npc_id,user_id" });
   }
 
-  // Item reward (only if severity allows).
+  // Item reward (only if severity allows). Unique items are granted at most once per player.
+  let itemGranted: string | null = null;
   if (caps.item && quest.reward_item_key) {
-    const { data: item } = await admin.from("items").select("key").eq("key", quest.reward_item_key).maybeSingle();
+    const { data: item } = await admin.from("items")
+      .select("key, unique_per_player").eq("key", quest.reward_item_key).maybeSingle();
     if (item) {
-      await admin.from("player_items").insert({
-        user_id: quest.user_id, item_key: item.key, quantity: 1,
-      });
+      let allow = true;
+      if (item.unique_per_player) {
+        const { count } = await admin.from("player_items")
+          .select("*", { count: "exact", head: true })
+          .eq("user_id", quest.user_id).eq("item_key", item.key);
+        if ((count ?? 0) > 0) allow = false;
+      }
+      if (allow) {
+        await admin.from("player_items").insert({
+          user_id: quest.user_id, item_key: item.key, quantity: 1,
+        });
+        itemGranted = item.key;
+      }
     }
   }
 
