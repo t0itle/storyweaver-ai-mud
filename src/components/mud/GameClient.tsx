@@ -2061,13 +2061,17 @@ function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket
       )}
       {npcs.length > 0 && (
         <div className="text-whisper italic mt-2 space-y-0.5">
-          {npcs.map((n) => (
-            <p key={n.id}>
-              <span className="text-parchment">{n.name}</span>
-              {n.title ? <span>, {n.title}</span> : null}
-              {n.current_activity ? <span className="text-ash"> — {n.current_activity}</span> : null}
-            </p>
-          ))}
+          {npcs.map((n) => {
+            const isCompanion = companionId && n.id === companionId;
+            const activity = isCompanion ? "walking at your side" : n.current_activity;
+            return (
+              <p key={n.id}>
+                <span className="text-parchment">{n.name}</span>
+                {n.title ? <span>, {n.title}</span> : null}
+                {activity ? <span className="text-ash"> — {activity}</span> : null}
+              </p>
+            );
+          })}
         </div>
       )}
     </div>
