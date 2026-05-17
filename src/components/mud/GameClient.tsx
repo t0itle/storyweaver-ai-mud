@@ -998,6 +998,23 @@ export default function GameClient({ session }: { session: Session }) {
       await followNpc(args.trim());
     } else if (c === "dismiss" || c === "unfollow" || c === "partways") {
       await dismissCompanion();
+    } else if (c === "stay" || c === "wait" || c === "hold") {
+      if (!profile.companion_npc_id) { setMessages((m) => [...m, localSys("No one is with you to give orders to.")]); return; }
+      const { data: comp } = await supabase.from("npcs").select("name").eq("id", profile.companion_npc_id).maybeSingle();
+      await supabase.from("profiles").update({ companion_mode: "stay" }).eq("id", profile.id);
+      setProfile({ ...profile, companion_mode: "stay" });
+      await post("ambient", `*${comp?.name ?? "Your companion"} nods and plants their feet. "I'll hold here."*`, "—");
+    } else if (c === "come" || c === "heel" || c === "tome" /* typo guard */) {
+      if (!profile.companion_npc_id) { setMessages((m) => [...m, localSys("No one is with you to call.")]); return; }
+      const { data: comp } = await supabase.from("npcs").select("name, room").eq("id", profile.companion_npc_id).maybeSingle();
+      await supabase.from("profiles").update({ companion_mode: "follow" }).eq("id", profile.id);
+      setProfile({ ...profile, companion_mode: "follow" });
+      if (comp && comp.room !== profile.current_room) {
+        await supabase.from("npcs").update({ room: profile.current_room }).eq("id", profile.companion_npc_id);
+        await post("ambient", `*${comp.name} jogs in from elsewhere and falls back into step beside ${profile.username}.*`, "—");
+      } else {
+        await post("ambient", `*${comp?.name ?? "Your companion"} falls back into step.*`, "—");
+      }
     } else if (c === "go" || c === "n" || c === "s" || c === "e" || c === "w" || c === "u" || c === "d" || c === "travel" || c === "goto") {
       const dirMap: Record<string, string> = { n: "north", s: "south", e: "east", w: "west", u: "up", d: "down" };
       let dir = dirMap[c] ?? args.toLowerCase().trim();
