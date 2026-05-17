@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
       const next = Math.max(-100, Math.min(100, (amity?.score ?? 0) + (q.reward_amity ?? 0)));
       await admin.from("npc_amity").upsert({
         user_id: user.id, npc_id: q.giver_npc_id, score: next, updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id,npc_id" });
+      }, { onConflict: "npc_id,user_id" });
 
       await admin.from("messages").insert({
         room: profile.current_room, user_id: null, author_name: q.giver_npc_name, kind: "say",
