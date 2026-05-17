@@ -498,7 +498,44 @@ Deno.serve(async (req) => {
           content: `✦ ${me.name} gains ${reward} xp, ${goldReward} gold, and ${meritReward} merit.` });
 
         // === Adaptive storytelling: persist NPC death as a world event ===
-        const { data: npcRow } = await admin.from("npcs").select("id,name,title,room").eq("id", target.npc_id).maybeSingle();
+        const { data: npcRow } = await admin.from("npcs")
+          .select("id,name,title,room,is_boss,boss_reward_gold,boss_reward_xp,boss_reward_merit")
+          .eq("id", target.npc_id).maybeSingle();
+        // === BOSS KILL: layer bonus rewards on top + broadcast world-wide fame. ===
+        if (npcRow?.is_boss) {
+          const bg = npcRow.boss_reward_gold ?? 0;
+          const bx = npcRow.boss_reward_xp ?? 0;
+          const bm = npcRow.boss_reward_merit ?? 0;
+          await admin.from("profiles").update({
+            xp: (profile.xp ?? 0) + reward + bx,
+            gold: (profile.gold ?? 0) + goldReward + bg,
+            merit: (profile.merit ?? 0) + meritReward + bm,
+          }).eq("id", user.id);
+          await admin.from("messages").insert({
+            room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+            content: `✦✦✦ The hoard is yours. ${me.name} claims **${bg}g**, **${bx} xp**, and **${bm} merit** from the corpse of ${npcRow.name}.`,
+          });
+          // Broadcast fame to every other room — bards will sing this for years.
+          const fameLine = `✦ Word storms across the Kingdoms: **${me.name}** has slain **${npcRow.name}, ${npcRow.title ?? "a dread power"}**. Bards already shape the song.`;
+          const { data: allRooms } = await admin.from("rooms").select("slug");
+          if (allRooms) {
+            const rows = allRooms
+              .filter((r: any) => r.slug !== profile.current_room)
+              .map((r: any) => ({ room: r.slug, user_id: null, author_name: "—", kind: "system", content: fameLine }));
+            // chunk to keep payload small
+            for (let i = 0; i < rows.length; i += 200) {
+              await admin.from("messages").insert(rows.slice(i, i + 200));
+            }
+          }
+          // If the boss was a dragon (persona == 'dragon-boss'), also log a dragon_fell world event.
+          await admin.from("world_events").insert({
+            room: profile.current_room, kind: "dragon_stirs",
+            actor_id: user.id, actor_name: me.name,
+            target_kind: "npc", target_id: npcRow.id, target_name: npcRow.name,
+            details: { fell: true, slain_by: me.name },
+            decay_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+          });
+        }
         if (npcRow) {
           // PERMA-DEATH: the NPC is gone for good. Tension still decays for gossip purposes.
           const deadUntil = "9999-12-31T00:00:00.000Z";
