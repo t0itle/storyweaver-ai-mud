@@ -212,15 +212,25 @@ Deno.serve(async (req) => {
       const enemies = (list ?? []).filter((c: any) => c.side !== npc.side && !c.defeated);
       if (enemies.length === 0) { await advanceTurn(combatId); return; }
       const target = enemies[SR(enemies.length)];
-      // Boss NPCs hit much harder. Fetch their damage range if marked.
+      // Damage: equipped weapon + str bonus, or boss explicit range, or default flailing.
       let dmgMin = 2, dmgRoll = 4;
       if (npc.npc_id) {
         const { data: nstat } = await admin.from("npcs")
-          .select("is_boss, combat_damage_min, combat_damage_max")
+          .select("is_boss, combat_damage_min, combat_damage_max, str, dex, level")
           .eq("id", npc.npc_id).maybeSingle();
         if (nstat?.is_boss && nstat.combat_damage_min && nstat.combat_damage_max) {
           dmgMin = nstat.combat_damage_min;
           dmgRoll = Math.max(1, nstat.combat_damage_max - nstat.combat_damage_min + 1);
+        } else if (nstat) {
+          // Look up equipped weapon, if any.
+          const { data: gear } = await admin.from("npc_items")
+            .select("item_key, equipped_slot, items:item_key(base_damage)")
+            .eq("npc_id", npc.npc_id).eq("equipped_slot", "main_hand").maybeSingle();
+          const weaponDmg = (gear as any)?.items?.base_damage ?? 0;
+          const strBonus = Math.floor(((nstat.str ?? 10) - 10) / 2);
+          const lvlBonus = Math.floor(((nstat.level ?? 1) - 1) / 2);
+          dmgMin = Math.max(1, 1 + weaponDmg + strBonus + lvlBonus);
+          dmgRoll = Math.max(2, 3 + Math.floor(weaponDmg / 2));
         }
       }
       const dmg = dmgMin + SR(dmgRoll);
