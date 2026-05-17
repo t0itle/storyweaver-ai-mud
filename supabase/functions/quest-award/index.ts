@@ -123,13 +123,13 @@ export async function completeQuest(admin: any, questId: string, note = "") {
     room: profile?.current_room ?? quest.offered_room,
     details: {
       title: quest.title, giver: quest.giver_npc_name, note,
-      gold, xp, amity, item: caps.item ? quest.reward_item_key : null,
+      gold, xp, amity, item: itemGranted,
     },
   });
 
   return {
     ok: true, gold, xp, amity,
-    item: caps.item ? quest.reward_item_key : null,
+    item: itemGranted,
     rune: caps.knowledge ? quest.reward_rune_key : null,
     kanji: caps.knowledge ? quest.reward_kanji_key : null,
     title: quest.title,
