@@ -1899,12 +1899,27 @@ function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket
       </div>
       <p className="text-parchment whitespace-pre-line">
         {room.description}
-        {events.filter(e => VISIBLE_EVENT_KINDS.has(e.kind)).length > 0 && (
-          <>
-            {" "}
-            <span className="text-whisper italic">{events.filter(e => VISIBLE_EVENT_KINDS.has(e.kind)).map(e => describeEvent(e)).join(" ")}</span>
-          </>
-        )}
+        {(() => {
+          // Semi-permanent room memory: at most one "killed here" mark and one
+          // other world-altering scar visible at a time, newest wins. Keeps
+          // long-lived rooms from accreting an endless ledger of past violence.
+          const visible = events.filter(e => VISIBLE_EVENT_KINDS.has(e.kind));
+          const seenKinds = new Set<string>();
+          const trimmed: typeof visible = [];
+          for (const e of visible) {
+            if (seenKinds.has(e.kind)) continue;
+            seenKinds.add(e.kind);
+            trimmed.push(e);
+            if (trimmed.length >= 2) break;
+          }
+          if (trimmed.length === 0) return null;
+          return (
+            <>
+              {" "}
+              <span className="text-whisper italic">{trimmed.map(e => describeEvent(e)).join(" ")}</span>
+            </>
+          );
+        })()}
       </p>
       {tint && <p className="text-whisper italic mt-2">{tint}</p>}
       {room.ambience && <p className="text-ash italic mt-2">{room.ambience}</p>}
