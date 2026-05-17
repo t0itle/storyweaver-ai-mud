@@ -134,7 +134,7 @@ FORBIDDEN — these names are already taken by living people elsewhere; do not r
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        messages: [{ role: "system", content: system }, { role: "user", content: userMsg }],
+        messages: [{ role: "system", content: systemFilled }, { role: "user", content: userMsg }],
         response_format: { type: "json_object" },
       }),
     });
