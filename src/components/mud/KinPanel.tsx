@@ -79,9 +79,12 @@ export function KinPanel({ userId, onClose }: { userId: string; onClose: () => v
 
   useEffect(() => {
     loadFriendships();
+    loadParty();
     const ch = supabase
       .channel(`kin-friendships:${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, () => loadFriendships())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` }, () => loadParty())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "npcs" }, () => loadParty())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
