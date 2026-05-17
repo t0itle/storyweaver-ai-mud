@@ -2007,6 +2007,7 @@ export type Database = {
           aether_chosen_at: string | null
           chaos_pressure: number
           char_description: string | null
+          companion_mode: string
           companion_npc_id: string | null
           corruption: number
           created: boolean
@@ -2055,6 +2056,7 @@ export type Database = {
           aether_chosen_at?: string | null
           chaos_pressure?: number
           char_description?: string | null
+          companion_mode?: string
           companion_npc_id?: string | null
           corruption?: number
           created?: boolean
@@ -2103,6 +2105,7 @@ export type Database = {
           aether_chosen_at?: string | null
           chaos_pressure?: number
           char_description?: string | null
+          companion_mode?: string
           companion_npc_id?: string | null
           corruption?: number
           created?: boolean
