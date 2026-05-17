@@ -1991,11 +1991,12 @@ export default function GameClient({ session }: { session: Session }) {
   );
 }
 
-function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket }: {
+function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket, companionId }: {
   room: Room; npcs: Npc[]; dragons: { name: string; epithet: string; personality: string }[];
   sceneUrl: string | null; sceneLoading: boolean;
   events: { kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[];
   bucket: TimeBucket;
+  companionId?: string | null;
 }) {
   const tint = pickTimeTint(bucket, (room.kind ?? "room") as string);
   return (
