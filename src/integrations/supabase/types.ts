@@ -913,6 +913,41 @@ export type Database = {
         }
         Relationships: []
       }
+      npc_items: {
+        Row: {
+          created_at: string
+          equipped_slot: string | null
+          id: string
+          item_key: string
+          npc_id: string
+          quantity: number
+        }
+        Insert: {
+          created_at?: string
+          equipped_slot?: string | null
+          id?: string
+          item_key: string
+          npc_id: string
+          quantity?: number
+        }
+        Update: {
+          created_at?: string
+          equipped_slot?: string | null
+          id?: string
+          item_key?: string
+          npc_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "npc_items_npc_id_fkey"
+            columns: ["npc_id"]
+            isOneToOne: false
+            referencedRelation: "npcs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       npc_memories: {
         Row: {
           created_at: string
@@ -1021,6 +1056,7 @@ export type Database = {
       npcs: {
         Row: {
           aether_key: string | null
+          base_armor: number
           boss_intro: string | null
           boss_reward_gold: number
           boss_reward_merit: number
@@ -1028,8 +1064,10 @@ export type Database = {
           combat_damage_max: number | null
           combat_damage_min: number | null
           combat_max_hp: number | null
+          con: number
           current_activity: string | null
           dead_until: string | null
+          dex: number
           fence_rate: number
           greeting: string | null
           guild_key: string | null
@@ -1047,6 +1085,7 @@ export type Database = {
           is_soul: boolean
           is_warden: boolean
           last_tick_at: string | null
+          level: number
           merchant_categories: string[]
           merchant_town: string | null
           name: string
@@ -1055,12 +1094,14 @@ export type Database = {
           requires_rune_key: string | null
           room: string
           schedule: Json
+          str: number
           sustained_by_npc_id: string | null
           title: string | null
           warden_index: number | null
         }
         Insert: {
           aether_key?: string | null
+          base_armor?: number
           boss_intro?: string | null
           boss_reward_gold?: number
           boss_reward_merit?: number
@@ -1068,8 +1109,10 @@ export type Database = {
           combat_damage_max?: number | null
           combat_damage_min?: number | null
           combat_max_hp?: number | null
+          con?: number
           current_activity?: string | null
           dead_until?: string | null
+          dex?: number
           fence_rate?: number
           greeting?: string | null
           guild_key?: string | null
@@ -1087,6 +1130,7 @@ export type Database = {
           is_soul?: boolean
           is_warden?: boolean
           last_tick_at?: string | null
+          level?: number
           merchant_categories?: string[]
           merchant_town?: string | null
           name: string
@@ -1095,12 +1139,14 @@ export type Database = {
           requires_rune_key?: string | null
           room: string
           schedule?: Json
+          str?: number
           sustained_by_npc_id?: string | null
           title?: string | null
           warden_index?: number | null
         }
         Update: {
           aether_key?: string | null
+          base_armor?: number
           boss_intro?: string | null
           boss_reward_gold?: number
           boss_reward_merit?: number
@@ -1108,8 +1154,10 @@ export type Database = {
           combat_damage_max?: number | null
           combat_damage_min?: number | null
           combat_max_hp?: number | null
+          con?: number
           current_activity?: string | null
           dead_until?: string | null
+          dex?: number
           fence_rate?: number
           greeting?: string | null
           guild_key?: string | null
@@ -1127,6 +1175,7 @@ export type Database = {
           is_soul?: boolean
           is_warden?: boolean
           last_tick_at?: string | null
+          level?: number
           merchant_categories?: string[]
           merchant_town?: string | null
           name?: string
@@ -1135,6 +1184,7 @@ export type Database = {
           requires_rune_key?: string | null
           room?: string
           schedule?: Json
+          str?: number
           sustained_by_npc_id?: string | null
           title?: string | null
           warden_index?: number | null

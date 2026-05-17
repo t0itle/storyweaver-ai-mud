@@ -212,15 +212,25 @@ Deno.serve(async (req) => {
       const enemies = (list ?? []).filter((c: any) => c.side !== npc.side && !c.defeated);
       if (enemies.length === 0) { await advanceTurn(combatId); return; }
       const target = enemies[SR(enemies.length)];
-      // Boss NPCs hit much harder. Fetch their damage range if marked.
+      // Damage: equipped weapon + str bonus, or boss explicit range, or default flailing.
       let dmgMin = 2, dmgRoll = 4;
       if (npc.npc_id) {
         const { data: nstat } = await admin.from("npcs")
-          .select("is_boss, combat_damage_min, combat_damage_max")
+          .select("is_boss, combat_damage_min, combat_damage_max, str, dex, level")
           .eq("id", npc.npc_id).maybeSingle();
         if (nstat?.is_boss && nstat.combat_damage_min && nstat.combat_damage_max) {
           dmgMin = nstat.combat_damage_min;
           dmgRoll = Math.max(1, nstat.combat_damage_max - nstat.combat_damage_min + 1);
+        } else if (nstat) {
+          // Look up equipped weapon, if any.
+          const { data: gear } = await admin.from("npc_items")
+            .select("item_key, equipped_slot, items:item_key(base_damage)")
+            .eq("npc_id", npc.npc_id).eq("equipped_slot", "main_hand").maybeSingle();
+          const weaponDmg = (gear as any)?.items?.base_damage ?? 0;
+          const strBonus = Math.floor(((nstat.str ?? 10) - 10) / 2);
+          const lvlBonus = Math.floor(((nstat.level ?? 1) - 1) / 2);
+          dmgMin = Math.max(1, 1 + weaponDmg + strBonus + lvlBonus);
+          dmgRoll = Math.max(2, 3 + Math.floor(weaponDmg / 2));
         }
       }
       const dmg = dmgMin + SR(dmgRoll);
@@ -479,7 +489,16 @@ Deno.serve(async (req) => {
       }
       const roll = SR(6) + 1;
       const raw = stats.dmg + roll;
-      const enemyArmor = target.kind === "player" ? (await playerStats(target.user_id)).armor : 0;
+      let enemyArmor = 0;
+      if (target.kind === "player") {
+        enemyArmor = (await playerStats(target.user_id)).armor;
+      } else if (target.npc_id) {
+        const { data: nstat } = await admin.from("npcs").select("base_armor, dex").eq("id", target.npc_id).maybeSingle();
+        const { data: worn } = await admin.from("npc_items")
+          .select("items:item_key(base_armor)").eq("npc_id", target.npc_id).not("equipped_slot", "is", null);
+        const wornArmor = (worn ?? []).reduce((s: number, w: any) => s + (w?.items?.base_armor ?? 0), 0);
+        enemyArmor = (nstat?.base_armor ?? 0) + wornArmor;
+      }
       const final = Math.max(1, raw - enemyArmor - (target.defending ? 2 : 0));
       const newHp = Math.max(0, target.hp - final);
       const defeated = newHp <= 0;
@@ -582,6 +601,29 @@ Deno.serve(async (req) => {
           const deadUntil = "9999-12-31T00:00:00.000Z";
           const decayAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
           await admin.from("npcs").update({ dead_until: deadUntil }).eq("id", npcRow.id);
+
+          // === Spill inventory + purse into room loot ===
+          const { data: corpsePurse } = await admin.from("npcs").select("purse_gold").eq("id", npcRow.id).maybeSingle();
+          if (corpsePurse?.purse_gold && corpsePurse.purse_gold > 0) {
+            await admin.from("room_loot").insert({
+              room: profile.current_room, gold: corpsePurse.purse_gold,
+              source: "corpse", placed_by_name: npcRow.name,
+            });
+            await admin.from("npcs").update({ purse_gold: 0 }).eq("id", npcRow.id);
+          }
+          const { data: carried } = await admin.from("npc_items").select("id,item_key,quantity").eq("npc_id", npcRow.id);
+          if (carried && carried.length) {
+            const dropRows = carried.map((c: any) => ({
+              room: profile.current_room, gold: 0, item_key: c.item_key, quantity: c.quantity,
+              source: "corpse", placed_by_name: npcRow.name,
+            }));
+            await admin.from("room_loot").insert(dropRows);
+            await admin.from("npc_items").delete().eq("npc_id", npcRow.id);
+            await admin.from("messages").insert({
+              room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+              content: `✶ ${npcRow.name}'s gear and pouches spill across the ground.`,
+            });
+          }
           await admin.from("world_events").insert({
             room: profile.current_room,
             kind: "npc_killed",
