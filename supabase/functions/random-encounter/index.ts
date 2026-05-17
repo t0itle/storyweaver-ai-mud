@@ -182,7 +182,7 @@ Deno.serve(async (req) => {
       ? " *Your cargo's weight has marked you on this road.*" : "";
 
     if (kind === "ambush") {
-      const t = pick(AMBUSH_NPCS);
+      const t = pick(ambushPoolFor(roomRow.kind));
       const { data: npc } = await admin.from("npcs").insert({
         name: t.name, title: t.title, persona: "ambusher",
         greeting: t.greeting, room, home_room: room,
