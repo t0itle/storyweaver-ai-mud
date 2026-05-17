@@ -1055,6 +1055,7 @@ export type Database = {
           requires_rune_key: string | null
           room: string
           schedule: Json
+          sustained_by_npc_id: string | null
           title: string | null
           warden_index: number | null
         }
@@ -1094,6 +1095,7 @@ export type Database = {
           requires_rune_key?: string | null
           room: string
           schedule?: Json
+          sustained_by_npc_id?: string | null
           title?: string | null
           warden_index?: number | null
         }
@@ -1133,6 +1135,7 @@ export type Database = {
           requires_rune_key?: string | null
           room?: string
           schedule?: Json
+          sustained_by_npc_id?: string | null
           title?: string | null
           warden_index?: number | null
         }
@@ -1145,6 +1148,78 @@ export type Database = {
             referencedColumns: ["slug"]
           },
         ]
+      }
+      pending_resurrections: {
+        Row: {
+          created_at: string
+          id: string
+          necromancer_damage_max: number
+          necromancer_damage_min: number
+          necromancer_max_hp: number
+          necromancer_name: string
+          necromancer_persona: string
+          necromancer_title: string
+          new_boss_intro: string | null
+          new_damage_max: number
+          new_damage_min: number
+          new_max_hp: number
+          new_name: string
+          new_persona: string | null
+          new_title: string | null
+          original_name: string
+          original_npc_id: string
+          processed_at: string | null
+          resurrect_at: string
+          room: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          necromancer_damage_max?: number
+          necromancer_damage_min?: number
+          necromancer_max_hp?: number
+          necromancer_name?: string
+          necromancer_persona?: string
+          necromancer_title?: string
+          new_boss_intro?: string | null
+          new_damage_max?: number
+          new_damage_min?: number
+          new_max_hp?: number
+          new_name: string
+          new_persona?: string | null
+          new_title?: string | null
+          original_name: string
+          original_npc_id: string
+          processed_at?: string | null
+          resurrect_at: string
+          room: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          necromancer_damage_max?: number
+          necromancer_damage_min?: number
+          necromancer_max_hp?: number
+          necromancer_name?: string
+          necromancer_persona?: string
+          necromancer_title?: string
+          new_boss_intro?: string | null
+          new_damage_max?: number
+          new_damage_min?: number
+          new_max_hp?: number
+          new_name?: string
+          new_persona?: string | null
+          new_title?: string | null
+          original_name?: string
+          original_npc_id?: string
+          processed_at?: string | null
+          resurrect_at?: string
+          room?: string
+          status?: string
+        }
+        Relationships: []
       }
       player_artifact_rumors: {
         Row: {
