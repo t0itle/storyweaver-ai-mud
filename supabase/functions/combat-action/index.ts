@@ -397,19 +397,22 @@ Deno.serve(async (req) => {
       if (!profile.downed) throw new Error("You are not downed.");
       if (profile.dead) throw new Error("You are already dead.");
       const stroke = Array.isArray(body.stroke) ? body.stroke as Pt[] : [];
-      // Use a default lesser rune as the death-save shape if available, else just score-by-length
+
+      // ✚ Sana — the Last Breath rune. Player MUST know both word and symbol.
+      const LAST_BREATH_KEY = "sana";
+      const { data: kn } = await admin.from("player_lesser_rune_knowledge")
+        .select("knows_word, knows_symbol").eq("user_id", user.id).eq("rune_key", LAST_BREATH_KEY).maybeSingle();
+      const knowsLastBreath = !!(kn?.knows_word && kn?.knows_symbol);
+
       let score = 0;
-      if (stroke.length >= 6) {
-        const { data: rune } = await admin.from("lesser_runes").select("template").eq("key", body.rune_key ?? "vita").maybeSingle();
+      if (knowsLastBreath && stroke.length >= 6) {
+        const { data: rune } = await admin.from("lesser_runes").select("template").eq("key", LAST_BREATH_KEY).maybeSingle();
         const tpl = (rune?.template as Pt[] | undefined) ?? null;
         if (tpl && tpl.length >= 2) {
           score = Math.max(scoreStroke(stroke, tpl), scoreStroke(stroke, [...tpl].reverse()));
-        } else {
-          // No template — score by stroke completion (≥40 points = pass)
-          score = Math.min(1, stroke.length / 60);
         }
       }
-      const passed = score >= 0.55;
+      const passed = knowsLastBreath && score >= 0.55;
       if (passed) {
         const reviveHp = Math.max(2, Math.floor((profile.max_hp ?? 20) * 0.15));
         await admin.from("profiles").update({
@@ -464,7 +467,9 @@ Deno.serve(async (req) => {
         }).eq("id", user.id);
         await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
         await pushAction(combatId, combat.turn_number, user.id, me.name, "death_save", null,
-          `${me.name}'s hand fails the sigil (${Math.round(score * 100)}%). The breath leaves them. **${me.name} is dead.**`);
+          knowsLastBreath
+            ? `${me.name}'s hand fails the sigil (${Math.round(score * 100)}%). The breath leaves them. **${me.name} is dead.**`
+            : `${me.name} has no rune of life to call upon — ✚ **Sana** was never learned. The breath leaves them. **${me.name} is dead.**`);
         await admin.from("world_events").insert({
           kind: "died", actor_id: user.id, actor_name: me.name,
           room: profile.current_room, details: { combat_id: combatId, score: Math.round(score * 100) },
