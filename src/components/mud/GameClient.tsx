@@ -811,6 +811,33 @@ export default function GameClient({ session }: { session: Session }) {
       }
       if (completed.length) reloadProfile();
     }).catch(() => null);
+
+    // Boss-aggro: any live `aggro_on_sight` boss in this room attacks on sight.
+    (async () => {
+      const { data: guardian } = await supabase.from("npcs")
+        .select("id, name")
+        .eq("room", slug).eq("is_boss", true).eq("aggro_on_sight", true)
+        .or(`dead_until.is.null,dead_until.lt.${new Date().toISOString()}`)
+        .limit(1).maybeSingle();
+      if (!guardian) return;
+      // If a fight is already running here, just join it.
+      const { data: ongoing } = await supabase.from("combats")
+        .select("id").eq("room", slug).eq("status", "active").maybeSingle();
+      try {
+        if (ongoing) {
+          await supabase.functions.invoke("combat-action", { body: { action: "join" } });
+          toast.error(`⚔ ${guardian.name} turns on you — you join the fray!`);
+        } else {
+          await supabase.functions.invoke("combat-action", {
+            body: { action: "start", target_name: guardian.name },
+          });
+          toast.error(`⚔ ${guardian.name} attacks on sight!`);
+        }
+        reloadProfile();
+      } catch (e) {
+        console.warn("boss aggro failed", e);
+      }
+    })();
     setTimeout(() => {
       post("system", `${profile.username} arrives.`, "—");
       if (companionName) {
