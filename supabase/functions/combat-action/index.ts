@@ -489,7 +489,16 @@ Deno.serve(async (req) => {
       }
       const roll = SR(6) + 1;
       const raw = stats.dmg + roll;
-      const enemyArmor = target.kind === "player" ? (await playerStats(target.user_id)).armor : 0;
+      let enemyArmor = 0;
+      if (target.kind === "player") {
+        enemyArmor = (await playerStats(target.user_id)).armor;
+      } else if (target.npc_id) {
+        const { data: nstat } = await admin.from("npcs").select("base_armor, dex").eq("id", target.npc_id).maybeSingle();
+        const { data: worn } = await admin.from("npc_items")
+          .select("items:item_key(base_armor)").eq("npc_id", target.npc_id).not("equipped_slot", "is", null);
+        const wornArmor = (worn ?? []).reduce((s: number, w: any) => s + (w?.items?.base_armor ?? 0), 0);
+        enemyArmor = (nstat?.base_armor ?? 0) + wornArmor;
+      }
       const final = Math.max(1, raw - enemyArmor - (target.defending ? 2 : 0));
       const newHp = Math.max(0, target.hp - final);
       const defeated = newHp <= 0;
