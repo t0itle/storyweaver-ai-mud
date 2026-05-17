@@ -90,6 +90,8 @@ const HELP = [
   ["who", "list players in this room"],
   ["follow <npc>", "ask an NPC to travel with you"],
   ["dismiss", "part ways with your companion"],
+  ["stay / wait", "tell your companion to hold this spot"],
+  ["come / heel", "call your companion back to your side"],
   ["quests", "open your quest log"],
   ["accept <title>", "accept an offered quest"],
   ["decline <title>", "refuse an offered quest"],
