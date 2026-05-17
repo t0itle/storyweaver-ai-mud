@@ -773,7 +773,7 @@ export default function GameClient({ session }: { session: Session }) {
 
     // Companion follows along
     let companionName: string | null = null;
-    if (profile.companion_npc_id) {
+    if (profile.companion_npc_id && (profile.companion_mode ?? "follow") === "follow") {
       const { data: comp } = await supabase.from("npcs")
         .select("name").eq("id", profile.companion_npc_id).maybeSingle();
       if (comp) {
