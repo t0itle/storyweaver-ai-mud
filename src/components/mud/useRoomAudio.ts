@@ -42,7 +42,30 @@ function fade(audio: HTMLAudioElement, to: number, ms = 600) {
   requestAnimationFrame(step);
 }
 
-export function useRoomAudio(roomSlug: string | null | undefined, mode: "room" | "combat" | "rest") {
+// Map detailed room kinds → broad combat biome buckets used as pseudo-slugs.
+const COMBAT_BIOMES: Record<string, string> = {
+  city: "city", town: "city", street: "city", market: "city", plaza: "city",
+  road: "road", bridge: "road",
+  wilds: "wilds", forest: "wilds", grove: "wilds", hollow: "wilds", glade: "wilds",
+  desert: "desert", dune: "desert",
+  cave: "cave", tunnel: "cave",
+  ruin: "ruin",
+  crypt: "crypt", tomb: "crypt",
+  lair: "lair", dragon: "lair",
+  shore: "shore", dock: "shore", coast: "shore",
+  inn: "city",
+};
+function combatSlugFor(kind?: string | null): string {
+  const k = (kind ?? "").toLowerCase();
+  const biome = COMBAT_BIOMES[k] ?? "default";
+  return `__combat_${biome}__`;
+}
+
+export function useRoomAudio(
+  roomSlug: string | null | undefined,
+  mode: "room" | "combat" | "rest",
+  roomKind?: string | null,
+) {
   const musicEl = useRef<HTMLAudioElement | null>(null);
   const ambientEl = useRef<HTMLAudioElement | null>(null);
   const currentMusicSrc = useRef<string | null>(null);
@@ -64,7 +87,7 @@ export function useRoomAudio(roomSlug: string | null | undefined, mode: "room" |
     if (!roomSlug) return;
     let cancelled = false;
 
-    const targetSlug = mode === "combat" ? "__combat__" : mode === "rest" ? "__rest__" : roomSlug;
+    const targetSlug = mode === "combat" ? combatSlugFor(roomKind) : mode === "rest" ? "__rest__" : roomSlug;
 
     (async () => {
       const row = await getAudio(targetSlug);
