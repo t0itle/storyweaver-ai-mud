@@ -113,7 +113,19 @@ Rules:
 - "kind" must be from the allowed list. "label" is what we'd call this kind of place in one word.
 - No mechanics, no quest text. Pure prose.
 
-NAMING — CRITICAL. NPC names must be ORIGINAL. NEVER use generic fantasy filler (Aerys, Eldra, Kael, Lysander, Thorne, Marcus, Elara, Seraphina). Prefer working-class, occupational, or earned-nickname names (Tibb Quarrelsmith, Old Marrow, Six-Finger Doss, Vetch, Mother Cricket). About 1 in 3 should be a single word or nickname only. Names in the same room must not share prefixes, suffixes, or rhythm.`;
+NAMING — CRITICAL. Every NPC name must be ORIGINAL and UNIQUE in this world. Do NOT use generic fantasy filler (Aerys, Eldra, Kael, Lysander, Thorne, Marcus, Elara, Seraphina). Do NOT copy any example names from these instructions — examples are SHAPES, not names to use. Prefer working-class, occupational, place-rooted names, or earned-nickname compounds; ~1 in 3 should be a single word or nickname only. Names in the same room must not share prefixes, suffixes, or rhythm.
+FORBIDDEN — these names are already taken by living people elsewhere; do not reuse them or their first-name token: __FORBIDDEN__`;
+
+    // Pull current world names so the AI cannot duplicate them.
+    const { data: takenRows } = await admin.from("npcs").select("name").limit(2000);
+    const takenNames = Array.from(new Set((takenRows ?? []).map((r: any) => String(r.name).trim()))).filter(Boolean);
+    const forbidden = new Set<string>();
+    for (const n of takenNames) {
+      forbidden.add(n.toLowerCase());
+      const first = n.split(/\s+/)[0]?.toLowerCase();
+      if (first) forbidden.add(first);
+    }
+    const systemFilled = system.replace("__FORBIDDEN__", takenNames.slice(-400).join(", "));
 
     const userMsg = `Generate the location called "${name}".${hint ? `\n\nContext from the rumor: ${hint}` : ""}`;
 
