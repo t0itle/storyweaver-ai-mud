@@ -41,6 +41,7 @@ interface Profile {
   chaos_pressure: number;
   non_serviam_at: string | null;
   companion_npc_id: string | null;
+  companion_mode?: string | null;
   escortee_npc_id: string | null;
   escortee_destination: string | null;
   escortee_destination_name: string | null;
