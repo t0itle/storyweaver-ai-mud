@@ -1718,7 +1718,7 @@ export default function GameClient({ session }: { session: Session }) {
         {/* Main log */}
         <main className="flex-1 flex flex-col min-w-0">
           <div ref={logRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-6 space-y-3 font-body text-[17px] leading-relaxed">
-            <RoomBlock room={room} npcs={npcs} dragons={dragons} sceneUrl={sceneUrl} sceneLoading={sceneLoading} events={roomEvents} bucket={bucket} />
+            <RoomBlock room={room} npcs={npcs} dragons={dragons} sceneUrl={sceneUrl} sceneLoading={sceneLoading} events={roomEvents} bucket={bucket} companionId={profile?.companion_npc_id ?? null} />
             {corpses.length > 0 && (
               <div className="border border-red-900/50 bg-red-950/20 px-3 py-2 mb-3 text-sm">
                 <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-red-400 mb-1">⚰ Corpses here</div>
@@ -1991,11 +1991,12 @@ export default function GameClient({ session }: { session: Session }) {
   );
 }
 
-function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket }: {
+function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket, companionId }: {
   room: Room; npcs: Npc[]; dragons: { name: string; epithet: string; personality: string }[];
   sceneUrl: string | null; sceneLoading: boolean;
   events: { kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[];
   bucket: TimeBucket;
+  companionId?: string | null;
 }) {
   const tint = pickTimeTint(bucket, (room.kind ?? "room") as string);
   return (
@@ -2060,13 +2061,17 @@ function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket
       )}
       {npcs.length > 0 && (
         <div className="text-whisper italic mt-2 space-y-0.5">
-          {npcs.map((n) => (
-            <p key={n.id}>
-              <span className="text-parchment">{n.name}</span>
-              {n.title ? <span>, {n.title}</span> : null}
-              {n.current_activity ? <span className="text-ash"> — {n.current_activity}</span> : null}
-            </p>
-          ))}
+          {npcs.map((n) => {
+            const isCompanion = companionId && n.id === companionId;
+            const activity = isCompanion ? "walking at your side" : n.current_activity;
+            return (
+              <p key={n.id}>
+                <span className="text-parchment">{n.name}</span>
+                {n.title ? <span>, {n.title}</span> : null}
+                {activity ? <span className="text-ash"> — {activity}</span> : null}
+              </p>
+            );
+          })}
         </div>
       )}
     </div>
