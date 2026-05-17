@@ -415,15 +415,52 @@ Deno.serve(async (req) => {
       const passed = knowsLastBreath && score >= 0.55;
       if (passed) {
         const reviveHp = Math.max(2, Math.floor((profile.max_hp ?? 20) * 0.15));
+
+        // Last-minute escape: stagger to an adjacent room so they don't wake beside their killer.
+        const { data: hereRoom } = await admin.from("rooms")
+          .select("exits, name").eq("slug", profile.current_room).maybeSingle();
+        const exitMap = (hereRoom?.exits ?? {}) as Record<string, string>;
+        const exitEntries = Object.entries(exitMap).filter(([, to]) => !!to);
+        let escapeRoom = profile.current_room as string;
+        let escapeDir: string | null = null;
+        let escapeName: string | null = null;
+        if (exitEntries.length > 0) {
+          // Prefer an exit that has no live aggro NPC waiting on the other side.
+          const candidateSlugs = exitEntries.map(([, to]) => to);
+          const { data: hostiles } = await admin.from("npcs")
+            .select("room").in("room", candidateSlugs)
+            .or("aggro_on_sight.eq.true,is_boss.eq.true")
+            .is("dead_until", null);
+          const hostileRooms = new Set((hostiles ?? []).map((n: any) => n.room));
+          const safe = exitEntries.filter(([, to]) => !hostileRooms.has(to));
+          const pool = safe.length > 0 ? safe : exitEntries;
+          const [dir, to] = pool[Math.floor(Math.random() * pool.length)];
+          escapeRoom = to; escapeDir = dir;
+          const { data: dest } = await admin.from("rooms").select("name").eq("slug", to).maybeSingle();
+          escapeName = (dest?.name as string) ?? to;
+        }
+
         await admin.from("profiles").update({
           downed: false, downed_at: null, downed_combat_id: null,
           hp: reviveHp, in_combat_id: null,
+          current_room: escapeRoom,
         }).eq("id", user.id);
         await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
+
         await pushAction(combatId, combat.turn_number, user.id, me.name, "death_save", null,
-          `${me.name} claws back from the brink (${Math.round(score * 100)}%) and reels out of the fight!`);
+          escapeDir
+            ? `${me.name} traces ✚ Sana with a bloody hand (${Math.round(score * 100)}%) — the sigil flares and ${me.name} stumbles ${escapeDir} into ${escapeName}, gone before another blow can land.`
+            : `${me.name} claws back from the brink (${Math.round(score * 100)}%) and reels out of the fight!`);
+
+        if (escapeDir && escapeRoom !== profile.current_room) {
+          await admin.from("messages").insert({
+            room: escapeRoom, user_id: null, author_name: "—", kind: "system",
+            content: `✚ ${me.name} collapses into the room, bloodied and gasping — the Last Breath rune still smoking on their skin.`,
+          });
+        }
+
         await advanceTurn(combatId);
-        return ok({ ok: true, saved: true, hp: reviveHp });
+        return ok({ ok: true, saved: true, hp: reviveHp, room: escapeRoom });
       } else {
         // Permadeath — UNLESS the player is aligned to a still-living Aether.
         // Aligned faithful are carried to their Aether's city well at half HP.
