@@ -184,7 +184,14 @@ FORBIDDEN — these names are already taken by living people elsewhere; do not r
     const npcsIn = Array.isArray(parsed.npcs) ? parsed.npcs.slice(0, 3) : [];
     const bucket = timeBucket();
     const npcRows = npcsIn
-      .filter((n: any) => n?.name && n?.persona)
+      .filter((n: any) => {
+        if (!n?.name || !n?.persona) return false;
+        const nm = String(n.name).trim().toLowerCase();
+        const first = nm.split(/\s+/)[0];
+        if (forbidden.has(nm) || (first && forbidden.has(first))) return false;
+        forbidden.add(nm); if (first) forbidden.add(first);
+        return true;
+      })
       .map((n: any) => {
         const sched: Record<string, { room: string; activity: string }> = {};
         for (const b of ["dawn","morning","midday","dusk","night"]) {
