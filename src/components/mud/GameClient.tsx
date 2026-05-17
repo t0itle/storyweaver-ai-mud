@@ -934,12 +934,12 @@ export default function GameClient({ session }: { session: Session }) {
         return;
       }
       await supabase.from("profiles").update({ gold: (profile.gold ?? 0) - price }).eq("id", profile.id);
-      setProfile({ ...profile, gold: (profile.gold ?? 0) - price, companion_npc_id: npc.id });
+      setProfile({ ...profile, gold: (profile.gold ?? 0) - price, companion_npc_id: npc.id, companion_mode: "follow" });
     } else {
-      setProfile({ ...profile, companion_npc_id: npc.id });
+      setProfile({ ...profile, companion_npc_id: npc.id, companion_mode: "follow" });
     }
 
-    await supabase.from("profiles").update({ companion_npc_id: npc.id }).eq("id", profile.id);
+    await supabase.from("profiles").update({ companion_npc_id: npc.id, companion_mode: "follow" }).eq("id", profile.id);
     const flavor = noTrust
       ? `*${npc.name} pockets ${price}g, spits, and falls in behind ${profile.username}.* "Lead on."`
       : price > 0
