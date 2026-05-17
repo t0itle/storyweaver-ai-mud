@@ -597,6 +597,7 @@ export type Database = {
           rune_slots: number
           slot: string
           stackable: boolean
+          unique_per_player: boolean
           value: number
           weight: number
         }
@@ -612,6 +613,7 @@ export type Database = {
           rune_slots?: number
           slot?: string
           stackable?: boolean
+          unique_per_player?: boolean
           value?: number
           weight?: number
         }
@@ -627,6 +629,7 @@ export type Database = {
           rune_slots?: number
           slot?: string
           stackable?: boolean
+          unique_per_player?: boolean
           value?: number
           weight?: number
         }
@@ -740,6 +743,33 @@ export type Database = {
           key?: string
           latin_name?: string
           template?: Json
+        }
+        Relationships: []
+      }
+      lichen_king_progress: {
+        Row: {
+          completed_at: string | null
+          started_at: string
+          status: string
+          step: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          started_at?: string
+          status?: string
+          step?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          started_at?: string
+          status?: string
+          step?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
