@@ -1104,6 +1104,8 @@ export type Database = {
           guild_key: string | null
           guild_town: string | null
           hidden: boolean
+          hire_no_trust: boolean
+          hire_price_gold: number
           home_room: string | null
           id: string
           is_aether: boolean
@@ -1150,6 +1152,8 @@ export type Database = {
           guild_key?: string | null
           guild_town?: string | null
           hidden?: boolean
+          hire_no_trust?: boolean
+          hire_price_gold?: number
           home_room?: string | null
           id?: string
           is_aether?: boolean
@@ -1196,6 +1200,8 @@ export type Database = {
           guild_key?: string | null
           guild_town?: string | null
           hidden?: boolean
+          hire_no_trust?: boolean
+          hire_price_gold?: number
           home_room?: string | null
           id?: string
           is_aether?: boolean
