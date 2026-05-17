@@ -81,14 +81,50 @@ Deno.serve(async (req) => {
 
     const isCrypt = room.kind === "crypt";
 
+    // Pull a generous sample of names ALREADY in the world so the AI cannot duplicate them.
+    // (The AI was repeating prompt-example names like "Vetch", "Pell", "Senna Two-Knives" across cities.)
+    const { data: takenRows } = await admin.from("npcs").select("name").limit(2000);
+    const takenNames = Array.from(new Set((takenRows ?? []).map(r => String(r.name).trim()))).filter(Boolean);
+    // Forbid both the full name and the first token (covers "Pell" vs "Pell Half-Penny").
+    const forbidden = new Set<string>();
+    for (const n of takenNames) {
+      forbidden.add(n.toLowerCase());
+      const first = n.split(/\s+/)[0]?.toLowerCase();
+      if (first) forbidden.add(first);
+    }
+    // Cap the prompt list — too long and the model ignores it.
+    const forbiddenList = takenNames.slice(-400).join(", ");
+
     const NAMING_RULES = `
-NAMING — CRITICAL. Names must be ORIGINAL and unforgettable. NEVER use generic fantasy filler like Aerys, Aerion, Eldra, Eldara, Lysander, Lyra, Kael, Kaelen, Thorne, Thalia, Marcus, Elara, Seraphina, Cassius. AVOID names ending in -ion, -ara, -wyn, -iel that sound auto-generated.
-Instead, draw on:
-  • working-class, occupational, or place-rooted names (Tibb Quarrelsmith, Hoss-on-the-Steps, Old Marrow, Vetch, Brindle Sump, Senna Two-Knives)
-  • compound nicknames earned by deed or defect (Six-Finger Doss, Mother Cricket, The Knot, Pell Half-Penny)
-  • regional flavors that feel lived-in: short blunt syllables for desert/wild folk (Jek, Hara, Vos), liquid syllables for coast (Mirelle, Asaph), iron syllables for the Bastion (Krell, Borst)
-  • give roughly 1 in 3 NPCs a SINGLE-WORD name or nickname only (no surname)
-Each name in this batch must feel like it came from a different mouth — no shared prefixes, suffixes, or rhythm.`;
+NAMING — CRITICAL. Every name must be ORIGINAL and UNIQUE in this world.
+HARD RULES:
+  • Do NOT reuse any name (or first-name token) from this forbidden list — these are already living people elsewhere in the world: ${forbiddenList}
+  • Do NOT use generic fantasy filler (Aerys, Eldra, Lysander, Kael, Thorne, Marcus, Elara, Seraphina, Cassius). Avoid -ion, -ara, -wyn, -iel endings that read as auto-generated.
+  • Do NOT copy any example names from these instructions — examples are SHAPES, not names to use.
+STYLE GUIDANCE (invent fresh names in these shapes; do not literally reuse the bracketed examples):
+  • working-class / occupational / place-rooted [shape: <given> <trade-or-place>]
+  • compound nicknames earned by deed or defect [shape: <number-or-feature>-<noun> <name>]
+  • regional flavor — short blunt syllables for desert/wild; liquid syllables for coast; iron syllables for the Bastion
+  • roughly 1 in 3 NPCs get a SINGLE-WORD name or nickname only
+Each name in this batch must come from a different mouth — no shared prefixes, suffixes, or rhythm.`;
+
+    const system = isCrypt
+      ? `You populate a tomb in EverBloom with **lingering souls** — the dead who never left. They are not living people. Each is a memory bound to bone, dust, or a relic in this place.
+${NAMING_RULES}
+
+Return STRICT JSON:
+{"npcs":[{"name":"","title":"","persona":"","greeting":"","schedule":{"dawn":{"room":"here","activity":""},"morning":{...},"midday":{...},"dusk":{...},"night":{...}}}]}
+
+Generate exactly ${need} souls. Each persona (2-3 sentences) describes WHO THEY WERE in life, HOW they died, and what unfinished thing keeps them tethered here. Title should be a death-epithet ("the Drowned Scribe", "the Last Coin-Counter"). Greeting is what they would whisper IF a living tongue could hear them — a fragment, a grievance, a name. Activities are present-tense but ghostly ("rearranging coins that no longer exist", "weeping over a sealed jar", "counting the seams in the wall").`
+      : `You add residents to a location in EverBloom (the dying world; First City; seven Aethers; mouth-bound Veiled).
+${NAMING_RULES}
+
+Return STRICT JSON:
+{"npcs":[{"name":"","title":"","persona":"","greeting":"","schedule":{"dawn":{"room":"here","activity":""},"morning":{...},"midday":{...},"dusk":{...},"night":{...}}}]}
+
+Generate exactly ${need} NPCs that BELONG here. They live here ("here" in schedule). Each must be DISTINCT — different names, different roles, different voices, different speech rhythms. Persona 2-3 sentences with at least one specific physical detail (a scar, a limp, missing teeth, a stained apron). Greeting may include *brief action* and a verbal tic. Activities are short, present-tense, in-world.`;
+
+    const userMsg = `Location: ${room.name} (${room.kind}). ${room.description}\nAmbience: ${room.ambience ?? ""}`;
 
     const system = isCrypt
       ? `You populate a tomb in EverBloom with **lingering souls** — the dead who never left. They are not living people. Each is a memory bound to bone, dust, or a relic in this place.
