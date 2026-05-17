@@ -1058,6 +1058,43 @@ export default function GameClient({ session }: { session: Session }) {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
       } finally { setThinking(false); }
+    } else if (c === "riddle" || c === "riddles") {
+      if (!args) {
+        setMessages((mm) => [...mm, localSys("Usage: riddle <npc>   (ask an NPC here to pose a riddle)")]);
+        return;
+      }
+      const npc = npcs.find((n) => n.name.toLowerCase().startsWith(args.toLowerCase()));
+      if (!npc) { setMessages((mm) => [...mm, localSys(`No one called "${args}" is here.`)]); return; }
+      try {
+        const { data, error } = await supabase.functions.invoke("riddle-offer", { body: { npc_id: npc.id } });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        if (data?.existing) {
+          setMessages((mm) => [...mm, localSys(`${npc.name} reminds you of the riddle still on your tongue: *${data.prompt}*  ·  type \`solve <answer>\`.`)]);
+        } else {
+          toast.success(`${npc.name} sets you a riddle.`);
+        }
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "no riddle today");
+      }
+    } else if (c === "solve" || c === "answer") {
+      if (!args) {
+        setMessages((mm) => [...mm, localSys("Usage: solve <your answer>")]);
+        return;
+      }
+      try {
+        const { data, error } = await supabase.functions.invoke("riddle-solve", { body: { answer: args } });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        if (data?.correct) {
+          toast.success(`Riddle solved! +${data.reward?.gold ?? 0}g, +${data.reward?.xp ?? 0}xp${data.reward?.merit ? `, +${data.reward.merit} merit` : ""}`);
+          reloadProfile();
+        } else if (data?.failed) {
+          toast.error(`The riddle defeats you. The answer was "${data.answer}".`);
+        } else {
+          toast.warning(`Not quite — ${data?.remaining ?? "?"} guess${data?.remaining === 1 ? "" : "es"} left.`);
+        }
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "no riddle to solve");
+      }
     } else if (c === "wagon" || c === "ride") {
       if (wagonRoutes.length === 0) {
         setMessages((m) => [...m, localSys("No wagonmaster runs from here.")]);
