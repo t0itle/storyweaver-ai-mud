@@ -1988,7 +1988,7 @@ export default function GameClient({ session }: { session: Session }) {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Wagonmaster</DialogTitle>
-            <DialogDescription>The driver tips a wide hat. "Where to, traveler? You can only ride to a place you've already trodden."</DialogDescription>
+            <DialogDescription>The driver tips a wide hat. "Where to, traveler? My wheels know every capital road."</DialogDescription>
           </DialogHeader>
           <ul className="space-y-1.5">
             {wagonRoutes.map((r) => {
