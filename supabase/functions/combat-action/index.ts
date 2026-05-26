@@ -272,7 +272,44 @@ Deno.serve(async (req) => {
       await advanceTurn(combatId);
     };
 
+    // Enroll the player's companion NPC on their side, if present in this room and not dead.
+    // Returns the inserted combatant row, or null. NPC's permanent npcs.dead_until is NEVER changed by combat.
+    const enrollCompanion = async (combatId: string, userId: string, side: "a" | "b") => {
+      const { data: prof } = await admin.from("profiles")
+        .select("companion_npc_id, current_room").eq("id", userId).maybeSingle();
+      if (!prof?.companion_npc_id) return null;
+      const nowIso = new Date().toISOString();
+      const { data: comp } = await admin.from("npcs")
+        .select("id, name, room, level, str, con, dex, combat_max_hp, is_boss, dead_until")
+        .eq("id", prof.companion_npc_id).maybeSingle();
+      if (!comp) return null;
+      if (comp.room !== prof.current_room) return null;
+      if (comp.dead_until && new Date(comp.dead_until) > new Date(nowIso)) return null;
+      const conBonus = Math.max(0, Math.floor(((comp.con ?? 10) - 10) / 2));
+      const lvlHp = Math.max(0, ((comp.level ?? 1) - 1)) * 4;
+      const maxHp = comp.is_boss && comp.combat_max_hp ? comp.combat_max_hp : (18 + lvlHp + conBonus * 2);
+      const init = 10 + SR(10) + Math.floor(((comp.dex ?? 10) - 10) / 2);
+      const { data: row } = await admin.from("combatants").insert({
+        combat_id: combatId, side, kind: "npc", npc_id: comp.id, name: comp.name,
+        hp: maxHp, max_hp: maxHp, initiative: init, turn_order: 99,
+      }).select().single();
+      return row;
+    };
+
+    // Re-seat all combatants by initiative (desc) and reset current_combatant_id to the first alive one.
+    const seatInitiative = async (combatId: string) => {
+      const { data: list } = await admin.from("combatants").select("id,initiative,defeated").eq("combat_id", combatId);
+      const sorted = (list ?? []).slice().sort((a: any, b: any) => (b.initiative ?? 0) - (a.initiative ?? 0));
+      for (let i = 0; i < sorted.length; i++) {
+        await admin.from("combatants").update({ turn_order: i }).eq("id", sorted[i].id);
+      }
+      const first = sorted.find((c: any) => !c.defeated) ?? sorted[0];
+      if (first) await admin.from("combats").update({ current_combatant_id: first.id }).eq("id", combatId);
+      return first;
+    };
+
     // ===== START =====
+
     if (body.action === "start") {
       if (profile.in_combat_id) throw new Error("You are already in a fight.");
       if (!body.target_name) throw new Error("Attack whom?");
@@ -332,16 +369,18 @@ Deno.serve(async (req) => {
       const playerInit = 10 + SR(10);
       const targetInit = 10 + SR(10);
 
-      const { data: combatants } = await admin.from("combatants").insert([
+      await admin.from("combatants").insert([
         { combat_id: combat!.id, side: "a", kind: "player", user_id: user.id, name: profile.username,
-          hp: playerHp, max_hp: playerMaxHp, initiative: playerInit, turn_order: playerInit >= targetInit ? 0 : 1 },
+          hp: playerHp, max_hp: playerMaxHp, initiative: playerInit, turn_order: 0 },
         { combat_id: combat!.id, side: "b", kind: target.kind, user_id: target.kind === "player" ? target.id : null,
           npc_id: target.kind === "npc" ? target.id : null, name: target.kind === "player" ? target.username : target.name,
-          hp: targetHp, max_hp: targetMax, initiative: targetInit, turn_order: targetInit > playerInit ? 0 : 1 },
-      ]).select();
+          hp: targetHp, max_hp: targetMax, initiative: targetInit, turn_order: 1 },
+      ]);
 
-      const first = (combatants ?? []).sort((a: any, b: any) => a.turn_order - b.turn_order)[0];
-      await admin.from("combats").update({ current_combatant_id: first.id }).eq("id", combat!.id);
+      // Enroll the player's companion (if any) on side "a", then seat by initiative.
+      const companion = await enrollCompanion(combat!.id, user.id, "a");
+      const first = await seatInitiative(combat!.id);
+
       await admin.from("profiles").update({ in_combat_id: combat!.id }).eq("id", user.id);
       if (target.kind === "player") {
         await admin.from("profiles").update({ in_combat_id: combat!.id }).eq("id", target.id);
@@ -349,6 +388,11 @@ Deno.serve(async (req) => {
 
       await pushAction(combat!.id, 1, user.id, profile.username, "system", target.kind === "player" ? target.username : target.name,
         `${profile.username} draws steel against ${target.kind === "player" ? target.username : target.name}!`);
+      if (companion) {
+        await pushAction(combat!.id, 1, null, companion.name, "system", null,
+          `${companion.name} steps in beside ${profile.username}, weapon already in hand.`);
+      }
+
 
       // Boss intro flourish — broadcast to the room when a boss fight begins.
       if (target.kind === "npc" && target.is_boss && target.boss_intro) {
@@ -377,9 +421,15 @@ Deno.serve(async (req) => {
         combat_id: combat.id, side: "a", kind: "player", user_id: user.id, name: profile.username,
         hp: Math.min(stats.prof!.hp, max), max_hp: max, initiative: init, turn_order: order,
       });
+      const joinComp = await enrollCompanion(combat.id, user.id, "a");
       await admin.from("profiles").update({ in_combat_id: combat.id }).eq("id", user.id);
       await pushAction(combat.id, combat.turn_number, user.id, profile.username, "system", null,
         `${profile.username} throws themselves into the fight, blade rising to join the fray.`);
+      if (joinComp) {
+        await pushAction(combat.id, combat.turn_number, null, joinComp.name, "system", null,
+          `${joinComp.name} surges in at ${profile.username}'s shoulder.`);
+      }
+
       return ok({ ok: true });
     }
 
