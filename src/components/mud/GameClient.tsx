@@ -1988,12 +1988,12 @@ export default function GameClient({ session }: { session: Session }) {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Wagonmaster</DialogTitle>
-            <DialogDescription>The driver tips a wide hat. "Where to, traveler? You can only ride to a place you've already trodden."</DialogDescription>
+            <DialogDescription>The driver tips a wide hat. "Where to, traveler? My wheels know every capital road."</DialogDescription>
           </DialogHeader>
           <ul className="space-y-1.5">
             {wagonRoutes.map((r) => {
               const canAfford = profile.gold >= r.cost_gold;
-              const ok = r.visited && canAfford;
+              const ok = canAfford;
               return (
                 <li key={r.destination}>
                   <button
@@ -2008,11 +2008,12 @@ export default function GameClient({ session }: { session: Session }) {
                       } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
                     }}
                     className="w-full flex items-center justify-between px-3 py-2 border border-border hover:border-ember disabled:opacity-40 disabled:cursor-not-allowed text-left">
-                    <span className="font-body text-parchment">{r.name}</span>
+                    <span className="font-body text-parchment">{r.name}{!r.visited && <span className="ml-2 text-xs text-ash/70">(unseen)</span>}</span>
                     <span className="font-mono text-xs text-ash">
-                      {!r.visited ? "unvisited" : !canAfford ? `${r.cost_gold}g (short)` : `${r.cost_gold}g`}
+                      {!canAfford ? `${r.cost_gold}g (short)` : `${r.cost_gold}g`}
                     </span>
                   </button>
+
                 </li>
               );
             })}
