@@ -369,16 +369,18 @@ Deno.serve(async (req) => {
       const playerInit = 10 + SR(10);
       const targetInit = 10 + SR(10);
 
-      const { data: combatants } = await admin.from("combatants").insert([
+      await admin.from("combatants").insert([
         { combat_id: combat!.id, side: "a", kind: "player", user_id: user.id, name: profile.username,
-          hp: playerHp, max_hp: playerMaxHp, initiative: playerInit, turn_order: playerInit >= targetInit ? 0 : 1 },
+          hp: playerHp, max_hp: playerMaxHp, initiative: playerInit, turn_order: 0 },
         { combat_id: combat!.id, side: "b", kind: target.kind, user_id: target.kind === "player" ? target.id : null,
           npc_id: target.kind === "npc" ? target.id : null, name: target.kind === "player" ? target.username : target.name,
-          hp: targetHp, max_hp: targetMax, initiative: targetInit, turn_order: targetInit > playerInit ? 0 : 1 },
-      ]).select();
+          hp: targetHp, max_hp: targetMax, initiative: targetInit, turn_order: 1 },
+      ]);
 
-      const first = (combatants ?? []).sort((a: any, b: any) => a.turn_order - b.turn_order)[0];
-      await admin.from("combats").update({ current_combatant_id: first.id }).eq("id", combat!.id);
+      // Enroll the player's companion (if any) on side "a", then seat by initiative.
+      const companion = await enrollCompanion(combat!.id, user.id, "a");
+      const first = await seatInitiative(combat!.id);
+
       await admin.from("profiles").update({ in_combat_id: combat!.id }).eq("id", user.id);
       if (target.kind === "player") {
         await admin.from("profiles").update({ in_combat_id: combat!.id }).eq("id", target.id);
@@ -386,6 +388,11 @@ Deno.serve(async (req) => {
 
       await pushAction(combat!.id, 1, user.id, profile.username, "system", target.kind === "player" ? target.username : target.name,
         `${profile.username} draws steel against ${target.kind === "player" ? target.username : target.name}!`);
+      if (companion) {
+        await pushAction(combat!.id, 1, null, companion.name, "system", null,
+          `${companion.name} steps in beside ${profile.username}, weapon already in hand.`);
+      }
+
 
       // Boss intro flourish — broadcast to the room when a boss fight begins.
       if (target.kind === "npc" && target.is_boss && target.boss_intro) {
