@@ -33,14 +33,8 @@ Deno.serve(async (req) => {
       .select("cost_gold, flavor").eq("hub", hub).eq("destination", destination).maybeSingle();
     if (!route) return new Response(JSON.stringify({ error: "No wagon runs that route from here." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    // must have visited destination before
-    const { data: visited } = await admin.from("world_events")
-      .select("id").eq("actor_id", user.id).eq("kind", "discovered_room").eq("target_name", destination).limit(1);
-    const { data: alsoVisited } = visited?.length ? { data: visited } : await admin.from("world_events")
-      .select("id").eq("actor_id", user.id).eq("room", destination).limit(1);
-    if (!alsoVisited?.length) {
-      return new Response(JSON.stringify({ error: "You have never set foot there. Walk it first." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    // Wagonmasters know the road to every capital — even ones the traveler has never seen.
+
 
     // Skill: Map-Sense — 20% wagon discount.
     const { data: mapSense } = await admin.from("player_skills")
