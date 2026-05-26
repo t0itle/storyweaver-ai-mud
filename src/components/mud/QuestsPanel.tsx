@@ -46,7 +46,7 @@ export function QuestsPanel({ userId, onClose, onChanged }: { userId: string; on
     setLoading(true);
     const { data } = await supabase
       .from("quests")
-      .select("*")
+      .select("id,user_id,giver_npc_id,giver_npc_name,title,description,objective,status,severity,kind,target_kind,target_ref,reward_gold,reward_xp,reward_amity,reward_item_key,reward_rune_key,reward_kanji_key,offered_room,accepted_at,completed_at,expires_at,created_at,updated_at,escort_npc_id,source_guild,source_guild_town,is_initiation,attempts")
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(100);
