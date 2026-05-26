@@ -1847,18 +1847,28 @@ export default function GameClient({ session }: { session: Session }) {
                   : score < 20 ? null : score < 60 ? "friendly" : "devoted";
                 const tone = score === undefined ? "" :
                   score <= -20 ? "text-ember" : score >= 60 ? "text-moss" : score >= 20 ? "text-accent" : "";
+                const isMirror = (n.title ?? "").toLowerCase().includes("mirror of");
+                const firstName = n.name.split(" ")[0];
+                const mirrorPrompts: Array<[string, string]> = [
+                  ["Roads out", "Which road leads out of this city, and where does it go?"],
+                  ["Quest givers", "Who in this city has work or quests for me?"],
+                  ["Merchants", "Where do I buy gear, spells, and supplies here?"],
+                  ["Guild halls", "Where are the warrior, trader, and mage guild halls?"],
+                  ["Wagons", "Where do I find a wagonmaster to fast-travel from here?"],
+                ];
                 return (
-                  <div key={n.id} className="flex items-center gap-1">
+                  <div key={n.id} className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
                         if (n.is_merchant) { setMarketMerchant(n.id); }
                         else if (n.is_guildmaster) { setGuildmaster(n.id); }
                         else if (n.is_bard) { setBardId(n.id); setMusicOpen(true); }
-                        else { setInput(`ask ${n.name.split(" ")[0]} `); inputRef.current?.focus(); }
+                        else { setInput(`ask ${firstName} `); inputRef.current?.focus(); }
                       }}
                       className="flex-1 text-left font-body text-parchment hover:text-ember transition-colors">
-                      <span className={n.is_fence ? "text-whisper" : n.is_merchant ? "text-ember" : n.is_bard ? "text-moss" : n.is_guildmaster ? "text-accent" : "text-accent"}>
-                        {n.is_fence ? "✥" : n.is_merchant ? "⚖" : n.is_bard ? "♪" : n.is_guildmaster ? (n.guild_key === "warriors" ? "⚔" : n.guild_key === "traders" ? "⚖" : "✶") : "●"}
+                      <span className={n.is_fence ? "text-whisper" : n.is_merchant ? "text-ember" : n.is_bard ? "text-moss" : n.is_guildmaster ? "text-accent" : isMirror ? "text-ember" : "text-accent"}>
+                        {isMirror ? "✦" : n.is_fence ? "✥" : n.is_merchant ? "⚖" : n.is_bard ? "♪" : n.is_guildmaster ? (n.guild_key === "warriors" ? "⚔" : n.guild_key === "traders" ? "⚖" : "✶") : "●"}
                       </span> {n.name}
                       {n.title && <span className="text-ash italic"> — {n.title}</span>}
                       {word && <span className={`text-[10px] italic ml-1 ${tone}`}> ({word})</span>}
@@ -1866,7 +1876,22 @@ export default function GameClient({ session }: { session: Session }) {
                       {n.is_fence && <span className="text-[10px] text-whisper/80 ml-1">[fence]</span>}
                       {n.is_bard && <span className="text-[10px] text-moss/80 ml-1">[bard]</span>}
                       {n.is_guildmaster && !n.is_fence && <span className="text-[10px] text-accent/70 ml-1">[guild]</span>}
+                      {isMirror && <span className="text-[10px] text-ember/80 ml-1">[guide]</span>}
                     </button>
+                    </div>
+                    {isMirror && (
+                      <div className="flex flex-wrap gap-1 pl-4">
+                        {mirrorPrompts.map(([label, prompt]) => (
+                          <button
+                            key={label}
+                            onClick={() => handleCommand(`ask ${firstName} ${prompt}`)}
+                            className="font-mono text-[10px] px-2 py-0.5 border border-ember/40 text-ember hover:bg-ember/10 transition-colors uppercase tracking-wider"
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
