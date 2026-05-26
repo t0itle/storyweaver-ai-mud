@@ -815,6 +815,9 @@ export default function GameClient({ session }: { session: Session }) {
       if (completed.length) reloadProfile();
     }).catch(() => null);
 
+    // Mirror (Aether guide) greets sworn players the moment they enter their well-room.
+    supabase.functions.invoke("mirror-greet").catch(() => null);
+
     // Boss-aggro: any live `aggro_on_sight` boss in this room attacks on sight.
     (async () => {
       const { data: guardian } = await supabase.from("npcs")
