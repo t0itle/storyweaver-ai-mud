@@ -84,6 +84,27 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Summon the Mirror — a dedicated guide NPC who orients newly-sworn devotees.
+    const aetherShort = aether.name.split(",")[0];
+    const { data: guide } = await admin.from("npcs")
+      .select("id, name, title, greeting")
+      .eq("home_room", destination)
+      .ilike("title", `%Mirror of ${aetherShort}%`)
+      .maybeSingle();
+    if (guide) {
+      await admin.from("messages").insert([
+        {
+          room: destination, user_id: null, author_name: "—", kind: "ambient",
+          content: `*A figure steps forward — **${guide.name}**, ${guide.title}. They were waiting for you. Talk to them to learn the city.*`,
+        },
+        {
+          room: destination, user_id: null, npc_id: guide.id,
+          author_name: guide.name, kind: "say", addressed_to: user.id,
+          content: guide.greeting ?? `Welcome, sworn. I am ${guide.name}, your Mirror. Ask me anything.`,
+        },
+      ]);
+    }
+
     return json({ ok: true, aether, destination });
   } catch (e) {
     console.error(e);
