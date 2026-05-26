@@ -40,7 +40,7 @@ export default function Intro({ onDone }: { onDone: () => void }) {
       </div>
       <button
         onClick={(e) => { e.stopPropagation(); onDone(); }}
-        className="absolute bottom-6 right-6 font-mono text-[10px] uppercase tracking-[0.4em] text-ash/60 hover:text-parchment border border-ash/30 hover:border-parchment px-3 py-1.5 transition-colors"
+        className="absolute bottom-6 right-6 font-mono text-[10px] uppercase tracking-[0.4em] text-parchment hover:text-white border border-parchment/70 hover:border-white px-3 py-1.5 transition-colors"
       >
         skip ›
       </button>
