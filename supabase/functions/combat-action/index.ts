@@ -421,9 +421,15 @@ Deno.serve(async (req) => {
         combat_id: combat.id, side: "a", kind: "player", user_id: user.id, name: profile.username,
         hp: Math.min(stats.prof!.hp, max), max_hp: max, initiative: init, turn_order: order,
       });
+      const joinComp = await enrollCompanion(combat.id, user.id, "a");
       await admin.from("profiles").update({ in_combat_id: combat.id }).eq("id", user.id);
       await pushAction(combat.id, combat.turn_number, user.id, profile.username, "system", null,
         `${profile.username} throws themselves into the fight, blade rising to join the fray.`);
+      if (joinComp) {
+        await pushAction(combat.id, combat.turn_number, null, joinComp.name, "system", null,
+          `${joinComp.name} surges in at ${profile.username}'s shoulder.`);
+      }
+
       return ok({ ok: true });
     }
 
