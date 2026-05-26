@@ -272,7 +272,44 @@ Deno.serve(async (req) => {
       await advanceTurn(combatId);
     };
 
+    // Enroll the player's companion NPC on their side, if present in this room and not dead.
+    // Returns the inserted combatant row, or null. NPC's permanent npcs.dead_until is NEVER changed by combat.
+    const enrollCompanion = async (combatId: string, userId: string, side: "a" | "b") => {
+      const { data: prof } = await admin.from("profiles")
+        .select("companion_npc_id, current_room").eq("id", userId).maybeSingle();
+      if (!prof?.companion_npc_id) return null;
+      const nowIso = new Date().toISOString();
+      const { data: comp } = await admin.from("npcs")
+        .select("id, name, room, level, str, con, dex, combat_max_hp, is_boss, dead_until")
+        .eq("id", prof.companion_npc_id).maybeSingle();
+      if (!comp) return null;
+      if (comp.room !== prof.current_room) return null;
+      if (comp.dead_until && new Date(comp.dead_until) > new Date(nowIso)) return null;
+      const conBonus = Math.max(0, Math.floor(((comp.con ?? 10) - 10) / 2));
+      const lvlHp = Math.max(0, ((comp.level ?? 1) - 1)) * 4;
+      const maxHp = comp.is_boss && comp.combat_max_hp ? comp.combat_max_hp : (18 + lvlHp + conBonus * 2);
+      const init = 10 + SR(10) + Math.floor(((comp.dex ?? 10) - 10) / 2);
+      const { data: row } = await admin.from("combatants").insert({
+        combat_id: combatId, side, kind: "npc", npc_id: comp.id, name: comp.name,
+        hp: maxHp, max_hp: maxHp, initiative: init, turn_order: 99,
+      }).select().single();
+      return row;
+    };
+
+    // Re-seat all combatants by initiative (desc) and reset current_combatant_id to the first alive one.
+    const seatInitiative = async (combatId: string) => {
+      const { data: list } = await admin.from("combatants").select("id,initiative,defeated").eq("combat_id", combatId);
+      const sorted = (list ?? []).slice().sort((a: any, b: any) => (b.initiative ?? 0) - (a.initiative ?? 0));
+      for (let i = 0; i < sorted.length; i++) {
+        await admin.from("combatants").update({ turn_order: i }).eq("id", sorted[i].id);
+      }
+      const first = sorted.find((c: any) => !c.defeated) ?? sorted[0];
+      if (first) await admin.from("combats").update({ current_combatant_id: first.id }).eq("id", combatId);
+      return first;
+    };
+
     // ===== START =====
+
     if (body.action === "start") {
       if (profile.in_combat_id) throw new Error("You are already in a fight.");
       if (!body.target_name) throw new Error("Attack whom?");
