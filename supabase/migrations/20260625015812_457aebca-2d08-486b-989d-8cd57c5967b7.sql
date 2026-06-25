@@ -1,0 +1,1 @@
+UPDATE public.npcs SET home_room='first-city-gate', room='first-city-gate' WHERE name='Old Borrik';
