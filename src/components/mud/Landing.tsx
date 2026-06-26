@@ -29,7 +29,10 @@ export default function Landing() {
         const uname = username.trim();
         if (uname.length < 2) throw new Error("Choose a name (min 2 characters).");
         const useEmail = email.trim().length > 0 ? email.trim() : usernameToEmail(uname);
-        const { error } = await supabase.auth.signUp({
+        if (!useEmail || useEmail.startsWith("@")) {
+          throw new Error("That name has no letters or numbers — try another.");
+        }
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email: useEmail,
           password,
           options: {
@@ -38,9 +41,10 @@ export default function Landing() {
           },
         });
         if (error) throw error;
-        // Auto-confirm is on, so try immediate sign-in for username-only flow.
-        if (!email.trim()) {
-          await supabase.auth.signInWithPassword({ email: useEmail, password });
+        // If signUp didn't return a session, force a sign-in so the player enters the game.
+        if (!signUpData.session) {
+          const { error: signInErr } = await supabase.auth.signInWithPassword({ email: useEmail, password });
+          if (signInErr) throw new Error(`Account created, but sign-in failed: ${signInErr.message}`);
         }
         toast.success("The desert has heard a new walker.");
       } else {
