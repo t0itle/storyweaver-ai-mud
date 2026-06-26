@@ -21,6 +21,13 @@ export default function Landing() {
   const [loading, setLoading] = useState(false);
   const [oauthBusy, setOauthBusy] = useState<string | null>(null);
 
+  const enterAfterPasswordAuth = async () => {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (!data.session) throw new Error("Signed in, but the gate did not open. Try returning to the sand.");
+    window.location.assign("/");
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -47,11 +54,13 @@ export default function Landing() {
           if (signInErr) throw new Error(`Account created, but sign-in failed: ${signInErr.message}`);
         }
         toast.success("The desert has heard a new walker.");
+        await enterAfterPasswordAuth();
       } else {
         const id = identifier.trim();
         const loginEmail = id.includes("@") ? id : usernameToEmail(id);
         const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
         if (error) throw error;
+        await enterAfterPasswordAuth();
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Something went wrong");

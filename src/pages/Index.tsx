@@ -18,14 +18,36 @@ const Index = () => {
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    supabase.auth.getSession().then(({ data }) => { setSession(data.session); setReady(true); });
+    supabase.auth.getSession().then(async ({ data }) => {
+      if (!data.session) {
+        setSession(null);
+        setReady(true);
+        return;
+      }
+
+      const { data: userData, error } = await supabase.auth.getUser();
+      if (error || !userData.user) {
+        await supabase.auth.signOut();
+        setSession(null);
+      } else {
+        setSession(data.session);
+      }
+      setReady(true);
+    });
     return () => sub.subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
     if (!session) { setCreated(null); return; }
     supabase.from("profiles").select("created").eq("id", session.user.id).maybeSingle()
-      .then(({ data }) => setCreated(!!data?.created));
+      .then(async ({ data, error }) => {
+        if (error) {
+          await supabase.auth.signOut();
+          setCreated(null);
+          return;
+        }
+        setCreated(!!data?.created);
+      });
   }, [session?.user.id]);
 
   if (!ready) return <div className="min-h-screen flex items-center justify-center text-ash">Kindling the brazier…</div>;
