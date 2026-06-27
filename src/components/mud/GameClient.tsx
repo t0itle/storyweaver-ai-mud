@@ -2038,12 +2038,14 @@ export default function GameClient({ session }: { session: Session }) {
   );
 }
 
-function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket, companionId }: {
+function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket, companionId, roommates, onPlayerClick }: {
   room: Room; npcs: Npc[]; dragons: { name: string; epithet: string; personality: string }[];
   sceneUrl: string | null; sceneLoading: boolean;
   events: { kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[];
   bucket: TimeBucket;
   companionId?: string | null;
+  roommates?: { id: string; username: string; portrait_url: string | null; level: number; aether: string | null; faction: string | null; downed: boolean; dead: boolean }[];
+  onPlayerClick?: (r: any) => void;
 }) {
   const tint = pickTimeTint(bucket, (room.kind ?? "room") as string);
   return (
