@@ -390,8 +390,9 @@ export default function GameClient({ session }: { session: Session }) {
         supabase.from("rooms").select("*").eq("slug", slug).maybeSingle(),
         supabase.from("npcs").select("*").eq("room", slug)
           .or(`dead_until.is.null,dead_until.lte.${nowIso}`),
+        // Show recent room chatter (last 15 min) so arriving players see ongoing conversation.
         supabase.from("messages").select("*").eq("room", slug)
-          .gte("created_at", nowIso)
+          .gte("created_at", new Date(Date.now() - 15 * 60 * 1000).toISOString())
           .or(`addressed_to.is.null,addressed_to.eq.${profile.id}`)
           .order("created_at", { ascending: false }).limit(40),
         supabase.from("world_events").select("kind,actor_name,target_name,details,created_at")
