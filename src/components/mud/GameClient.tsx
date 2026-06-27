@@ -150,6 +150,12 @@ export default function GameClient({ session }: { session: Session }) {
     level: number; aether: string | null; faction: string | null;
     downed: boolean; dead: boolean;
   }[]>([]);
+  type RoommatePreview = {
+    id: string; username: string; portrait_url: string | null;
+    level: number; aether: string | null; faction: string | null;
+    downed: boolean; dead: boolean;
+  };
+  const [previewPlayer, setPreviewPlayer] = useState<RoommatePreview | null>(null);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [lore, setLore] = useState<LoreEntry[]>([]);
