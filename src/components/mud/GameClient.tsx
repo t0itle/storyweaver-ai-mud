@@ -1933,6 +1933,25 @@ export default function GameClient({ session }: { session: Session }) {
         </aside>
       </div>
 
+      <Dialog open={!!previewPlayer} onOpenChange={(o) => !o && setPreviewPlayer(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-2xl text-ember">{previewPlayer?.username}</DialogTitle>
+            <DialogDescription className="font-mono text-xs">
+              level {previewPlayer?.level}
+              {previewPlayer?.aether ? ` · ${previewPlayer.aether}` : ""}
+              {previewPlayer?.faction === "chaos" ? " · chaos" : ""}
+              {previewPlayer?.dead ? " · fallen" : previewPlayer?.downed ? " · downed" : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {previewPlayer?.portrait_url ? (
+            <img src={previewPlayer.portrait_url} alt={previewPlayer.username} className="w-full object-cover border border-border" />
+          ) : (
+            <div className="aspect-square bg-card flex items-center justify-center text-ash">no portrait</div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <ChronicleModal
         open={journalOpen || codexOpen}
         onClose={() => { setJournalOpen(false); setCodexOpen(false); setCodexEntry(null); }}
