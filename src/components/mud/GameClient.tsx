@@ -1908,7 +1908,7 @@ export default function GameClient({ session }: { session: Session }) {
                 return (
                   <button
                     key={r.id}
-                    onClick={() => { setInput(`say `); inputRef.current?.focus(); }}
+                    onClick={() => setPreviewPlayer(r)}
                     className="w-full flex items-center gap-2 font-body text-left hover:bg-background/40 px-1 py-0.5 transition-colors"
                     title={`${r.username} — level ${r.level}${r.aether ? ` · ${r.aether}` : ""}${r.faction === "chaos" ? " · chaos" : ""}`}
                   >
