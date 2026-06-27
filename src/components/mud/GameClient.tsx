@@ -150,6 +150,12 @@ export default function GameClient({ session }: { session: Session }) {
     level: number; aether: string | null; faction: string | null;
     downed: boolean; dead: boolean;
   }[]>([]);
+  type RoommatePreview = {
+    id: string; username: string; portrait_url: string | null;
+    level: number; aether: string | null; faction: string | null;
+    downed: boolean; dead: boolean;
+  };
+  const [previewPlayer, setPreviewPlayer] = useState<RoommatePreview | null>(null);
   const [input, setInput] = useState("");
   const [thinking, setThinking] = useState(false);
   const [lore, setLore] = useState<LoreEntry[]>([]);
@@ -1733,7 +1739,7 @@ export default function GameClient({ session }: { session: Session }) {
         {/* Main log */}
         <main className="flex-1 flex flex-col min-w-0">
           <div ref={logRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-6 space-y-3 font-body text-[17px] leading-relaxed">
-            <RoomBlock room={room} npcs={npcs} dragons={dragons} sceneUrl={sceneUrl} sceneLoading={sceneLoading} events={roomEvents} bucket={bucket} companionId={profile?.companion_npc_id ?? null} />
+            <RoomBlock room={room} npcs={npcs} dragons={dragons} sceneUrl={sceneUrl} sceneLoading={sceneLoading} events={roomEvents} bucket={bucket} companionId={profile?.companion_npc_id ?? null} roommates={roommates} onPlayerClick={(r) => setPreviewPlayer(r)} />
             {corpses.length > 0 && (
               <div className="border border-red-900/50 bg-red-950/20 px-3 py-2 mb-3 text-sm">
                 <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-red-400 mb-1">⚰ Corpses here</div>
@@ -1902,7 +1908,7 @@ export default function GameClient({ session }: { session: Session }) {
                 return (
                   <button
                     key={r.id}
-                    onClick={() => { setInput(`say `); inputRef.current?.focus(); }}
+                    onClick={() => setPreviewPlayer(r)}
                     className="w-full flex items-center gap-2 font-body text-left hover:bg-background/40 px-1 py-0.5 transition-colors"
                     title={`${r.username} — level ${r.level}${r.aether ? ` · ${r.aether}` : ""}${r.faction === "chaos" ? " · chaos" : ""}`}
                   >
@@ -1926,6 +1932,25 @@ export default function GameClient({ session }: { session: Session }) {
           </button>
         </aside>
       </div>
+
+      <Dialog open={!!previewPlayer} onOpenChange={(o) => !o && setPreviewPlayer(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-2xl text-ember">{previewPlayer?.username}</DialogTitle>
+            <DialogDescription className="font-mono text-xs">
+              level {previewPlayer?.level}
+              {previewPlayer?.aether ? ` · ${previewPlayer.aether}` : ""}
+              {previewPlayer?.faction === "chaos" ? " · chaos" : ""}
+              {previewPlayer?.dead ? " · fallen" : previewPlayer?.downed ? " · downed" : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {previewPlayer?.portrait_url ? (
+            <img src={previewPlayer.portrait_url} alt={previewPlayer.username} className="w-full object-cover border border-border" />
+          ) : (
+            <div className="aspect-square bg-card flex items-center justify-center text-ash">no portrait</div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ChronicleModal
         open={journalOpen || codexOpen}
@@ -2032,12 +2057,14 @@ export default function GameClient({ session }: { session: Session }) {
   );
 }
 
-function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket, companionId }: {
+function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket, companionId, roommates, onPlayerClick }: {
   room: Room; npcs: Npc[]; dragons: { name: string; epithet: string; personality: string }[];
   sceneUrl: string | null; sceneLoading: boolean;
   events: { kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[];
   bucket: TimeBucket;
   companionId?: string | null;
+  roommates?: { id: string; username: string; portrait_url: string | null; level: number; aether: string | null; faction: string | null; downed: boolean; dead: boolean }[];
+  onPlayerClick?: (r: any) => void;
 }) {
   const tint = pickTimeTint(bucket, (room.kind ?? "room") as string);
   return (
@@ -2060,6 +2087,29 @@ function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket
             ) : (
               <span className="text-ash text-xs italic">…</span>
             )}
+          </div>
+        )}
+        {roommates && roommates.length > 0 && (
+          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1.5 justify-end pointer-events-none">
+            {roommates.slice(0, 8).map((r) => (
+              <button
+                key={r.id}
+                onClick={() => onPlayerClick?.(r)}
+                title={`${r.username} — lv ${r.level}`}
+                className="pointer-events-auto group relative flex flex-col items-center"
+              >
+                {r.portrait_url ? (
+                  <img
+                    src={r.portrait_url}
+                    alt={r.username}
+                    className={`w-12 h-12 object-cover rounded-full border-2 shadow-lg shadow-black/60 ${r.dead ? "border-red-500 grayscale" : r.downed ? "border-amber-500" : "border-ember"}`}
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full border-2 border-ember bg-card/80 flex items-center justify-center text-ember">◆</div>
+                )}
+                <span className="mt-0.5 px-1 text-[9px] font-mono text-parchment bg-black/70 rounded leading-tight max-w-[60px] truncate">{r.username}</span>
+              </button>
+            ))}
           </div>
         )}
       </div>
