@@ -2103,24 +2103,15 @@ function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket
           </div>
         )}
         {roommates && roommates.length > 0 && (
-          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1.5 justify-end pointer-events-none">
+          <div className="absolute bottom-1 left-2 right-2 flex flex-wrap gap-1 justify-end pointer-events-none">
             {roommates.slice(0, 8).map((r) => (
               <button
                 key={r.id}
                 onClick={() => onPlayerClick?.(r)}
                 title={`${r.username} — lv ${r.level}`}
-                className="pointer-events-auto group relative flex flex-col items-center"
+                className="pointer-events-auto px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm border border-ember/40 text-[10px] font-mono text-parchment hover:bg-black/80 hover:border-ember transition"
               >
-                {r.portrait_url ? (
-                  <img
-                    src={r.portrait_url}
-                    alt={r.username}
-                    className={`w-12 h-12 object-cover rounded-full border-2 shadow-lg shadow-black/60 ${r.dead ? "border-red-500 grayscale" : r.downed ? "border-amber-500" : "border-ember"}`}
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-full border-2 border-ember bg-card/80 flex items-center justify-center text-ember">◆</div>
-                )}
-                <span className="mt-0.5 px-1 text-[9px] font-mono text-parchment bg-black/70 rounded leading-tight max-w-[60px] truncate">{r.username}</span>
+                {r.username}{r.dead ? " ✝" : r.downed ? " ↓" : ""}
               </button>
             ))}
           </div>
