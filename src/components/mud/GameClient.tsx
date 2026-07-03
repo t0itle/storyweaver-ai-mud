@@ -569,6 +569,15 @@ export default function GameClient({ session }: { session: Session }) {
     return () => { cancelled = true; supabase.removeChannel(ch); };
   }, [profile?.current_room]);
 
+  // Signature of players in the room so the painting re-renders when the cast changes.
+  const playersSig = useMemo(() => {
+    const all = [
+      ...(profile ? [{ id: profile.id, username: profile.username, portrait_url: profile.portrait_url, aether: profile.aether, faction: (profile as any).faction ?? null, downed: !!(profile as any).downed, dead: !!(profile as any).dead }] : []),
+      ...roommates,
+    ];
+    return all.map(p => `${p.username}:${p.portrait_url ?? ""}:${p.dead ? "d" : p.downed ? "w" : "u"}`).sort().join("|");
+  }, [profile?.id, profile?.username, profile?.portrait_url, profile?.aether, roommates]);
+
   useEffect(() => {
     if (!profile || !room) return;
     const slug = profile.current_room;
@@ -580,7 +589,11 @@ export default function GameClient({ session }: { session: Session }) {
     const eventSummary = sceneEvents.length
       ? sceneEvents.map(e => describeEvent(e)).join(" ")
       : "";
-    supabase.functions.invoke("scene-image", { body: { room: slug, context_extra: eventSummary } })
+    const players = [
+      { username: profile.username, portrait_url: profile.portrait_url, aether: profile.aether, faction: (profile as any).faction ?? null, downed: !!(profile as any).downed, dead: !!(profile as any).dead, self: true },
+      ...roommates.map(r => ({ username: r.username, portrait_url: r.portrait_url, aether: r.aether, faction: r.faction, downed: r.downed, dead: r.dead, self: false })),
+    ];
+    supabase.functions.invoke("scene-image", { body: { room: slug, context_extra: eventSummary, players } })
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) console.warn("scene", error);
@@ -588,7 +601,7 @@ export default function GameClient({ session }: { session: Session }) {
       })
       .finally(() => { if (!cancelled) setSceneLoading(false); });
     return () => { cancelled = true; };
-  }, [profile?.current_room, room?.slug, roomEvents.length]);
+  }, [profile?.current_room, room?.slug, roomEvents.length, playersSig]);
 
   // Auto-open Hall of the Seven when player enters it (only if not yet sworn)
   useEffect(() => {
@@ -2090,24 +2103,15 @@ function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket
           </div>
         )}
         {roommates && roommates.length > 0 && (
-          <div className="absolute bottom-2 left-2 right-2 flex flex-wrap gap-1.5 justify-end pointer-events-none">
+          <div className="absolute bottom-1 left-2 right-2 flex flex-wrap gap-1 justify-end pointer-events-none">
             {roommates.slice(0, 8).map((r) => (
               <button
                 key={r.id}
                 onClick={() => onPlayerClick?.(r)}
                 title={`${r.username} — lv ${r.level}`}
-                className="pointer-events-auto group relative flex flex-col items-center"
+                className="pointer-events-auto px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm border border-ember/40 text-[10px] font-mono text-parchment hover:bg-black/80 hover:border-ember transition"
               >
-                {r.portrait_url ? (
-                  <img
-                    src={r.portrait_url}
-                    alt={r.username}
-                    className={`w-12 h-12 object-cover rounded-full border-2 shadow-lg shadow-black/60 ${r.dead ? "border-red-500 grayscale" : r.downed ? "border-amber-500" : "border-ember"}`}
-                  />
-                ) : (
-                  <div className="w-12 h-12 rounded-full border-2 border-ember bg-card/80 flex items-center justify-center text-ember">◆</div>
-                )}
-                <span className="mt-0.5 px-1 text-[9px] font-mono text-parchment bg-black/70 rounded leading-tight max-w-[60px] truncate">{r.username}</span>
+                {r.username}{r.dead ? " ✝" : r.downed ? " ↓" : ""}
               </button>
             ))}
           </div>

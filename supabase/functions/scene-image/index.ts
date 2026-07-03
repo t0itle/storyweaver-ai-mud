@@ -2,7 +2,9 @@
 // Cache key = sha256(room + presence-NPCs + recent player count). Same key reuses image.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const SCENE_PROMPT_VERSION = "2026-05-12-npc-actions-tod-v1";
+const SCENE_PROMPT_VERSION = "2026-07-03-players-woven-v1";
+
+type PlayerIn = { username: string; portrait_url: string | null; aether: string | null; faction: string | null; downed?: boolean; dead?: boolean; self?: boolean };
 
 type TimeBucket = "deepnight" | "dawn" | "morning" | "midday" | "dusk" | "night";
 function getTimeBucket(d: Date = new Date()): TimeBucket {
@@ -53,7 +55,8 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supa.auth.getUser();
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const { room: roomSlug, context_extra } = await req.json();
+    const { room: roomSlug, context_extra, players: playersRaw } = await req.json();
+    const players: PlayerIn[] = Array.isArray(playersRaw) ? playersRaw.slice(0, 8) : [];
     const { data: room } = await admin.from("rooms").select("*").eq("slug", roomSlug).maybeSingle();
     if (!room) return json({ error: "room not found" }, 404);
     const { data: npcs } = await admin.from("npcs")
@@ -107,7 +110,11 @@ Deno.serve(async (req) => {
       .map((n: any) => `${n.name}:${(n.current_activity ?? "").trim().toLowerCase()}`)
       .sort()
       .join(",");
-    const cacheKey = await sha256(`${SCENE_PROMPT_VERSION}|${roomSlug}|${bucket}|${npcKey}|${context_extra ?? ""}`);
+    const playerKey = players
+      .map(p => `${p.username}:${p.portrait_url ?? ""}:${p.dead ? "d" : p.downed ? "w" : "u"}`)
+      .sort()
+      .join(",");
+    const cacheKey = await sha256(`${SCENE_PROMPT_VERSION}|${roomSlug}|${bucket}|${npcKey}|${playerKey}|${context_extra ?? ""}`);
 
     // Check cache
     const { data: cached } = await admin.from("room_scenes")
@@ -115,7 +122,7 @@ Deno.serve(async (req) => {
     if (cached) return json({ image_url: cached.image_url, cached: true });
 
     const npcLine = (npcs ?? []).length
-      ? `Figures present, painted exactly as described — pose them mid-action, not posed for portrait, integrated naturally into the environment:\n` +
+      ? `NPCs present, painted exactly as described — pose them mid-action, not posed for portrait, integrated naturally into the environment:\n` +
         (npcs ?? []).map((n: any) => {
           const who = `${n.name}${n.title ? `, ${n.title}` : ""}`;
           const doing = (n.current_activity ?? "").trim();
@@ -123,7 +130,23 @@ Deno.serve(async (req) => {
             ? `  • ${who} — currently ${doing}. Show them visibly doing this.`
             : `  • ${who} — at rest in this place.`;
         }).join("\n")
-      : "No figures present — render the place as empty and still.";
+      : "";
+
+    const playerImages = players.filter(p => p.portrait_url && /^https?:\/\//.test(p.portrait_url!));
+    const playerLine = players.length
+      ? `Player-characters ALSO present in this scene — they are wanderers who have arrived here and MUST be painted into the environment as real inhabitants of the moment, not as icons, badges, portraits, medallions, floating bubbles, HUD elements, or overlays. Each player is a full-body figure standing, walking, resting, or interacting within the space, at mid-distance, integrated with the light and perspective of the location. Use the reference portrait${playerImages.length === 1 ? "" : "s"} provided${playerImages.length ? " (in the same order listed below)" : ""} to capture each player's face, hair, garments, and gear — carry those likenesses into the wide painted scene:\n` +
+        players.map((p, i) => {
+          const state = p.dead ? "fallen — a still body on the ground, others giving them space" : p.downed ? "wounded — kneeling or slumped, being tended or catching breath" : "alive and present in the scene";
+          const tag = p.self ? " (the viewer's own character — place them naturally, seen from behind or three-quarter, not centered as a portrait)" : "";
+          const ref = playerImages.includes(p) ? ` [portrait reference ${playerImages.indexOf(p) + 1}]` : "";
+          return `  • ${p.username}${tag} — ${state}${p.aether ? `, sworn to ${p.aether}` : ""}${p.faction === "chaos" ? ", touched by Chaos" : ""}.${ref}`;
+        }).join("\n") +
+        `\nAll listed player-characters must be visibly present in the painting — none omitted. Group them believably within the space; do not line them up.`
+      : "";
+
+    const anyoneLine = (npcs ?? []).length === 0 && players.length === 0
+      ? "No figures present — render the place as empty and still."
+      : "";
 
     const todLine = `Time of day: ${bucket}. Lighting MUST read as ${TOD_LIGHT[bucket]}. Sky, shadow length, lantern/candle presence and colour temperature must all match this hour.`;
 
@@ -135,7 +158,7 @@ Deno.serve(async (req) => {
       ? "This location must contain zero readable lettering. Every stall sign, hanging placard, label, poster, chalkboard, receipt, coin stamp, crate mark, and inscription must be omitted, turned away, cropped out, blurred into abstract paint, or replaced with blank shapes and pictograms only."
       : "This location must contain zero readable lettering or symbols that resemble an alphabet.";
 
-    const prompt = `Painterly fantasy environment concept art, oil-painted, cinematic wide shot. Palette: ${mood.palette}. Mood: ${mood.mood}. Atmospheric volumetric light. Figures, if any, are mid-distance and shown performing their stated action — never posed centrally for portrait. Do NOT default to fire, embers, ash, or grimdark unless the scene explicitly calls for it.
+    const prompt = `Painterly fantasy environment concept art, oil-painted, cinematic wide shot. Palette: ${mood.palette}. Mood: ${mood.mood}. Atmospheric volumetric light. Figures are mid-distance and shown performing their stated action — never posed centrally for portrait. Do NOT default to fire, embers, ash, or grimdark unless the scene explicitly calls for it.
 
 ABSOLUTELY NO TEXT of any kind in the image — no signs, no banners, no shop signage, no painted lettering on walls or stalls, no carved inscriptions, no scrolls with writing, no maps with labels, no runes meant to read as letters, no logos, no watermarks, no captions. If a sign would normally appear, render it as a blank wooden plank or a pictographic symbol only.
 ${textSafeLine}
@@ -147,17 +170,23 @@ ${room.description}
 ${room.ambience ?? ""}
 
 ${npcLine}
+${playerLine}
+${anyoneLine}
 ${eventsLine}
 
-Style: painterly brushwork in the spirit of Studio Ghibli backgrounds and Craig Mullins — naturalistic colour, believable light, slight grain. Match the palette, mood, and time-of-day lighting above; let the location's true character lead the image, with figures honestly engaged in what they are doing right now.`;
+Style: painterly brushwork in the spirit of Studio Ghibli backgrounds and Craig Mullins — naturalistic colour, believable light, slight grain. Match the palette, mood, and time-of-day lighting above; let the location's true character lead the image, with every named figure (NPCs and player-characters alike) honestly engaged in what they are doing right now, woven into the scene — never rendered as an overlay, badge, or floating icon.`;
 
     async function callImageModel(p: string) {
+      const content: any[] = [{ type: "text", text: p }];
+      for (const pl of playerImages) {
+        content.push({ type: "image_url", image_url: { url: pl.portrait_url } });
+      }
       return await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: "google/gemini-2.5-flash-image",
-          messages: [{ role: "user", content: p }],
+          messages: [{ role: "user", content }],
           modalities: ["image", "text"],
         }),
       });
