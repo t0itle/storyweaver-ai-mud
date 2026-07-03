@@ -2,7 +2,9 @@
 // Cache key = sha256(room + presence-NPCs + recent player count). Same key reuses image.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-const SCENE_PROMPT_VERSION = "2026-05-12-npc-actions-tod-v1";
+const SCENE_PROMPT_VERSION = "2026-07-03-players-woven-v1";
+
+type PlayerIn = { username: string; portrait_url: string | null; aether: string | null; faction: string | null; downed?: boolean; dead?: boolean; self?: boolean };
 
 type TimeBucket = "deepnight" | "dawn" | "morning" | "midday" | "dusk" | "night";
 function getTimeBucket(d: Date = new Date()): TimeBucket {
