@@ -569,6 +569,15 @@ export default function GameClient({ session }: { session: Session }) {
     return () => { cancelled = true; supabase.removeChannel(ch); };
   }, [profile?.current_room]);
 
+  // Signature of players in the room so the painting re-renders when the cast changes.
+  const playersSig = useMemo(() => {
+    const all = [
+      ...(profile ? [{ id: profile.id, username: profile.username, portrait_url: profile.portrait_url, aether: profile.aether, faction: (profile as any).faction ?? null, downed: !!(profile as any).downed, dead: !!(profile as any).dead }] : []),
+      ...roommates,
+    ];
+    return all.map(p => `${p.username}:${p.portrait_url ?? ""}:${p.dead ? "d" : p.downed ? "w" : "u"}`).sort().join("|");
+  }, [profile?.id, profile?.username, profile?.portrait_url, profile?.aether, roommates]);
+
   useEffect(() => {
     if (!profile || !room) return;
     const slug = profile.current_room;
@@ -580,7 +589,11 @@ export default function GameClient({ session }: { session: Session }) {
     const eventSummary = sceneEvents.length
       ? sceneEvents.map(e => describeEvent(e)).join(" ")
       : "";
-    supabase.functions.invoke("scene-image", { body: { room: slug, context_extra: eventSummary } })
+    const players = [
+      { username: profile.username, portrait_url: profile.portrait_url, aether: profile.aether, faction: (profile as any).faction ?? null, downed: !!(profile as any).downed, dead: !!(profile as any).dead, self: true },
+      ...roommates.map(r => ({ username: r.username, portrait_url: r.portrait_url, aether: r.aether, faction: r.faction, downed: r.downed, dead: r.dead, self: false })),
+    ];
+    supabase.functions.invoke("scene-image", { body: { room: slug, context_extra: eventSummary, players } })
       .then(({ data, error }) => {
         if (cancelled) return;
         if (error) console.warn("scene", error);
@@ -588,7 +601,7 @@ export default function GameClient({ session }: { session: Session }) {
       })
       .finally(() => { if (!cancelled) setSceneLoading(false); });
     return () => { cancelled = true; };
-  }, [profile?.current_room, room?.slug, roomEvents.length]);
+  }, [profile?.current_room, room?.slug, roomEvents.length, playersSig]);
 
   // Auto-open Hall of the Seven when player enters it (only if not yet sworn)
   useEffect(() => {
