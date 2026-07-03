@@ -55,7 +55,8 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supa.auth.getUser();
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const { room: roomSlug, context_extra } = await req.json();
+    const { room: roomSlug, context_extra, players: playersRaw } = await req.json();
+    const players: PlayerIn[] = Array.isArray(playersRaw) ? playersRaw.slice(0, 8) : [];
     const { data: room } = await admin.from("rooms").select("*").eq("slug", roomSlug).maybeSingle();
     if (!room) return json({ error: "room not found" }, 404);
     const { data: npcs } = await admin.from("npcs")
