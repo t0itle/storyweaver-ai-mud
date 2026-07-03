@@ -139,6 +139,39 @@ Deno.serve(async (req) => {
       user_id: null,
     });
 
+    // Nearby NPCs react to the dragon by persona.
+    const { data: witnesses } = await admin.from("npcs")
+      .select("name, title, persona, is_guard, is_warden, is_aether, is_boss, faction")
+      .eq("room", candidateRoom)
+      .or(`dead_until.is.null,dead_until.lte.${new Date().toISOString()}`)
+      .limit(6);
+
+    const reactions: { room: string; author_name: string; kind: string; content: string; user_id: null }[] = [];
+    for (const n of witnesses ?? []) {
+      if (n.is_boss) continue; // don't have the dragon react to itself
+      const persona = ((n.persona ?? "") + " " + (n.title ?? "")).toLowerCase();
+      let line: string;
+      if (n.is_aether) {
+        line = `*${n.name} rises from the throne, voice like a bell struck once: "Wyrm. You dare, in my house?"*`;
+      } else if (n.is_warden || n.is_guard || /guard|watch|soldier|knight|warden|captain/.test(persona)) {
+        line = `*${n.name} draws steel and sets between you and the shadow. "Stand behind me. NOW."*`;
+      } else if (/priest|veil|speaker|monk|acolyte|cleric/.test(persona)) {
+        line = `*${n.name} covers their mouth and drops to their knees, whispering a name no tongue should shape.*`;
+      } else if (n.faction === "chaos" || /cult|shadow|unspoken|serviam/.test(persona)) {
+        line = `*${n.name} smiles wide and kneels, palms up. "At last. At last."*`;
+      } else if (/merchant|trader|vendor|shopkeep|fence|innkeep/.test(persona)) {
+        line = `*${n.name} slams the coinbox shut and bolts for the back door, coppers scattering.*`;
+      } else if (/child|beggar|urchin|farmer|peasant|servant/.test(persona)) {
+        line = `*${n.name} freezes, then flees weeping, small hands over their head.*`;
+      } else {
+        line = `*${n.name} goes very still, breath caught, watching the sky.*`;
+      }
+      reactions.push({ room: candidateRoom, author_name: "—", kind: "ambient", content: line, user_id: null });
+    }
+    if (reactions.length) {
+      await admin.from("messages").insert(reactions);
+    }
+
     return new Response(JSON.stringify({ ok: true, woke: 1, dragon: dragon.key, room: candidateRoom, trigger }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
