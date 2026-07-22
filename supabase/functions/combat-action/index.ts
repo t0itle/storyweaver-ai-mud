@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return ok({ error: "Unauthorized" }, 401);
 
-    const body = await req.json() as Body;
+    let body = await req.json() as Body;
 
     const { data: profile } = await admin.from("profiles").select("*").eq("id", user.id).maybeSingle();
     if (!profile) throw new Error("Profile missing");
