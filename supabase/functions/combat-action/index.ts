@@ -564,6 +564,32 @@ Deno.serve(async (req) => {
           const fullHp = profile.max_hp ?? 20;
           const diedAt = new Date().toISOString();
 
+          // Spill everything the fallen carried into a corpse pile at the death room.
+          const { data: carriedItems } = await admin.from("player_items")
+            .select("item_key, quantity").eq("user_id", user.id);
+          const corpseRows: any[] = [];
+          if (profile.gold && profile.gold > 0) {
+            corpseRows.push({
+              room: profile.current_room, gold: profile.gold,
+              source: "corpse", placed_by_name: me.name,
+            });
+          }
+          if (carriedItems && carriedItems.length) {
+            for (const c of carriedItems) {
+              corpseRows.push({
+                room: profile.current_room, gold: 0,
+                item_key: c.item_key, quantity: c.quantity,
+                source: "corpse", placed_by_name: me.name,
+              });
+            }
+          }
+          if (corpseRows.length) {
+            await admin.from("room_loot").insert(corpseRows);
+            await admin.from("messages").insert({
+              room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+              content: `✶ ${me.name}'s body slumps to the ground. Blade, coin, and trinket spill across the stones.`,
+            });
+          }
           await admin.from("player_items").delete().eq("user_id", user.id);
           await admin.from("profiles").update({
             downed: false, downed_at: null, downed_combat_id: null,
@@ -593,11 +619,37 @@ Deno.serve(async (req) => {
           return ok({ ok: true, saved: false, dead: false, respawned: true, room: respawnRoom, hp: fullHp });
         }
 
-        // Unaligned → permadeath. No god, no return.
+        // Unaligned → permadeath. No god, no return. Spill everything into a corpse.
+        const { data: permaItems } = await admin.from("player_items")
+          .select("item_key, quantity").eq("user_id", user.id);
+        const permaRows: any[] = [];
+        if (profile.gold && profile.gold > 0) {
+          permaRows.push({
+            room: profile.current_room, gold: profile.gold,
+            source: "corpse", placed_by_name: me.name,
+          });
+        }
+        if (permaItems && permaItems.length) {
+          for (const c of permaItems) {
+            permaRows.push({
+              room: profile.current_room, gold: 0,
+              item_key: c.item_key, quantity: c.quantity,
+              source: "corpse", placed_by_name: me.name,
+            });
+          }
+        }
+        if (permaRows.length) {
+          await admin.from("room_loot").insert(permaRows);
+          await admin.from("messages").insert({
+            room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+            content: `✶ ${me.name}'s body lies where they fell. What they carried is now for the taking.`,
+          });
+        }
+        await admin.from("player_items").delete().eq("user_id", user.id);
         await admin.from("profiles").update({
           downed: false, downed_at: null, downed_combat_id: null,
           dead: true, dead_at: new Date().toISOString(),
-          death_room: profile.current_room, hp: 0, in_combat_id: null,
+          death_room: profile.current_room, hp: 0, in_combat_id: null, gold: 0,
         }).eq("id", user.id);
         await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
         await pushAction(combatId, combat.turn_number, user.id, me.name, "death_save", null,
@@ -653,7 +705,12 @@ Deno.serve(async (req) => {
       const defeated = newHp <= 0;
       await admin.from("combatants").update({ hp: newHp, defeated, defending: false }).eq("id", target.id);
       if (target.kind === "player") {
-        await admin.from("profiles").update({ hp: newHp }).eq("id", target.user_id);
+        await admin.from("profiles").update({ hp: newHp, last_damage_kind: "physical" }).eq("id", target.user_id);
+        if (defeated) {
+          await admin.from("profiles").update({
+            downed: true, downed_at: new Date().toISOString(), downed_combat_id: combatId,
+          }).eq("id", target.user_id);
+        }
       }
       const targetArmorName = target.kind === "player" ? (await playerStats(target.user_id)).armorName : null;
       const fallback = `${me.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`;
