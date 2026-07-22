@@ -653,7 +653,12 @@ Deno.serve(async (req) => {
       const defeated = newHp <= 0;
       await admin.from("combatants").update({ hp: newHp, defeated, defending: false }).eq("id", target.id);
       if (target.kind === "player") {
-        await admin.from("profiles").update({ hp: newHp }).eq("id", target.user_id);
+        await admin.from("profiles").update({ hp: newHp, last_damage_kind: "physical" }).eq("id", target.user_id);
+        if (defeated) {
+          await admin.from("profiles").update({
+            downed: true, downed_at: new Date().toISOString(), downed_combat_id: combatId,
+          }).eq("id", target.user_id);
+        }
       }
       const targetArmorName = target.kind === "player" ? (await playerStats(target.user_id)).armorName : null;
       const fallback = `${me.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`;
