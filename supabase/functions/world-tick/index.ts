@@ -26,15 +26,9 @@ Deno.serve(async (req) => {
     const bucket = timeBucket();
     const nowIso = new Date().toISOString();
 
-    // 1. NPC Population Management: Top up locations
-    const { data: locations } = await admin.from("locations").select("id, population_target");
-    for (const loc of locations ?? []) {
-      const { count } = await admin.from("npcs").select("*", { count: "exact", head: true }).eq("room", loc.id).is("dead_until", null);
-      if ((count ?? 0) < (loc.population_target ?? 0)) {
-        // Logic to spawn new NPC if needed
-        await admin.rpc("spawn_npc_in_location", { location_id: loc.id });
-      }
-    }
+    // (NPC population top-up removed — legacy `locations` table no longer exists.)
+
+
 
     // 2. Pull all living NPCs that have a schedule.
     const { data: npcs } = await admin.from("npcs").select("*")
