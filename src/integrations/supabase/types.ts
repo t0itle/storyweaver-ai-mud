@@ -1238,6 +1238,27 @@ export type Database = {
           },
         ]
       }
+      onboarding_progress: {
+        Row: {
+          created_at: string
+          step: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          step?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          step?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pending_resurrections: {
         Row: {
           created_at: string
