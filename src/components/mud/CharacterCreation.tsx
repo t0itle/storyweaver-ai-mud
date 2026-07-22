@@ -13,13 +13,11 @@ interface Race {
 
 type Direction = "north" | "south";
 
-type Gender = "woman" | "man" | "neither" | "other";
+type Gender = "woman" | "man";
 
 const GENDER_OPTIONS: { key: Gender; label: string; pronoun: string }[] = [
   { key: "woman", label: "Woman", pronoun: "she/her" },
   { key: "man", label: "Man", pronoun: "he/him" },
-  { key: "neither", label: "Neither", pronoun: "they/them" },
-  { key: "other", label: "Something else", pronoun: "your own" },
 ];
 
 interface AdLibField {
@@ -49,7 +47,6 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   const [races, setRaces] = useState<Race[]>([]);
   const [chosen, setChosen] = useState<Race | null>(null);
   const [gender, setGender] = useState<Gender | null>(null);
-  const [customGender, setCustomGender] = useState("");
   const [adlib, setAdlib] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<"direction" | "choose">("direction");
@@ -58,13 +55,10 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
 
   const buildDescription = (): string => {
     if (!chosen || !gender) return "";
-    const genderWord = gender === "other"
-      ? (customGender.trim() || "person")
-      : gender === "neither" ? "person" : gender;
     const parts = AD_LIB_FIELDS
       .map((f) => (adlib[f.key]?.trim() ? f.template(adlib[f.key]) : null))
       .filter(Boolean) as string[];
-    return `A ${genderWord} of ${chosen.name} blood, ${parts.join(", ")}.`;
+    return `A ${gender} of ${chosen.name} blood, ${parts.join(", ")}.`;
   };
 
   useEffect(() => {
@@ -270,16 +264,6 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
                   );
                 })}
               </div>
-              {gender === "other" && (
-                <input
-                  type="text"
-                  value={customGender}
-                  onChange={(e) => setCustomGender(e.target.value.slice(0, 40))}
-                  disabled={busy}
-                  placeholder="name what you are…"
-                  className="w-full bg-card/40 border border-border focus:border-ember outline-none p-2 font-body text-parchment placeholder:text-ash/50 text-sm"
-                />
-              )}
             </div>
 
             {gender && (
