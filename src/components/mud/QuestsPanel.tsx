@@ -41,6 +41,8 @@ export function QuestsPanel({ userId, onClose, onChanged }: { userId: string; on
   const [vow, setVow] = useState<{ kind: "aether" | "chaos"; data: any } | null>(null);
   const [vowBusy, setVowBusy] = useState(false);
   const [targetAether, setTargetAether] = useState<string>("");
+  const [onboardingStep, setOnboardingStep] = useState<number>(5);
+  const [onboardingHint, setOnboardingHint] = useState<string>("");
 
   const reload = async () => {
     setLoading(true);
@@ -51,6 +53,13 @@ export function QuestsPanel({ userId, onClose, onChanged }: { userId: string; on
       .order("created_at", { ascending: false })
       .limit(100);
     setQuests((data ?? []) as Quest[]);
+
+    // Onboarding progress (First Walker chain)
+    const { data: onb } = await supabase.functions.invoke("onboarding-tick", { body: { action: "list" } });
+    if (onb && !onb.error) {
+      setOnboardingStep(onb.step ?? 5);
+      setOnboardingHint(onb.hint ?? "");
+    }
 
     // Pull active vow chain (Aether → Light, otherwise check chaos).
     const { data: profile } = await supabase.from("profiles").select("faction, aether").eq("id", userId).maybeSingle();
