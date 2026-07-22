@@ -3,9 +3,11 @@ import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Backpack, Flame, HelpCircle, Landmark, Loader2, LogOut, ScrollText, Users, Volume2, VolumeX } from "lucide-react";
+import { Backpack, Flame, HelpCircle, Landmark, Loader2, LogOut, Map as MapIcon, ScrollText, Users, Volume2, VolumeX } from "lucide-react";
 import { useRoomAudio } from "./useRoomAudio";
 import { getTimeBucket, filterNpcsForBucket, type TimeBucket } from "./worldTime";
+import { MiniMap, WorldMapModal } from "./MiniMap";
+import type { MapRoom } from "./mapLayout";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
 import { KinPanel } from "./KinPanel";
 import { ChronicleModal } from "./ChronicleModal";
@@ -48,6 +50,7 @@ interface Profile {
   escortee_destination_name: string | null;
   downed: boolean; downed_at: string | null; downed_combat_id: string | null;
   dead: boolean; dead_at: string | null; death_room: string | null;
+  desert_depth?: number | null; desert_bearing?: number | null;
   zombified: boolean; revived_by: string | null; revived_at: string | null;
   talent_points?: number;
 }
@@ -88,6 +91,7 @@ const HELP = [
   ["join", "enter a fight in this room"],
   ["defend / cast <rune> / flee", "in combat"],
   ["lore", "open your codex"],
+  ["map", "open the world map (mini map lives in the sidebar)"],
   ["who", "list players in this room"],
   ["follow <npc>", "ask an NPC to travel with you"],
   ["dismiss", "part ways with your companion"],
@@ -179,6 +183,8 @@ export default function GameClient({ session }: { session: Session }) {
   const [hasCache, setHasCache] = useState(false);
   const [cacheClaimed, setCacheClaimed] = useState(false);
   const [roomLoot, setRoomLoot] = useState<{ id: string; gold: number; item_key: string | null; quantity: number; placed_by_name: string | null }[]>([]);
+  const [worldRooms, setWorldRooms] = useState<MapRoom[]>([]);
+  const [worldMapOpen, setWorldMapOpen] = useState(false);
   const [bucket, setBucket] = useState<TimeBucket>(getTimeBucket());
   const audioMode: "room" | "combat" | "rest" = profile?.in_combat_id
     ? "combat"
@@ -285,6 +291,18 @@ export default function GameClient({ session }: { session: Session }) {
   };
 
   useEffect(() => { reloadInventory(); reloadRunes(); reloadQuestCounts(); }, [session.user.id]);
+
+  // World atlas: every charted (non-hidden) room, fetched once for the automap.
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from("rooms")
+      .select("slug, name, exits, kind, town_key, requires_faction")
+      .eq("hidden", false)
+      .then(({ data }) => {
+        if (!cancelled) setWorldRooms((data ?? []) as unknown as MapRoom[]);
+      });
+    return () => { cancelled = true; };
+  }, [session.user.id]);
 
   // Quests realtime
   useEffect(() => {
@@ -532,6 +550,36 @@ export default function GameClient({ session }: { session: Session }) {
     fire(2200 + Math.floor(Math.random() * 2000));
     return () => { cancelled = true; timers.forEach(clearTimeout); };
   }, [profile?.current_room, room?.slug]);
+
+  // Idle world pulse: the road stays dangerous even if you stand still.
+  // Every few minutes in encounter-eligible wilds, roll the same server-side
+  // encounter table used on movement (the server enforces biome + cooldown).
+  useEffect(() => {
+    if (!profile || !room) return;
+    if (profile.in_combat_id || profile.downed || profile.dead) return;
+    const IDLE_KINDS = new Set(["road", "desert", "wilds", "hollow", "grove", "ruin", "cave", "lair", "shore", "bridge", "dock", "crypt"]);
+    if (!IDLE_KINDS.has(room.kind ?? "") || room.town_key) return;
+    const slug = profile.current_room;
+    const tick = () => {
+      supabase.functions.invoke("random-encounter", { body: { room: slug } })
+        .then(({ data }) => {
+          if (!data?.ok) return;
+          if (data.kind === "ambush") toast.error(`⚔ ${data.npc_name} finds you where you linger!`);
+          else if (data.kind === "traveler") toast(`✉ ${data.npc_name} asks for safe passage to ${data.destination_name}. Open Quests to accept.`);
+          else if (data.kind === "patrol") toast(`${data.npc_name} passes through and looks you over.`);
+          else if (data.kind === "discovery") {
+            if (data.reward?.kind === "gold") toast.success(`+${data.reward.amount}g (something in the dust)`);
+            else if (data.reward?.kind === "xp") toast.success(`+${data.reward.amount}xp (you take it in)`);
+            reloadProfile();
+          }
+        })
+        .catch(() => null);
+    };
+    // First idle roll after 2–3 min, then every 3–4 min.
+    const first = window.setTimeout(tick, 120_000 + Math.random() * 60_000);
+    const interval = window.setInterval(tick, 180_000 + Math.random() * 60_000);
+    return () => { window.clearTimeout(first); window.clearInterval(interval); };
+  }, [profile?.current_room, room?.slug, profile?.in_combat_id, profile?.downed, profile?.dead]);
 
   // Wagon routes & cache info for the current room
   useEffect(() => {
@@ -920,7 +968,7 @@ export default function GameClient({ session }: { session: Session }) {
     }
 
     // Travel encounters: roll on road / desert / wilds / hollow / grove rooms.
-    // Server enforces cooldown + 15% trigger chance, so we always call it.
+    // Server enforces the cooldown + trigger chance, so we always call it.
     supabase.functions.invoke("random-encounter", { body: { room: slug } })
       .then(({ data }) => {
         if (!data?.ok) return;
@@ -937,6 +985,13 @@ export default function GameClient({ session }: { session: Session }) {
         }
       })
       .catch(() => null);
+  };
+
+  // Map-click travel: same fast-travel semantics as `go to <place>`.
+  const travelTo = async (slug: string, name: string) => {
+    if (!profile || slug === profile.current_room) return;
+    setMessages((m) => [...m, localSys(`You set out for ${name}…`)]);
+    await moveTo(slug);
   };
 
   const followNpc = async (targetName: string) => {
@@ -1235,6 +1290,8 @@ export default function GameClient({ session }: { session: Session }) {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Moss-Voice does not answer.");
       }
+    } else if (c === "map" || c === "atlas" || c === "worldmap") {
+      setWorldMapOpen(true);
     } else if (c === "wagon" || c === "ride") {
       if (wagonRoutes.length === 0) {
         setMessages((m) => [...m, localSys("No wagonmaster runs from here.")]);
@@ -1755,6 +1812,9 @@ export default function GameClient({ session }: { session: Session }) {
           <button onClick={() => setKinOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Kin spirits — friends & private messages">
             <Users className="w-4 h-4" /><span className="hidden sm:inline">kin</span>
           </button>
+          <button onClick={() => setWorldMapOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="The charted world — click a place to set out">
+            <MapIcon className="w-4 h-4" /><span className="hidden sm:inline">map</span>
+          </button>
           {/* Speaker's Artifacts hidden — discovered through lore/rumor only */}
           <button
             onClick={() => { setMusicMuted(!musicMuted); resumeMusic(); }}
@@ -1841,6 +1901,18 @@ export default function GameClient({ session }: { session: Session }) {
 
         {/* Sidebar */}
         <aside className="md:w-72 border-t md:border-t-0 md:border-l border-border bg-card/40 p-4 space-y-5 text-sm">
+          {worldRooms.length > 0 && (
+            <MiniMap
+              rooms={worldRooms}
+              currentSlug={profile.current_room}
+              currentExits={room.exits}
+              onGo={(cmd) => handleCommand(cmd)}
+              onTravel={travelTo}
+              onOpenFull={() => setWorldMapOpen(true)}
+              desertDepth={profile.desert_depth ?? 0}
+              desertLost={(profile.desert_bearing ?? 0) === 1}
+            />
+          )}
           <div className="hidden md:block">
             <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Exits</h3>
             <div className="flex flex-wrap gap-1.5">
@@ -2089,6 +2161,14 @@ export default function GameClient({ session }: { session: Session }) {
           onAligned={reloadProfile}
         />
       )}
+      <WorldMapModal
+        open={worldMapOpen}
+        rooms={worldRooms}
+        currentSlug={profile.current_room}
+        onClose={() => setWorldMapOpen(false)}
+        onGo={(cmd) => handleCommand(cmd)}
+        onTravel={travelTo}
+      />
     </div>
   );
 }
