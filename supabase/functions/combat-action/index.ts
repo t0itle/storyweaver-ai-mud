@@ -564,6 +564,32 @@ Deno.serve(async (req) => {
           const fullHp = profile.max_hp ?? 20;
           const diedAt = new Date().toISOString();
 
+          // Spill everything the fallen carried into a corpse pile at the death room.
+          const { data: carriedItems } = await admin.from("player_items")
+            .select("item_key, quantity").eq("user_id", user.id);
+          const corpseRows: any[] = [];
+          if (profile.gold && profile.gold > 0) {
+            corpseRows.push({
+              room: profile.current_room, gold: profile.gold,
+              source: "corpse", placed_by_name: me.name,
+            });
+          }
+          if (carriedItems && carriedItems.length) {
+            for (const c of carriedItems) {
+              corpseRows.push({
+                room: profile.current_room, gold: 0,
+                item_key: c.item_key, quantity: c.quantity,
+                source: "corpse", placed_by_name: me.name,
+              });
+            }
+          }
+          if (corpseRows.length) {
+            await admin.from("room_loot").insert(corpseRows);
+            await admin.from("messages").insert({
+              room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+              content: `✶ ${me.name}'s body slumps to the ground. Blade, coin, and trinket spill across the stones.`,
+            });
+          }
           await admin.from("player_items").delete().eq("user_id", user.id);
           await admin.from("profiles").update({
             downed: false, downed_at: null, downed_combat_id: null,
