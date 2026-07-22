@@ -127,28 +127,39 @@ export function QuestsPanel({ userId, onClose, onChanged }: { userId: string; on
           {loading && <div className="text-ash italic text-sm">Gathering your debts…</div>}
 
           {!loading && tab === "vows" && (
-            <VowsView
-              vow={vow}
-              busy={vowBusy}
-              targetAether={targetAether}
-              setTargetAether={setTargetAether}
-              onAdvance={async () => {
-                if (!vow) return;
-                setVowBusy(true);
-                try {
-                  const fn = vow.kind === "aether" ? "aether-loyalty-action" : "chaos-path-action";
-                  const body: Record<string, unknown> = { action: "advance" };
-                  if (vow.kind === "chaos" && vow.data?.current_step === 6 && targetAether) body.target_aether_key = targetAether;
-                  const { data, error } = await supabase.functions.invoke(fn, { body });
-                  if (error || data?.error) throw new Error(data?.error ?? error?.message);
-                  toast.success(data?.isFinal ? "The vow is sealed." : "A step is fulfilled.");
-                  await reload();
-                  onChanged?.();
-                } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "no");
-                } finally { setVowBusy(false); }
-              }}
-            />
+            <>
+              {onboardingStep < 5 && (
+                <div className="border border-moss/40 p-3 bg-moss/5 mb-2">
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-ash">First Steps — the shore rune</div>
+                  <div className="font-display text-base text-parchment mt-1">
+                    Step {onboardingStep} of 4
+                  </div>
+                  <p className="text-sm text-whisper italic mt-1">{onboardingHint}</p>
+                </div>
+              )}
+              <VowsView
+                vow={vow}
+                busy={vowBusy}
+                targetAether={targetAether}
+                setTargetAether={setTargetAether}
+                onAdvance={async () => {
+                  if (!vow) return;
+                  setVowBusy(true);
+                  try {
+                    const fn = vow.kind === "aether" ? "aether-loyalty-action" : "chaos-path-action";
+                    const body: Record<string, unknown> = { action: "advance" };
+                    if (vow.kind === "chaos" && vow.data?.current_step === 6 && targetAether) body.target_aether_key = targetAether;
+                    const { data, error } = await supabase.functions.invoke(fn, { body });
+                    if (error || data?.error) throw new Error(data?.error ?? error?.message);
+                    toast.success(data?.isFinal ? "The vow is sealed." : "A step is fulfilled.");
+                    await reload();
+                    onChanged?.();
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "no");
+                  } finally { setVowBusy(false); }
+                }}
+              />
+            </>
           )}
 
           {!loading && tab !== "vows" && filtered.length === 0 && (
