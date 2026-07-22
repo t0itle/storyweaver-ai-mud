@@ -157,12 +157,14 @@ Deno.serve(async (req) => {
       return { prof, dmg, armor, hpBonus, weaponName, armorName: armorPieces.join(", ") || null };
     };
 
-    const pushAction = async (combatId: string, turn: number, actorId: string | null, actorName: string,
+    const pushAction = async (combatId: string | null, turn: number, actorId: string | null, actorName: string,
                               act: string, targetName: string | null, text: string, damage = 0) => {
-      await admin.from("combat_actions").insert({
-        combat_id: combatId, turn_number: turn, actor_id: actorId,
-        actor_name: actorName, action: act, target_name: targetName, text, damage,
-      });
+      if (combatId) {
+        await admin.from("combat_actions").insert({
+          combat_id: combatId, turn_number: turn, actor_id: actorId,
+          actor_name: actorName, action: act, target_name: targetName, text, damage,
+        });
+      }
       await admin.from("messages").insert({
         room: profile.current_room, user_id: null, author_name: "—", kind: "system",
         content: `⚔ ${text}`,
@@ -438,13 +440,20 @@ Deno.serve(async (req) => {
     }
 
     // For attack/defend/cast/flee — must be current actor's turn
-    const combatId = body.combat_id ?? profile.in_combat_id ?? profile.downed_combat_id;
-    if (!combatId) throw new Error("You are not in a fight.");
-    const { data: combat } = await admin.from("combats").select("*").eq("id", combatId).maybeSingle();
-    if (!combat) throw new Error("That fight has ended.");
-    const { data: combatants } = await admin.from("combatants").select("*").eq("combat_id", combatId);
-    const me = (combatants ?? []).find((c: any) => c.user_id === user.id);
+    const combatId = body.combat_id ?? profile.in_combat_id ?? profile.downed_combat_id ?? null;
+    const isDeathSave = body.action === "death_save";
+    if (!combatId && !isDeathSave) throw new Error("You are not in a fight.");
+    const { data: combat } = combatId
+      ? await admin.from("combats").select("*").eq("id", combatId).maybeSingle()
+      : { data: null as any };
+    if (!combat && !isDeathSave) throw new Error("That fight has ended.");
+    const { data: combatants } = combatId
+      ? await admin.from("combatants").select("*").eq("combat_id", combatId)
+      : { data: [] as any[] };
+    const me = (combatants ?? []).find((c: any) => c.user_id === user.id)
+      ?? (isDeathSave ? { id: null, name: profile.username ?? "Someone", user_id: user.id } as any : null);
     if (!me) throw new Error("You are not in this fight.");
+
 
     // ===== DEATH_SAVE (life-saving rune trace from a downed player) =====
     if (body.action === "death_save") {
@@ -499,9 +508,9 @@ Deno.serve(async (req) => {
           hp: reviveHp, in_combat_id: null,
           current_room: escapeRoom,
         }).eq("id", user.id);
-        await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
+        if (me.id) await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
 
-        await pushAction(combatId, combat.turn_number, user.id, me.name, "death_save", null,
+        await pushAction(combatId, (combat?.turn_number ?? 0), user.id, me.name, "death_save", null,
           escapeDir
             ? `${me.name} traces ✚ Sana with a bloody hand (${Math.round(score * 100)}%) — the sigil flares and ${me.name} stumbles ${escapeDir} into ${escapeName}, gone before another blow can land.`
             : `${me.name} claws back from the brink (${Math.round(score * 100)}%) and reels out of the fight!`);
@@ -513,7 +522,7 @@ Deno.serve(async (req) => {
           });
         }
 
-        await advanceTurn(combatId);
+        if (combatId) await advanceTurn(combatId);
         return ok({ ok: true, saved: true, hp: reviveHp, room: escapeRoom });
       } else {
         // Permadeath — UNLESS the player is aligned to a still-living Aether.
@@ -538,15 +547,15 @@ Deno.serve(async (req) => {
             hp: halfHp, in_combat_id: null,
             current_room: alignedRescue.well,
           }).eq("id", user.id);
-          await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
-          await pushAction(combatId, combat.turn_number, user.id, me.name, "death_save", null,
+          if (me.id) await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
+          await pushAction(combatId, (combat?.turn_number ?? 0), user.id, me.name, "death_save", null,
             `${me.name}'s breath fails (${Math.round(score * 100)}%) — but ${alignedRescue.aetherName} answers. They wake at the city well, half their strength returned.`);
           await admin.from("world_events").insert({
             kind: "aether_rescued", actor_id: user.id, actor_name: me.name,
             room: alignedRescue.well, target_kind: "aether", target_name: alignedRescue.aether,
             details: { from: profile.current_room, aether: alignedRescue.aether },
           });
-          await advanceTurn(combatId);
+          if (combatId) await advanceTurn(combatId);
           return ok({ ok: true, saved: true, rescued: true, hp: halfHp, room: alignedRescue.well });
         }
 
@@ -599,9 +608,9 @@ Deno.serve(async (req) => {
             companion_npc_id: null,
             current_room: respawnRoom,
           }).eq("id", user.id);
-          await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
+          if (me.id) await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
 
-          await pushAction(combatId, combat.turn_number, user.id, me.name, "death_save", null,
+          await pushAction(combatId, (combat?.turn_number ?? 0), user.id, me.name, "death_save", null,
             knowsLastBreath
               ? `${me.name}'s hand fails the sigil (${Math.round(score * 100)}%). The breath leaves them — but the god they knelt to reaches down. **${me.name} is carried to ${respawnName}.**`
               : `${me.name} has no rune of life to call upon — ✚ **Sana** was never learned. Yet the god they knelt to reaches down. **${me.name} is carried to ${respawnName}.**`);
@@ -615,7 +624,7 @@ Deno.serve(async (req) => {
             target_kind: "room", target_name: respawnRoom,
             details: { combat_id: combatId, score: Math.round(score * 100), from: profile.current_room, respawn: respawnRoom, stripped: true, died_at: diedAt },
           });
-          await advanceTurn(combatId);
+          if (combatId) await advanceTurn(combatId);
           return ok({ ok: true, saved: false, dead: false, respawned: true, room: respawnRoom, hp: fullHp });
         }
 
@@ -651,8 +660,8 @@ Deno.serve(async (req) => {
           dead: true, dead_at: new Date().toISOString(),
           death_room: profile.current_room, hp: 0, in_combat_id: null, gold: 0,
         }).eq("id", user.id);
-        await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
-        await pushAction(combatId, combat.turn_number, user.id, me.name, "death_save", null,
+        if (me.id) await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
+        await pushAction(combatId, (combat?.turn_number ?? 0), user.id, me.name, "death_save", null,
           knowsLastBreath
             ? `${me.name}'s hand fails the sigil (${Math.round(score * 100)}%). No god waits to catch them. **${me.name} is dead.**`
             : `${me.name} has no rune of life to call upon and no god to answer them. **${me.name} is dead.**`);
@@ -660,7 +669,7 @@ Deno.serve(async (req) => {
           kind: "died", actor_id: user.id, actor_name: me.name,
           room: profile.current_room, details: { combat_id: combatId, score: Math.round(score * 100), permadeath: true },
         });
-        await advanceTurn(combatId);
+        if (combatId) await advanceTurn(combatId);
         return ok({ ok: true, saved: false, dead: true });
       }
     }
