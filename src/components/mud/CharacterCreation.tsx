@@ -13,13 +13,11 @@ interface Race {
 
 type Direction = "north" | "south";
 
-type Gender = "woman" | "man" | "neither" | "other";
+type Gender = "woman" | "man";
 
 const GENDER_OPTIONS: { key: Gender; label: string; pronoun: string }[] = [
   { key: "woman", label: "Woman", pronoun: "she/her" },
   { key: "man", label: "Man", pronoun: "he/him" },
-  { key: "neither", label: "Neither", pronoun: "they/them" },
-  { key: "other", label: "Something else", pronoun: "your own" },
 ];
 
 interface AdLibField {
