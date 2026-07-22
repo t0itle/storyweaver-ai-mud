@@ -313,9 +313,11 @@ Deno.serve(async (req) => {
     if (body.action === "start") {
       if (profile.in_combat_id) throw new Error("You are already in a fight.");
       if (!body.target_name) throw new Error("Attack whom?");
-      // existing combat in this room?
+      // existing combat in this room? auto-join instead of erroring.
       const { data: existing } = await admin.from("combats").select("id").eq("room", profile.current_room).eq("status", "active").maybeSingle();
-      if (existing) throw new Error("A fight already rages here. Use 'join' to enter it.");
+      if (existing) {
+        body = { ...body, action: "join", combat_id: existing.id } as any;
+      }
 
       // target must be in same room
       let target: any = null;
