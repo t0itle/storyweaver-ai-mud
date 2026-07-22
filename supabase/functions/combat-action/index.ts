@@ -570,6 +570,12 @@ Deno.serve(async (req) => {
     if (combat.current_combatant_id !== me.id) {
       // Interrupt is a timer-driven side effect — silently no-op if the turn already moved on.
       if (body.action === "interrupt") return ok({ ok: true, skipped: true });
+      // Self-heal: if the current combatant is an NPC that never took its turn, kick it now.
+      const cur = (combatants ?? []).find((c: any) => c.id === combat.current_combatant_id);
+      if (cur && cur.kind === "npc" && !cur.defeated) {
+        await runNpcTurn(combatId, cur.id);
+        return ok({ ok: true, kicked: true });
+      }
       throw new Error("It is not your turn.");
     }
 
