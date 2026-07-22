@@ -619,11 +619,37 @@ Deno.serve(async (req) => {
           return ok({ ok: true, saved: false, dead: false, respawned: true, room: respawnRoom, hp: fullHp });
         }
 
-        // Unaligned → permadeath. No god, no return.
+        // Unaligned → permadeath. No god, no return. Spill everything into a corpse.
+        const { data: permaItems } = await admin.from("player_items")
+          .select("item_key, quantity").eq("user_id", user.id);
+        const permaRows: any[] = [];
+        if (profile.gold && profile.gold > 0) {
+          permaRows.push({
+            room: profile.current_room, gold: profile.gold,
+            source: "corpse", placed_by_name: me.name,
+          });
+        }
+        if (permaItems && permaItems.length) {
+          for (const c of permaItems) {
+            permaRows.push({
+              room: profile.current_room, gold: 0,
+              item_key: c.item_key, quantity: c.quantity,
+              source: "corpse", placed_by_name: me.name,
+            });
+          }
+        }
+        if (permaRows.length) {
+          await admin.from("room_loot").insert(permaRows);
+          await admin.from("messages").insert({
+            room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+            content: `✶ ${me.name}'s body lies where they fell. What they carried is now for the taking.`,
+          });
+        }
+        await admin.from("player_items").delete().eq("user_id", user.id);
         await admin.from("profiles").update({
           downed: false, downed_at: null, downed_combat_id: null,
           dead: true, dead_at: new Date().toISOString(),
-          death_room: profile.current_room, hp: 0, in_combat_id: null,
+          death_room: profile.current_room, hp: 0, in_combat_id: null, gold: 0,
         }).eq("id", user.id);
         await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
         await pushAction(combatId, combat.turn_number, user.id, me.name, "death_save", null,
