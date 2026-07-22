@@ -1954,14 +1954,19 @@ export default function GameClient({ session }: { session: Session }) {
                 const tone = score === undefined ? "" :
                   score <= -20 ? "text-ember" : score >= 60 ? "text-moss" : score >= 20 ? "text-accent" : "";
                 const isMirror = (n.title ?? "").toLowerCase().includes("mirror of");
+                const isShoreGuide = (n.title ?? "").toLowerCase() === "mirror of the shore";
                 const firstName = n.name.split(" ")[0];
-                const mirrorPrompts: Array<[string, string]> = [
+                const cityMirrorPrompts: Array<[string, string]> = [
                   ["Roads out", "Which road leads out of this city, and where does it go?"],
                   ["Quest givers", "Who in this city has work or quests for me?"],
                   ["Merchants", "Where do I buy gear, spells, and supplies here?"],
                   ["Guild halls", "Where are the warrior, trader, and mage guild halls?"],
                   ["Wagons", "Where do I find a wagonmaster to fast-travel from here?"],
                 ];
+                const callOnboarding = async (action: "learn_word" | "learn_symbol") => {
+                  const { data, error } = await supabase.functions.invoke("onboarding-tick", { body: { action } });
+                  if (error || data?.error) toast.error(data?.error ?? error?.message ?? "no");
+                };
                 return (
                   <div key={n.id} className="flex flex-col gap-1">
                     <div className="flex items-center gap-1">
@@ -1985,9 +1990,9 @@ export default function GameClient({ session }: { session: Session }) {
                       {isMirror && <span className="text-[10px] text-ember/80 ml-1">[guide]</span>}
                     </button>
                     </div>
-                    {isMirror && (
+                    {isMirror && !isShoreGuide && (
                       <div className="flex flex-wrap gap-1 pl-4">
-                        {mirrorPrompts.map(([label, prompt]) => (
+                        {cityMirrorPrompts.map(([label, prompt]) => (
                           <button
                             key={label}
                             onClick={() => handleCommand(`ask ${firstName} ${prompt}`)}
@@ -1996,6 +2001,26 @@ export default function GameClient({ session }: { session: Session }) {
                             {label}
                           </button>
                         ))}
+                      </div>
+                    )}
+                    {isShoreGuide && (
+                      <div className="flex flex-wrap gap-1 pl-4">
+                        <button onClick={() => handleCommand(`ask ${firstName} where am I and what is this shore?`)}
+                          className="font-mono text-[10px] px-2 py-0.5 border border-ember/40 text-ember hover:bg-ember/10 transition-colors uppercase tracking-wider">
+                          Where am I?
+                        </button>
+                        <button onClick={() => callOnboarding("learn_word")}
+                          className="font-mono text-[10px] px-2 py-0.5 border border-ember/40 text-ember hover:bg-ember/10 transition-colors uppercase tracking-wider">
+                          Teach me Sana
+                        </button>
+                        <button onClick={() => callOnboarding("learn_symbol")}
+                          className="font-mono text-[10px] px-2 py-0.5 border border-ember/40 text-ember hover:bg-ember/10 transition-colors uppercase tracking-wider">
+                          Show me the sigil
+                        </button>
+                        <button onClick={() => handleCommand(`ask ${firstName} where should I go from here?`)}
+                          className="font-mono text-[10px] px-2 py-0.5 border border-ember/40 text-ember hover:bg-ember/10 transition-colors uppercase tracking-wider">
+                          Where do I go?
+                        </button>
                       </div>
                     )}
                   </div>
