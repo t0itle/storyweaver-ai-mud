@@ -264,16 +264,6 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
                   );
                 })}
               </div>
-              {gender === "other" && (
-                <input
-                  type="text"
-                  value={customGender}
-                  onChange={(e) => setCustomGender(e.target.value.slice(0, 40))}
-                  disabled={busy}
-                  placeholder="name what you are…"
-                  className="w-full bg-card/40 border border-border focus:border-ember outline-none p-2 font-body text-parchment placeholder:text-ash/50 text-sm"
-                />
-              )}
             </div>
 
             {gender && (
