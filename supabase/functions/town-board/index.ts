@@ -243,6 +243,61 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ─── item vault (physical goods stored at this bank) ───
+    if (body.action === "bank_list_items") {
+      if (!at_bank) return json({ error: "You must be inside the bank to see the vault." }, 400);
+      const { data: vault } = await admin.from("town_bank_item_vault")
+        .select("id, item_key, quantity, stolen, deposited_at, items(name, slot, value_gold)")
+        .eq("user_id", user.id).eq("town_key", town_key).order("deposited_at", { ascending: false });
+      return json({ ok: true, vault_items: vault ?? [] });
+    }
+
+    if (body.action === "bank_deposit_item") {
+      if (!at_bank) return json({ error: "You must be inside the bank to lodge goods." }, 400);
+      const { data: account } = await admin.from("town_bank_accounts").select("user_id")
+        .eq("user_id", user.id).eq("town_key", town_key).maybeSingle();
+      if (!account) return json({ error: "Open an account first." }, 400);
+      const { data: pi } = await admin.from("player_items")
+        .select("id, item_key, quantity, equipped_slot, container_id, stolen")
+        .eq("id", body.player_item_id).eq("user_id", user.id).maybeSingle();
+      if (!pi) return json({ error: "You don't carry that." }, 400);
+      if (pi.equipped_slot) return json({ error: "Unequip it before you lodge it." }, 400);
+      const qty = Math.max(1, Math.min(pi.quantity, Math.floor(body.quantity ?? pi.quantity)));
+      if (qty >= pi.quantity) {
+        await admin.from("player_items").delete().eq("id", pi.id);
+      } else {
+        await admin.from("player_items").update({ quantity: pi.quantity - qty }).eq("id", pi.id);
+      }
+      // Merge with an existing vault stack of the same item + stolen flag.
+      const { data: existing } = await admin.from("town_bank_item_vault").select("id, quantity")
+        .eq("user_id", user.id).eq("town_key", town_key).eq("item_key", pi.item_key).eq("stolen", pi.stolen).maybeSingle();
+      if (existing) {
+        await admin.from("town_bank_item_vault").update({ quantity: existing.quantity + qty, deposited_at: new Date().toISOString() }).eq("id", existing.id);
+      } else {
+        await admin.from("town_bank_item_vault").insert({
+          user_id: user.id, town_key, item_key: pi.item_key, quantity: qty, stolen: pi.stolen,
+        });
+      }
+      return json({ ok: true, deposited: qty });
+    }
+
+    if (body.action === "bank_withdraw_item") {
+      if (!at_bank) return json({ error: "You must be inside the bank to reclaim goods." }, 400);
+      const { data: row } = await admin.from("town_bank_item_vault")
+        .select("*").eq("id", body.vault_id).eq("user_id", user.id).eq("town_key", town_key).maybeSingle();
+      if (!row) return json({ error: "Not in this vault." }, 400);
+      const qty = Math.max(1, Math.min(row.quantity, Math.floor(body.quantity ?? row.quantity)));
+      if (qty >= row.quantity) {
+        await admin.from("town_bank_item_vault").delete().eq("id", row.id);
+      } else {
+        await admin.from("town_bank_item_vault").update({ quantity: row.quantity - qty }).eq("id", row.id);
+      }
+      await admin.from("player_items").insert({
+        user_id: user.id, item_key: row.item_key, quantity: qty, stolen: row.stolen,
+      });
+      return json({ ok: true, withdrawn: qty });
+    }
+
     return json({ error: "unknown action" }, 400);
   } catch (e) {
     console.error("town-board error", e);
