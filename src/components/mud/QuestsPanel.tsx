@@ -114,7 +114,7 @@ export function QuestsPanel({ userId, onClose, onChanged }: { userId: string; on
             <button key={t} onClick={() => setTab(t)}
               className={`flex-1 px-3 py-2 uppercase tracking-widest ${tab === t ? "text-ember border-b border-ember" : "text-ash hover:text-parchment"}`}>
               {t === "vows"
-                ? `vows${vow ? " ●" : ""}`
+                ? `vows${(vow || onboardingStep < 5) ? " ●" : ""}`
                 : `${t} (${quests.filter(q =>
                     t === "active" ? q.status === "active"
                     : t === "offered" ? q.status === "offered"
