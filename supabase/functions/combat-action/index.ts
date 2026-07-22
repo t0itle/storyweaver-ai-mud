@@ -546,12 +546,22 @@ Deno.serve(async (req) => {
           return ok({ ok: true, saved: true, rescued: true, hp: halfHp, room: alignedRescue.well });
         }
 
-        // Death → wake in the Realm of God (First City). Strip everything worldly; keep level, xp, skills, talents.
-        const respawnRoom = "first-city-gate";
+        // Death → wake at your god's city. Strip everything worldly; keep level, xp, skills, talents.
+        // Aligned players wake at their Aether's well; the unaligned wake at the First City gate.
+        let respawnRoom = "first-city-gate";
+        let respawnName = "the First City";
+        if (profile.aether) {
+          const { data: aeRow } = await admin.from("aethers")
+            .select("key, name, well_room").eq("key", profile.aether).maybeSingle();
+          if (aeRow?.well_room) {
+            respawnRoom = aeRow.well_room as string;
+            respawnName = `the realm of ${aeRow.name ?? aeRow.key}`;
+          }
+        }
         const fullHp = profile.max_hp ?? 20;
         const diedAt = new Date().toISOString();
 
-        // Strip inventory + gold. Drop nothing to the room — the Veiled keep no relics of the dead.
+        // Strip inventory + gold + companion. Drop nothing to the room.
         await admin.from("player_items").delete().eq("user_id", user.id);
 
         await admin.from("profiles").update({
@@ -559,19 +569,20 @@ Deno.serve(async (req) => {
           dead: false, dead_at: null, death_room: null,
           zombified: false, revived_by: null, revived_at: null,
           hp: fullHp, in_combat_id: null, gold: 0,
+          companion_npc_id: null,
           current_room: respawnRoom,
         }).eq("id", user.id);
         await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
 
         await pushAction(combatId, combat.turn_number, user.id, me.name, "death_save", null,
           knowsLastBreath
-            ? `${me.name}'s hand fails the sigil (${Math.round(score * 100)}%). The breath leaves them. **${me.name} passes into the Realm of God.**`
-            : `${me.name} has no rune of life to call upon — ✚ **Sana** was never learned. **${me.name} passes into the Realm of God.**`);
+            ? `${me.name}'s hand fails the sigil (${Math.round(score * 100)}%). The breath leaves them. **${me.name} is carried to ${respawnName}.**`
+            : `${me.name} has no rune of life to call upon — ✚ **Sana** was never learned. **${me.name} is carried to ${respawnName}.**`);
 
-        // Announce arrival in the First City so other players see them wake.
+        // Announce arrival so other players see them wake.
         await admin.from("messages").insert({
           room: respawnRoom, user_id: null, author_name: "—", kind: "system",
-          content: `✶ ${me.name} wakes at the First City gate, stripped of blade and coin. The Veiled do not speak — they only watch. Whatever was carried is gone; whatever was learned remains.`,
+          content: `✶ ${me.name} wakes in ${respawnName}, stripped of blade, coin, and kin. Whatever was carried is gone; whatever was learned remains.`,
         });
 
         await admin.from("world_events").insert({
