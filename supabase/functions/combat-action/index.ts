@@ -298,7 +298,7 @@ Deno.serve(async (req) => {
 
     // Re-seat all combatants by initiative (desc) and reset current_combatant_id to the first alive one.
     const seatInitiative = async (combatId: string) => {
-      const { data: list } = await admin.from("combatants").select("id,initiative,defeated").eq("combat_id", combatId);
+      const { data: list } = await admin.from("combatants").select("id,kind,initiative,defeated").eq("combat_id", combatId);
       const sorted = (list ?? []).slice().sort((a: any, b: any) => (b.initiative ?? 0) - (a.initiative ?? 0));
       for (let i = 0; i < sorted.length; i++) {
         await admin.from("combatants").update({ turn_order: i }).eq("id", sorted[i].id);
