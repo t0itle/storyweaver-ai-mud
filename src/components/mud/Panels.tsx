@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Backpack, Sparkles, X, Sword, Shield, Gem, HardHat, Shirt, Footprints, Circle } from "lucide-react";
@@ -230,6 +230,7 @@ export function CombatHUD({
   const [combat, setCombat] = useState<any>(null);
   const [castOpen, setCastOpen] = useState(false);
   const [knownRunes, setKnownRunes] = useState<{ rune_key: string; runes: any }[]>([]);
+  const nudgedTurnRef = useRef<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -249,6 +250,22 @@ export function CombatHUD({
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [combatId, userId]);
+
+  useEffect(() => {
+    if (!combat || combat.status !== "active") return;
+    const me = combatants.find(c => c.user_id === userId);
+    const current = combatants.find(c => c.id === combat.current_combatant_id);
+    if (!me || !current || current.id === me.id || current.kind !== "npc" || current.defeated) return;
+
+    const key = `${combat.id}:${combat.turn_number}:${current.id}`;
+    if (nudgedTurnRef.current === key) return;
+    nudgedTurnRef.current = key;
+
+    const timer = window.setTimeout(() => {
+      onAct("nudge").catch(() => null);
+    }, 750);
+    return () => window.clearTimeout(timer);
+  }, [combat, combatants, onAct, userId]);
 
   if (!combat) return null;
   const me = combatants.find(c => c.user_id === userId);
