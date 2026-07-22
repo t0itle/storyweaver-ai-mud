@@ -1,84 +1,51 @@
-# Bake in the Light & Chaos quest lines
+## First Walker onboarding — diegetic
 
-## What exists today
-- **Alignment moments only**: `align-aether`, `declare-non-serviam`, `refuse-aethers`, `shadow-tempt`, `HallOfChoice.tsx` — these set `profiles.aether` / `profiles.faction` but **no quests follow**.
-- `aether_loyalty(user_id, aether_key, step, status, completed_at)` exists and is **completely empty/unused**.
-- No equivalent table or chain for the Chaos path.
-- 7 Aethers live in `aethers` table; each has a `throne_room` and 12 wardens.
+Goal: no new player permadies without ever hearing the word **Sana**. Everything happens through an NPC who speaks to you in-fiction. The only new UI is one line in the existing Vows tab so a player who ignores the guide can still find the thread.
 
-## What we'll build
-
-### 1. Light path — Aether loyalty chain (7 quests per Aether)
-For every Aether the player aligns with, a fixed 7-step questline unlocks at their throne city, themed to that Aether's domain & vow:
+### The four beats
 
 ```text
-Step 1 — "Kneel & Listen"     (visit throne room, hear the charge)
-Step 2 — "A Small Mercy"      (themed deed in the capital — e.g. Solastin: shield a beggar; Morvayne: harvest grain for the poor)
-Step 3 — "Mark of the Vow"    (cast/learn a rune tied to the Aether's element)
-Step 4 — "Hunt a Heretic"     (defeat 1 Chaos-touched NPC in the wilds)
-Step 5 — "The Warden's Word"  (talk to 3 specific wardens scattered in the kingdom)
-Step 6 — "Bring the Relic"    (recover one Speaker artifact and gift it to the Aether)
-Step 7 — "Take the Vow"       (final throne-room rite → Devout status, faction-locked reward)
+Step 1  Wake              You spawn on Crescent Shore. A stranger — the First Walker's Mirror — is already there and speaks first.
+Step 2  Word of Sana      Ask/accept the lesson. Mirror teaches the WORD "sana" (writes to player_lesser_rune_knowledge.knows_word).
+Step 3  Shape of Sana     Mirror traces the sigil in wet sand; a single guided trace pass grants knows_symbol = true.
+Step 4  First blood       Mirror points you at a weak shore-crab / driftwake NPC in an adjacent room; killing anything counts.
+Step 5  The Sigils        Mirror tells you to walk north to the First City. Reaching first-city-gate closes the chain.
 ```
 
-Implementation:
-- New table `aether_quest_steps` (seed data: 7 steps × 7 Aethers = 49 rows; reuses domain/vow flavor).
-- Use existing `aether_loyalty.step` (0–7) to track progress.
-- New edge function `aether-loyalty-action` (list / accept / advance / complete) called from a new **"Vows"** tab in `QuestsPanel`.
-- Final reward: a unique faction-locked item per Aether + Merit +100 + `aether_loyalty.status = 'devout'`.
-- Player can only walk one Aether's chain at a time; switching aethers resets progress.
+No hand-holding overlays, no arrows, no forced modals — just the Mirror talking, and the Vows tab quietly showing the current beat.
 
-### 2. Chaos path — Non Serviam chain (7 quests)
-Triggered the moment `profiles.faction = 'chaos'` (after Non Serviam declared):
+### Diegetic surface
 
-```text
-Step 1 — "Burn the Veil"       (kill 3 Veiled in or near the First City)
-Step 2 — "Whispers in the Tomb"(descend Tomb-Below, find the Unspoken Sigil)
-Step 3 — "Crack a Warden"      (kill any 1 Aether warden of your choice)
-Step 4 — "Spread the Pressure" (raise chaos_pressure in 3 different towns via NPC kills)
-Step 5 — "Shadow's Pact"       (visit hidden Chaos altar, accept a corruption gift)
-Step 6 — "Topple a Pillar"     (slay 6 wardens of a single Aether to weaken them)
-Step 7 — "Crown of Refusal"    (return to gates-approach and broadcast the world event)
-```
+- **New shore Mirror NPC** (`onboarding-mirror`) spawned in `crescent-shore`, greets any player whose onboarding step < 5 the moment they arrive (reuses the throttle pattern from `mirror-greet`).
+- **Ask chips on this NPC**: "What is this place?", "Teach me Sana", "Show me the sigil", "Where do I go?" — the same quick-ask UI already used for Aether Mirrors.
+- **Vows tab** gets a compact "First Steps" card above the Aether/Chaos chains showing the current beat's one-line hint. Dismisses itself when step 5 completes.
 
-Implementation:
-- New table `chaos_path(user_id PK, step, status, target_aether_key, last_advanced_at)`.
-- New edge function `chaos-path-action` (list / accept / advance) — also a "Vows" tab entry, shown only when faction='chaos'.
-- Step 4 already has infra: hook to `world_events` of kind `npc_killed` grouped by `r.town_key`.
-- Final reward: unique relic + Merit +150 + unlocks Chaos-only encounters/whispers and a hidden epilogue trigger when ALL 7 Aethers are fallen.
+### Wiring into existing systems
 
-### 3. UI surface
-- Add a **"Vows"** tab to `QuestsPanel.tsx` showing the current chain's step, objective, and "Advance" / "Accept" actions.
-- When in a throne room or Chaos altar, surface the next step inline as a button (similar to existing Hall of Choice buttons).
-- Journal entries auto-write via existing `write_journal_from_world_event` trigger (we'll add `aether_step_completed` and `chaos_step_completed` kinds).
+- `handle_new_user` trigger seeds `onboarding_progress(user_id, step=1)`.
+- `combat-action` on any `npc_killed` by an onboarding player bumps step 3→4.
+- Room-entry (already tracked in `GameClient`) calls `onboarding-tick` when `current_room = 'first-city-gate'` to close step 4→5.
+- The Sana lesson uses the existing `player_lesser_rune_knowledge` row for `rune_key='sana'` so `DeathSaveModal` "knows" check just works — no changes to death code.
 
-### 4. Hooks into existing systems
-- `align-aether` → on success, insert/reset `aether_loyalty` row at step 0, status 'active'.
-- `declare-non-serviam` → on success, insert `chaos_path` row at step 0.
-- `restart-character` → wipe both tables for that user.
-- `world-tick` (already cron) → no changes needed; the chains advance on player actions, not time.
+### Technical
 
-## Technical details
+**Migration** (single file):
+- `onboarding_progress(user_id uuid PK → auth.users, step int not null default 1, updated_at timestamptz)` + GRANTs + RLS own-row select/update + `updated_at` trigger.
+- Insert one NPC row into `npcs` for `onboarding-mirror` at `crescent-shore` (greeting + is_guide flag reused).
+- Extend `handle_new_user` to also insert the onboarding row.
 
-**Migrations**:
-- `aether_quest_steps(aether_key, step_index, title, objective, target_kind, target_ref, reward_xp, reward_gold, flavor)` + RLS readable.
-- `chaos_path(user_id PK, step, status, target_aether_key, last_advanced_at)` + RLS own-row readable.
-- Seed 49 aether_quest_steps rows in a follow-up `insert` call.
+**New edge function** `onboarding-tick` — actions `list` / `advance { to }` / `learn_word` / `learn_symbol`. Validates JWT, never lets step go backward, idempotent.
 
-**New edge functions** (both `verify_jwt = false` in code, JWT validated manually):
-- `aether-loyalty-action` — actions: `list`, `accept`, `advance`, `claim`.
-- `chaos-path-action` — same surface.
+**Edits**:
+- `combat-action/index.ts` — after a successful `npc_killed`, if actor is on step ≤ 3, set step = 4.
+- `GameClient.tsx` — on room enter, if room = `first-city-gate` and step = 4, call `onboarding-tick { advance: 5 }`.
+- `QuestsPanel.tsx` — add "First Steps" card at the top of the Vows tab, driven by `onboarding_progress`.
+- Reuse the Mirror NPC quick-ask chip code already in `GameClient.tsx` — extend the branch so it recognises `onboarding-mirror` too.
 
-**Edited**:
-- `align-aether/index.ts` — seed `aether_loyalty` on success.
-- `declare-non-serviam/index.ts` — seed `chaos_path` on success.
-- `QuestsPanel.tsx` — add "Vows" tab + step display.
-- `GameClient.tsx` — surface "Continue Vow" button when in throne room / Chaos altar.
-- `restart-character/index.ts` — wipe both progress tables.
+### Out of scope
 
-## Out of scope (for now)
-- Full unique Chaos altar rooms (we'll reuse `gates-approach` Hall basin for Chaos Step 5 — placeholder).
-- Per-step custom artwork or voice lines.
-- PvP enforcement of faction conflicts.
+Weather, SFX, tab-complete, clickable keywords, fog-of-war, P2P trade, leaderboard — parked. Deploy/cron audit is a separate ~5-minute task I'll do right after this if you want.
 
-Want me to proceed with this scope, or trim/expand any part first?
+### One thing to confirm
+
+New players currently spawn at `crescent-shore`, and `first-city-gate` is a few rooms north. That geography works for a diegetic "walk toward the sigils" beat. If you'd rather spawn onboarding players directly at `gates-approach` (one step south of the First City gate) so step 5 is a single move, say the word and I'll shorten it.
