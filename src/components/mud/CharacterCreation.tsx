@@ -47,7 +47,6 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   const [races, setRaces] = useState<Race[]>([]);
   const [chosen, setChosen] = useState<Race | null>(null);
   const [gender, setGender] = useState<Gender | null>(null);
-  const [customGender, setCustomGender] = useState("");
   const [adlib, setAdlib] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<"direction" | "choose">("direction");
@@ -56,13 +55,10 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
 
   const buildDescription = (): string => {
     if (!chosen || !gender) return "";
-    const genderWord = gender === "other"
-      ? (customGender.trim() || "person")
-      : gender === "neither" ? "person" : gender;
     const parts = AD_LIB_FIELDS
       .map((f) => (adlib[f.key]?.trim() ? f.template(adlib[f.key]) : null))
       .filter(Boolean) as string[];
-    return `A ${genderWord} of ${chosen.name} blood, ${parts.join(", ")}.`;
+    return `A ${gender} of ${chosen.name} blood, ${parts.join(", ")}.`;
   };
 
   useEffect(() => {
