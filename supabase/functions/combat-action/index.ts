@@ -440,13 +440,20 @@ Deno.serve(async (req) => {
     }
 
     // For attack/defend/cast/flee — must be current actor's turn
-    const combatId = body.combat_id ?? profile.in_combat_id ?? profile.downed_combat_id;
-    if (!combatId) throw new Error("You are not in a fight.");
-    const { data: combat } = await admin.from("combats").select("*").eq("id", combatId).maybeSingle();
-    if (!combat) throw new Error("That fight has ended.");
-    const { data: combatants } = await admin.from("combatants").select("*").eq("combat_id", combatId);
-    const me = (combatants ?? []).find((c: any) => c.user_id === user.id);
+    const combatId = body.combat_id ?? profile.in_combat_id ?? profile.downed_combat_id ?? null;
+    const isDeathSave = body.action === "death_save";
+    if (!combatId && !isDeathSave) throw new Error("You are not in a fight.");
+    const { data: combat } = combatId
+      ? await admin.from("combats").select("*").eq("id", combatId).maybeSingle()
+      : { data: null as any };
+    if (!combat && !isDeathSave) throw new Error("That fight has ended.");
+    const { data: combatants } = combatId
+      ? await admin.from("combatants").select("*").eq("combat_id", combatId)
+      : { data: [] as any[] };
+    const me = (combatants ?? []).find((c: any) => c.user_id === user.id)
+      ?? (isDeathSave ? { id: null, name: profile.username ?? "Someone", user_id: user.id } as any : null);
     if (!me) throw new Error("You are not in this fight.");
+
 
     // ===== DEATH_SAVE (life-saving rune trace from a downed player) =====
     if (body.action === "death_save") {
