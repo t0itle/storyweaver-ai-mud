@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
 
     // ─── list ───
     if (body.action === "list") {
-      const [{ data: quests }, { data: bounties }, { data: bank }, { data: meBounty }] = await Promise.all([
+      const [{ data: quests }, { data: bounties }, { data: bank }, { data: meBounty }, { data: vault }] = await Promise.all([
         admin.from("posted_quests").select("*")
           .eq("town_key", town_key).eq("status", "open").order("created_at", { ascending: false }).limit(40),
         admin.from("bounties").select("*")
@@ -74,6 +74,9 @@ Deno.serve(async (req) => {
           .eq("user_id", user.id).eq("town_key", town_key).maybeSingle(),
         admin.from("bounties").select("id, town_key, reward_gold, alive_bonus_gold, reason, posted_by_name")
           .eq("target_user_id", user.id).eq("status", "open"),
+        admin.from("town_bank_item_vault")
+          .select("id, item_key, quantity, stolen, deposited_at, items(name, slot, value_gold)")
+          .eq("user_id", user.id).eq("town_key", town_key).order("deposited_at", { ascending: false }),
       ]);
       return json({
         ok: true,
@@ -88,8 +91,10 @@ Deno.serve(async (req) => {
         quests: quests ?? [],
         bounties: bounties ?? [],
         bounties_on_me: meBounty ?? [],
+        vault_items: vault ?? [],
       });
     }
+
 
     // ─── post quest ───
     if (body.action === "post_quest") {
