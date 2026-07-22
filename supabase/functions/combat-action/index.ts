@@ -546,23 +546,42 @@ Deno.serve(async (req) => {
           return ok({ ok: true, saved: true, rescued: true, hp: halfHp, room: alignedRescue.well });
         }
 
-        // Permadeath
+        // Death → wake in the Realm of God (First City). Strip everything worldly; keep level, xp, skills, talents.
+        const respawnRoom = "first-city-gate";
+        const fullHp = profile.max_hp ?? 20;
+        const diedAt = new Date().toISOString();
+
+        // Strip inventory + gold. Drop nothing to the room — the Veiled keep no relics of the dead.
+        await admin.from("player_items").delete().eq("user_id", user.id);
+
         await admin.from("profiles").update({
           downed: false, downed_at: null, downed_combat_id: null,
-          dead: true, dead_at: new Date().toISOString(),
-          death_room: profile.current_room, hp: 0, in_combat_id: null,
+          dead: false, dead_at: null, death_room: null,
+          zombified: false, revived_by: null, revived_at: null,
+          hp: fullHp, in_combat_id: null, gold: 0,
+          current_room: respawnRoom,
         }).eq("id", user.id);
         await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
+
         await pushAction(combatId, combat.turn_number, user.id, me.name, "death_save", null,
           knowsLastBreath
-            ? `${me.name}'s hand fails the sigil (${Math.round(score * 100)}%). The breath leaves them. **${me.name} is dead.**`
-            : `${me.name} has no rune of life to call upon — ✚ **Sana** was never learned. The breath leaves them. **${me.name} is dead.**`);
+            ? `${me.name}'s hand fails the sigil (${Math.round(score * 100)}%). The breath leaves them. **${me.name} passes into the Realm of God.**`
+            : `${me.name} has no rune of life to call upon — ✚ **Sana** was never learned. **${me.name} passes into the Realm of God.**`);
+
+        // Announce arrival in the First City so other players see them wake.
+        await admin.from("messages").insert({
+          room: respawnRoom, user_id: null, author_name: "—", kind: "system",
+          content: `✶ ${me.name} wakes at the First City gate, stripped of blade and coin. The Veiled do not speak — they only watch. Whatever was carried is gone; whatever was learned remains.`,
+        });
+
         await admin.from("world_events").insert({
           kind: "died", actor_id: user.id, actor_name: me.name,
-          room: profile.current_room, details: { combat_id: combatId, score: Math.round(score * 100) },
+          room: profile.current_room,
+          target_kind: "room", target_name: respawnRoom,
+          details: { combat_id: combatId, score: Math.round(score * 100), from: profile.current_room, respawn: respawnRoom, stripped: true, died_at: diedAt },
         });
         await advanceTurn(combatId);
-        return ok({ ok: true, saved: false, dead: true });
+        return ok({ ok: true, saved: false, dead: false, respawned: true, room: respawnRoom, hp: fullHp });
       }
     }
 
