@@ -1,12 +1,19 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import Landing from "@/components/mud/Landing";
-import GameClient from "@/components/mud/GameClient";
-import CharacterCreation from "@/components/mud/CharacterCreation";
-import Intro from "@/components/mud/Intro";
+
+// Code-split the heavy screens: the sign-in page shouldn't pay for the whole
+// game client, the intro cinematic, or character creation up front.
+const GameClient = lazy(() => import("@/components/mud/GameClient"));
+const CharacterCreation = lazy(() => import("@/components/mud/CharacterCreation"));
+const Intro = lazy(() => import("@/components/mud/Intro"));
 
 const INTRO_KEY = "everbloom-intro-seen";
+
+const RoadLoader = () => (
+  <div className="min-h-screen flex items-center justify-center text-ash">Walking the road…</div>
+);
 
 const Index = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -52,12 +59,24 @@ const Index = () => {
 
   if (!ready) return <div className="min-h-screen flex items-center justify-center text-ash">Kindling the brazier…</div>;
   if (!session) return <Landing />;
-  if (created === null) return <div className="min-h-screen flex items-center justify-center text-ash">Walking the road…</div>;
+  if (created === null) return <RoadLoader />;
   if (!created && !introDone) {
-    return <Intro onDone={() => { try { sessionStorage.setItem(INTRO_KEY, "1"); } catch {} setIntroDone(true); }} />;
+    return (
+      <Suspense fallback={<RoadLoader />}>
+        <Intro onDone={() => { try { sessionStorage.setItem(INTRO_KEY, "1"); } catch {} setIntroDone(true); }} />
+      </Suspense>
+    );
   }
-  if (!created) return <CharacterCreation session={session} onCreated={() => setCreated(true)} />;
-  return <GameClient session={session} />;
+  if (!created) return (
+    <Suspense fallback={<RoadLoader />}>
+      <CharacterCreation session={session} onCreated={() => setCreated(true)} />
+    </Suspense>
+  );
+  return (
+    <Suspense fallback={<RoadLoader />}>
+      <GameClient session={session} />
+    </Suspense>
+  );
 };
 
 export default Index;

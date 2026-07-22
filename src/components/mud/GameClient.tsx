@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Backpack, Flame, HelpCircle, Landmark, Loader2, LogOut, ScrollText, Users, Volume2, VolumeX } from "lucide-react";
 import { useRoomAudio } from "./useRoomAudio";
+import { getTimeBucket, filterNpcsForBucket, type TimeBucket } from "./worldTime";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
 import { KinPanel } from "./KinPanel";
 import { ChronicleModal } from "./ChronicleModal";
@@ -99,6 +100,10 @@ const HELP = [
   ["riddle <npc>", "ask an NPC to set you a riddle or puzzle"],
   ["solve <answer>", "submit an answer to your active riddle"],
   ["search", "search the room for hidden caches"],
+  ["take", "claim everything in the room's loot pile"],
+  ["steal <npc>", "pickpocket — risky, they may catch you"],
+  ["fence", "sell stolen goods (find a fence in certain inns)"],
+  ["align", "kneel at the Hall of Choosing (First City)"],
   ["wagon", "hire the wagonmaster (open the fast-travel panel)"],
   ["rest", "sleep at an inn — full heal, costs gold"],
   ["camp", "make camp in the wilds — partial heal, may be ambushed"],
@@ -116,24 +121,6 @@ const INTERACT_VERBS = new Set([
   "shake","rub","scratch","poke","hold","lift","carry","drop","place","write","sing","whistle","dance","sleep","rest","meditate",
 ]);
 
-type TimeBucket = "night" | "dawn" | "morning" | "midday" | "dusk" | "deepnight";
-
-function getTimeBucket(d: Date = new Date()): TimeBucket {
-  const h = d.getUTCHours();
-  if (h < 5) return "deepnight";
-  if (h < 8) return "dawn";
-  if (h < 12) return "morning";
-  if (h < 16) return "midday";
-  if (h < 20) return "dusk";
-  return "night";
-}
-
-// Shop owners (merchants, fences, guildmasters running a counter) close up
-// for the small hours and aren't present in the room during deepnight.
-function filterNpcsForBucket<T extends { is_merchant?: boolean; is_fence?: boolean; is_guildmaster?: boolean }>(list: T[], bucket: TimeBucket): T[] {
-  if (bucket !== "deepnight") return list;
-  return list.filter((n) => !n.is_merchant && !n.is_fence && !n.is_guildmaster);
-}
 
 export default function GameClient({ session }: { session: Session }) {
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -205,6 +192,35 @@ export default function GameClient({ session }: { session: Session }) {
   );
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Command history: ↑/↓ recall previous commands, like any proper MUD client.
+  const historyRef = useRef<string[]>([]);
+  const historyPosRef = useRef(-1);
+  const draftRef = useRef("");
+
+  const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    const hist = historyRef.current;
+    if (e.key === "ArrowUp") {
+      if (!hist.length) return;
+      e.preventDefault();
+      if (historyPosRef.current === -1) {
+        draftRef.current = input;
+        historyPosRef.current = hist.length - 1;
+      } else if (historyPosRef.current > 0) {
+        historyPosRef.current -= 1;
+      }
+      setInput(hist[historyPosRef.current]);
+    } else if (e.key === "ArrowDown") {
+      if (historyPosRef.current === -1) return;
+      e.preventDefault();
+      if (historyPosRef.current < hist.length - 1) {
+        historyPosRef.current += 1;
+        setInput(hist[historyPosRef.current]);
+      } else {
+        historyPosRef.current = -1;
+        setInput(draftRef.current);
+      }
+    }
+  };
 
   // Tick a world clock once a minute. When the time-of-day bucket flips,
   // emit a system note in the current room so players feel the day pass.
@@ -985,6 +1001,12 @@ export default function GameClient({ session }: { session: Session }) {
     const text = raw.trim();
     if (!text || !profile || !room) return;
     setInput("");
+    if (historyRef.current[historyRef.current.length - 1] !== text) {
+      historyRef.current.push(text);
+      if (historyRef.current.length > 100) historyRef.current.shift();
+    }
+    historyPosRef.current = -1;
+    draftRef.current = "";
 
     const [cmd, ...rest] = text.split(/\s+/);
     const args = rest.join(" ");
@@ -1809,6 +1831,7 @@ export default function GameClient({ session }: { session: Session }) {
               autoFocus
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onInputKeyDown}
               placeholder='try "look", "go north", "ask Maeve about the tower"'
               className="flex-1 bg-transparent outline-none font-mono text-sm text-parchment placeholder:text-ash/50"
             />

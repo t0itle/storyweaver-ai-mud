@@ -9,7 +9,7 @@ const ok = (b: unknown, s = 200) =>
 
 type Pt = [number, number];
 type Body = {
-  action: "start" | "join" | "attack" | "defend" | "cast" | "cast_lesser" | "interrupt" | "flee" | "death_save";
+  action: "start" | "join" | "attack" | "defend" | "cast" | "cast_lesser" | "interrupt" | "flee" | "death_save" | "nudge";
   target_name?: string;
   target_kind?: "npc" | "player";
   combat_id?: string;
@@ -308,6 +308,160 @@ Deno.serve(async (req) => {
       const first = sorted.find((c: any) => !c.defeated) ?? sorted[0];
       if (first) await admin.from("combats").update({ current_combatant_id: first.id }).eq("id", combatId);
       return first;
+    };
+
+    // When a player is reduced to 0 HP they don't die outright — they go DOWNED
+    // and face the death-save trace. Shared by every damage path.
+    const downPlayer = async (targetUserId: string, combatId: string, newHp: number, damageKind = "physical") => {
+      await admin.from("profiles").update({ hp: newHp, last_damage_kind: damageKind }).eq("id", targetUserId);
+      if (newHp <= 0) {
+        await admin.from("profiles").update({
+          downed: true, downed_at: new Date().toISOString(), downed_combat_id: combatId,
+        }).eq("id", targetUserId);
+      }
+    };
+
+    // Everything that must happen when a player fells an NPC — rewards, perma-death,
+    // loot spill, world events, boss fame, quest resolution. Shared by attack AND
+    // both cast paths so rune kills count exactly like blade kills.
+    const awardNpcKill = async (target: { npc_id: string | null; name: string }) => {
+      const reward = 8 + SR(8); const goldReward = 3 + SR(8); const meritReward = 1 + SR(2);
+      await admin.from("profiles").update({
+        xp: (profile.xp ?? 0) + reward,
+        gold: (profile.gold ?? 0) + goldReward,
+        merit: (profile.merit ?? 0) + meritReward,
+      }).eq("id", user.id);
+      await admin.from("messages").insert({ room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+        content: `✦ ${profile.username} gains ${reward} xp, ${goldReward} gold, and ${meritReward} merit.` });
+
+      // === Adaptive storytelling: persist NPC death as a world event ===
+      const { data: npcRow } = await admin.from("npcs")
+        .select("id,name,title,room,is_boss,boss_reward_gold,boss_reward_xp,boss_reward_merit,combat_max_hp")
+        .eq("id", target.npc_id).maybeSingle();
+      // === BOSS KILL: layer bonus rewards on top + broadcast world-wide fame. ===
+      if (npcRow?.is_boss) {
+        const bg = npcRow.boss_reward_gold ?? 0;
+        const bx = npcRow.boss_reward_xp ?? 0;
+        const bm = npcRow.boss_reward_merit ?? 0;
+        await admin.from("profiles").update({
+          xp: (profile.xp ?? 0) + reward + bx,
+          gold: (profile.gold ?? 0) + goldReward + bg,
+          merit: (profile.merit ?? 0) + meritReward + bm,
+        }).eq("id", user.id);
+        await admin.from("messages").insert({
+          room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+          content: `✦✦✦ The hoard is yours. ${profile.username} claims **${bg}g**, **${bx} xp**, and **${bm} merit** from the corpse of ${npcRow.name}.`,
+        });
+        // Broadcast fame to every other room — bards will sing this for years.
+        const fameLine = `✦ Word storms across the Kingdoms: **${profile.username}** has slain **${npcRow.name}, ${npcRow.title ?? "a dread power"}**. Bards already shape the song.`;
+        const { data: allRooms } = await admin.from("rooms").select("slug");
+        if (allRooms) {
+          const rows = allRooms
+            .filter((r: any) => r.slug !== profile.current_room)
+            .map((r: any) => ({ room: r.slug, user_id: null, author_name: "—", kind: "system", content: fameLine }));
+          // chunk to keep payload small
+          for (let i = 0; i < rows.length; i += 200) {
+            await admin.from("messages").insert(rows.slice(i, i + 200));
+          }
+        }
+        // If the boss was a dragon (persona == 'dragon-boss'), also log a dragon_fell world event.
+        await admin.from("world_events").insert({
+          room: profile.current_room, kind: "dragon_stirs",
+          actor_id: user.id, actor_name: profile.username,
+          target_kind: "npc", target_id: npcRow.id, target_name: npcRow.name,
+          details: { fell: true, slain_by: profile.username },
+          decay_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+        });
+
+        // ===== NECROMANTIC RETURN: a felled dragon-boss is scheduled to rise again =====
+        const isDragon = /dragon|drake|wyrm/i.test(`${npcRow.name} ${npcRow.title ?? ""}`);
+        if (isDragon) {
+          // Avoid stacking: only one pending resurrection per original NPC.
+          const { data: existingPR } = await admin.from("pending_resurrections")
+            .select("id").eq("original_npc_id", npcRow.id).eq("status", "pending").maybeSingle();
+          if (!existingPR) {
+            const riseAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+            await admin.from("pending_resurrections").insert({
+              original_npc_id: npcRow.id,
+              original_name: npcRow.name,
+              room: npcRow.room,
+              resurrect_at: riseAt,
+              new_name: `${npcRow.name}, Bone-Wreathed`,
+              new_title: `risen drake stitched from ${npcRow.name}'s bones`,
+              new_persona: `Once ${npcRow.name}, now a vast skeleton lashed together with grave-silk and burning sigils. Smoke leaks where its heart used to beat. A pale figure stands behind it, lips moving.`,
+              new_max_hp: Math.round((npcRow.combat_max_hp ?? 240) * 1.6),
+              new_damage_min: 16,
+              new_damage_max: 34,
+              new_boss_intro: `Bone hinges grind. ${npcRow.name}'s ribcage rises like a cathedral. Behind it, a thin man in patched grey opens his mouth — and the dragon's jaw opens with him.`,
+            });
+          }
+        }
+      }
+      if (npcRow) {
+        // PERMA-DEATH: the NPC is gone for good. Tension still decays for gossip purposes.
+        const deadUntil = "9999-12-31T00:00:00.000Z";
+        const decayAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+        await admin.from("npcs").update({ dead_until: deadUntil }).eq("id", npcRow.id);
+
+        // === Spill inventory + purse into room loot ===
+        const { data: corpsePurse } = await admin.from("npcs").select("purse_gold").eq("id", npcRow.id).maybeSingle();
+        if (corpsePurse?.purse_gold && corpsePurse.purse_gold > 0) {
+          await admin.from("room_loot").insert({
+            room: profile.current_room, gold: corpsePurse.purse_gold,
+            source: "corpse", placed_by_name: npcRow.name,
+          });
+          await admin.from("npcs").update({ purse_gold: 0 }).eq("id", npcRow.id);
+        }
+        const { data: carried } = await admin.from("npc_items").select("id,item_key,quantity").eq("npc_id", npcRow.id);
+        if (carried && carried.length) {
+          const dropRows = carried.map((c: any) => ({
+            room: profile.current_room, gold: 0, item_key: c.item_key, quantity: c.quantity,
+            source: "corpse", placed_by_name: npcRow.name,
+          }));
+          await admin.from("room_loot").insert(dropRows);
+          await admin.from("npc_items").delete().eq("npc_id", npcRow.id);
+          await admin.from("messages").insert({
+            room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+            content: `✶ ${npcRow.name}'s gear and pouches spill across the ground.`,
+          });
+        }
+        await admin.from("world_events").insert({
+          room: profile.current_room,
+          kind: "npc_killed",
+          actor_id: user.id,
+          actor_name: profile.username,
+          target_kind: "npc",
+          target_id: npcRow.id,
+          target_name: npcRow.name,
+          details: { npc_title: npcRow.title ?? null, actor_race: profile.race ?? null, actor_aether: profile.aether ?? null },
+          decay_at: decayAt,
+        });
+        await admin.from("messages").insert({
+          room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+          content: `✶ A blood-mark settles on the stones. ${npcRow.name}'s name will be remembered — and so will ${profile.username}'s.`,
+        });
+      }
+      // === Quest auto-resolution: any active "slay" quest targeting this NPC completes. ===
+      const { data: slayQuests } = await admin.from("quests")
+        .select("id,target_ref")
+        .eq("user_id", user.id).eq("status", "active")
+        .eq("kind", "slay").eq("target_kind", "npc");
+      const matchedSlay = (slayQuests ?? []).filter((q: any) => {
+        const ref = String(q.target_ref ?? "").toLowerCase();
+        if (!ref) return false;
+        return ref === String(target.npc_id ?? "").toLowerCase()
+            || target.name.toLowerCase().includes(ref)
+            || ref.includes(target.name.toLowerCase());
+      });
+      for (const q of matchedSlay) {
+        const authHdr = req.headers.get("Authorization");
+        if (!authHdr) continue;
+        await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/quest-award`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: authHdr },
+          body: JSON.stringify({ quest_id: q.id, note: "auto:slay" }),
+        }).catch(() => null);
+      }
     };
 
     // ===== START =====
@@ -687,6 +841,10 @@ Deno.serve(async (req) => {
       throw new Error("It is not your turn.");
     }
 
+    // "nudge" exists only to kick a stalled NPC turn (handled above). If the turn
+    // already advanced to this player by the time the nudge lands, it's a no-op.
+    if (body.action === "nudge") return ok({ ok: true, skipped: true });
+
     const stats = await playerStats(user.id);
 
     if (body.action === "attack") {
@@ -714,12 +872,7 @@ Deno.serve(async (req) => {
       const defeated = newHp <= 0;
       await admin.from("combatants").update({ hp: newHp, defeated, defending: false }).eq("id", target.id);
       if (target.kind === "player") {
-        await admin.from("profiles").update({ hp: newHp, last_damage_kind: "physical" }).eq("id", target.user_id);
-        if (defeated) {
-          await admin.from("profiles").update({
-            downed: true, downed_at: new Date().toISOString(), downed_combat_id: combatId,
-          }).eq("id", target.user_id);
-        }
+        await downPlayer(target.user_id, combatId, newHp, "physical");
       }
       const targetArmorName = target.kind === "player" ? (await playerStats(target.user_id)).armorName : null;
       const fallback = `${me.name} strikes ${target.name} for ${final} damage.${defeated ? ` ${target.name} falls!` : ""}`;
@@ -739,143 +892,7 @@ Deno.serve(async (req) => {
       await pushAction(combatId, combat.turn_number, user.id, me.name, "attack", target.name, ai ?? fallback, final);
       // XP/gold reward on kill (only against NPCs)
       if (defeated && target.kind === "npc") {
-        const reward = 8 + SR(8); const goldReward = 3 + SR(8); const meritReward = 1 + SR(2);
-        await admin.from("profiles").update({
-          xp: (profile.xp ?? 0) + reward,
-          gold: (profile.gold ?? 0) + goldReward,
-          merit: (profile.merit ?? 0) + meritReward,
-        }).eq("id", user.id);
-        await admin.from("messages").insert({ room: profile.current_room, user_id: null, author_name: "—", kind: "system",
-          content: `✦ ${me.name} gains ${reward} xp, ${goldReward} gold, and ${meritReward} merit.` });
-
-        // === Adaptive storytelling: persist NPC death as a world event ===
-        const { data: npcRow } = await admin.from("npcs")
-          .select("id,name,title,room,is_boss,boss_reward_gold,boss_reward_xp,boss_reward_merit")
-          .eq("id", target.npc_id).maybeSingle();
-        // === BOSS KILL: layer bonus rewards on top + broadcast world-wide fame. ===
-        if (npcRow?.is_boss) {
-          const bg = npcRow.boss_reward_gold ?? 0;
-          const bx = npcRow.boss_reward_xp ?? 0;
-          const bm = npcRow.boss_reward_merit ?? 0;
-          await admin.from("profiles").update({
-            xp: (profile.xp ?? 0) + reward + bx,
-            gold: (profile.gold ?? 0) + goldReward + bg,
-            merit: (profile.merit ?? 0) + meritReward + bm,
-          }).eq("id", user.id);
-          await admin.from("messages").insert({
-            room: profile.current_room, user_id: null, author_name: "—", kind: "system",
-            content: `✦✦✦ The hoard is yours. ${me.name} claims **${bg}g**, **${bx} xp**, and **${bm} merit** from the corpse of ${npcRow.name}.`,
-          });
-          // Broadcast fame to every other room — bards will sing this for years.
-          const fameLine = `✦ Word storms across the Kingdoms: **${me.name}** has slain **${npcRow.name}, ${npcRow.title ?? "a dread power"}**. Bards already shape the song.`;
-          const { data: allRooms } = await admin.from("rooms").select("slug");
-          if (allRooms) {
-            const rows = allRooms
-              .filter((r: any) => r.slug !== profile.current_room)
-              .map((r: any) => ({ room: r.slug, user_id: null, author_name: "—", kind: "system", content: fameLine }));
-            // chunk to keep payload small
-            for (let i = 0; i < rows.length; i += 200) {
-              await admin.from("messages").insert(rows.slice(i, i + 200));
-            }
-          }
-          // If the boss was a dragon (persona == 'dragon-boss'), also log a dragon_fell world event.
-          await admin.from("world_events").insert({
-            room: profile.current_room, kind: "dragon_stirs",
-            actor_id: user.id, actor_name: me.name,
-            target_kind: "npc", target_id: npcRow.id, target_name: npcRow.name,
-            details: { fell: true, slain_by: me.name },
-            decay_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-          });
-
-          // ===== NECROMANTIC RETURN: a felled dragon-boss is scheduled to rise again =====
-          const isDragon = /dragon|drake|wyrm/i.test(`${npcRow.name} ${npcRow.title ?? ""}`);
-          if (isDragon) {
-            // Avoid stacking: only one pending resurrection per original NPC.
-            const { data: existingPR } = await admin.from("pending_resurrections")
-              .select("id").eq("original_npc_id", npcRow.id).eq("status", "pending").maybeSingle();
-            if (!existingPR) {
-              const riseAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-              await admin.from("pending_resurrections").insert({
-                original_npc_id: npcRow.id,
-                original_name: npcRow.name,
-                room: npcRow.room,
-                resurrect_at: riseAt,
-                new_name: `${npcRow.name}, Bone-Wreathed`,
-                new_title: `risen drake stitched from ${npcRow.name}'s bones`,
-                new_persona: `Once ${npcRow.name}, now a vast skeleton lashed together with grave-silk and burning sigils. Smoke leaks where its heart used to beat. A pale figure stands behind it, lips moving.`,
-                new_max_hp: Math.round((npcRow.combat_max_hp ?? 240) * 1.6),
-                new_damage_min: 16,
-                new_damage_max: 34,
-                new_boss_intro: `Bone hinges grind. ${npcRow.name}'s ribcage rises like a cathedral. Behind it, a thin man in patched grey opens his mouth — and the dragon's jaw opens with him.`,
-              });
-            }
-          }
-        }
-        if (npcRow) {
-          // PERMA-DEATH: the NPC is gone for good. Tension still decays for gossip purposes.
-          const deadUntil = "9999-12-31T00:00:00.000Z";
-          const decayAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-          await admin.from("npcs").update({ dead_until: deadUntil }).eq("id", npcRow.id);
-
-          // === Spill inventory + purse into room loot ===
-          const { data: corpsePurse } = await admin.from("npcs").select("purse_gold").eq("id", npcRow.id).maybeSingle();
-          if (corpsePurse?.purse_gold && corpsePurse.purse_gold > 0) {
-            await admin.from("room_loot").insert({
-              room: profile.current_room, gold: corpsePurse.purse_gold,
-              source: "corpse", placed_by_name: npcRow.name,
-            });
-            await admin.from("npcs").update({ purse_gold: 0 }).eq("id", npcRow.id);
-          }
-          const { data: carried } = await admin.from("npc_items").select("id,item_key,quantity").eq("npc_id", npcRow.id);
-          if (carried && carried.length) {
-            const dropRows = carried.map((c: any) => ({
-              room: profile.current_room, gold: 0, item_key: c.item_key, quantity: c.quantity,
-              source: "corpse", placed_by_name: npcRow.name,
-            }));
-            await admin.from("room_loot").insert(dropRows);
-            await admin.from("npc_items").delete().eq("npc_id", npcRow.id);
-            await admin.from("messages").insert({
-              room: profile.current_room, user_id: null, author_name: "—", kind: "system",
-              content: `✶ ${npcRow.name}'s gear and pouches spill across the ground.`,
-            });
-          }
-          await admin.from("world_events").insert({
-            room: profile.current_room,
-            kind: "npc_killed",
-            actor_id: user.id,
-            actor_name: me.name,
-            target_kind: "npc",
-            target_id: npcRow.id,
-            target_name: npcRow.name,
-            details: { npc_title: npcRow.title ?? null, actor_race: profile.race ?? null, actor_aether: profile.aether ?? null },
-            decay_at: decayAt,
-          });
-          await admin.from("messages").insert({
-            room: profile.current_room, user_id: null, author_name: "—", kind: "system",
-            content: `✶ A blood-mark settles on the stones. ${npcRow.name}'s name will be remembered — and so will ${me.name}'s.`,
-          });
-        }
-        // === Quest auto-resolution: any active "slay" quest targeting this NPC completes. ===
-        const { data: slayQuests } = await admin.from("quests")
-          .select("id,target_ref")
-          .eq("user_id", user.id).eq("status", "active")
-          .eq("kind", "slay").eq("target_kind", "npc");
-        const matchedSlay = (slayQuests ?? []).filter((q: any) => {
-          const ref = String(q.target_ref ?? "").toLowerCase();
-          if (!ref) return false;
-          return ref === String(target.npc_id ?? "").toLowerCase()
-              || target.name.toLowerCase().includes(ref)
-              || ref.includes(target.name.toLowerCase());
-        });
-        for (const q of matchedSlay) {
-          const auth = req.headers.get("Authorization");
-          if (!auth) continue;
-          await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/quest-award`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: auth },
-            body: JSON.stringify({ quest_id: q.id, note: "auto:slay" }),
-          }).catch(() => null);
-        }
+        await awardNpcKill(target);
       }
       await advanceTurn(combatId);
       return ok({ ok: true });
@@ -920,8 +937,9 @@ Deno.serve(async (req) => {
         const newHp = Math.max(0, target.hp - dmg);
         const defeated = newHp <= 0;
         await admin.from("combatants").update({ hp: newHp, defeated }).eq("id", target.id);
-        if (target.kind === "player") await admin.from("profiles").update({ hp: newHp }).eq("id", target.user_id);
+        if (target.kind === "player") await downPlayer(target.user_id, combatId, newHp, "rune");
         text = `${me.name} hurls ${chosen.ir.runes.glyph} ${chosen.ir.runes.name} at ${target.name} for ${dmg} damage.${defeated ? ` ${target.name} falls!` : ""}`;
+        if (defeated && target.kind === "npc") await awardNpcKill(target);
       }
       await admin.from("item_runes").update({ charges: chosen.ir.charges - 1 }).eq("id", chosen.ir.id);
       const aiCast = await narrateLine({
@@ -976,8 +994,9 @@ Deno.serve(async (req) => {
           const newHp = Math.max(0, target.hp - damage);
           const defeated = newHp <= 0;
           await admin.from("combatants").update({ hp: newHp, defeated }).eq("id", target.id);
-          if (target.kind === "player") await admin.from("profiles").update({ hp: newHp }).eq("id", target.user_id);
+          if (target.kind === "player") await downPlayer(target.user_id, combatId, newHp, "rune");
           text = `${me.name} hurls ${rune.glyph} ${rune.latin_name} at ${target.name} (${Math.round(score*100)}%) — ${damage} damage.${defeated ? ` ${target.name} falls!` : ""}`;
+          if (defeated && target.kind === "npc") await awardNpcKill(target);
         } else if (outcome === "backfire") {
           const back = 2 + SR(3);
           const newHp = Math.max(0, me.hp - back);
@@ -1018,8 +1037,8 @@ Deno.serve(async (req) => {
         const dmg = 2 + SR(4);
         const final = Math.max(1, dmg - stats.armor);
         const newHp = Math.max(0, me.hp - final);
-        await admin.from("combatants").update({ hp: newHp }).eq("id", me.id);
-        await admin.from("profiles").update({ hp: newHp }).eq("id", user.id);
+        await admin.from("combatants").update({ hp: newHp, defeated: newHp <= 0 }).eq("id", me.id);
+        await downPlayer(user.id, combatId, newHp, "physical");
         const aiInt = await narrateLine({
           actor: foe.name, verb: "strikes", target: me.name,
           armor: stats.armorName ?? undefined,
