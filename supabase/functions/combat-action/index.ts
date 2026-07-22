@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return ok({ error: "Unauthorized" }, 401);
 
-    const body = await req.json() as Body;
+    let body = await req.json() as Body;
 
     const { data: profile } = await admin.from("profiles").select("*").eq("id", user.id).maybeSingle();
     if (!profile) throw new Error("Profile missing");
@@ -310,12 +310,16 @@ Deno.serve(async (req) => {
 
     // ===== START =====
 
+    // If a fight already rages in this room, silently redirect "start" to "join"
+    // so the client's attack button drops the player into the existing melee.
+    if (body.action === "start" && !profile.in_combat_id) {
+      const { data: existing } = await admin.from("combats").select("id").eq("room", profile.current_room).eq("status", "active").maybeSingle();
+      if (existing) body = { ...body, action: "join" };
+    }
+
     if (body.action === "start") {
       if (profile.in_combat_id) throw new Error("You are already in a fight.");
       if (!body.target_name) throw new Error("Attack whom?");
-      // existing combat in this room?
-      const { data: existing } = await admin.from("combats").select("id").eq("room", profile.current_room).eq("status", "active").maybeSingle();
-      if (existing) throw new Error("A fight already rages here. Use 'join' to enter it.");
 
       // target must be in same room
       let target: any = null;
