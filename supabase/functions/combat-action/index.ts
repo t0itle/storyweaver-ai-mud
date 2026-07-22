@@ -157,12 +157,14 @@ Deno.serve(async (req) => {
       return { prof, dmg, armor, hpBonus, weaponName, armorName: armorPieces.join(", ") || null };
     };
 
-    const pushAction = async (combatId: string, turn: number, actorId: string | null, actorName: string,
+    const pushAction = async (combatId: string | null, turn: number, actorId: string | null, actorName: string,
                               act: string, targetName: string | null, text: string, damage = 0) => {
-      await admin.from("combat_actions").insert({
-        combat_id: combatId, turn_number: turn, actor_id: actorId,
-        actor_name: actorName, action: act, target_name: targetName, text, damage,
-      });
+      if (combatId) {
+        await admin.from("combat_actions").insert({
+          combat_id: combatId, turn_number: turn, actor_id: actorId,
+          actor_name: actorName, action: act, target_name: targetName, text, damage,
+        });
+      }
       await admin.from("messages").insert({
         room: profile.current_room, user_id: null, author_name: "—", kind: "system",
         content: `⚔ ${text}`,
