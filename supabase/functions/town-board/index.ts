@@ -27,7 +27,10 @@ type Action =
   | { action: "claim_bounty"; bounty_id: string; claim_kind: "dead" | "alive" }
   | { action: "bank_open" }
   | { action: "bank_deposit"; amount: number }
-  | { action: "bank_withdraw"; amount: number };
+  | { action: "bank_withdraw"; amount: number }
+  | { action: "bank_list_items" }
+  | { action: "bank_deposit_item"; player_item_id: string; quantity?: number }
+  | { action: "bank_withdraw_item"; vault_id: string; quantity?: number };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
