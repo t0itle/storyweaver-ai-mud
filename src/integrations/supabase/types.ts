@@ -2810,6 +2810,51 @@ export type Database = {
           },
         ]
       }
+      town_bank_item_vault: {
+        Row: {
+          deposited_at: string
+          id: string
+          item_key: string
+          quantity: number
+          stolen: boolean
+          town_key: string
+          user_id: string
+        }
+        Insert: {
+          deposited_at?: string
+          id?: string
+          item_key: string
+          quantity?: number
+          stolen?: boolean
+          town_key: string
+          user_id: string
+        }
+        Update: {
+          deposited_at?: string
+          id?: string
+          item_key?: string
+          quantity?: number
+          stolen?: boolean
+          town_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "town_bank_item_vault_item_key_fkey"
+            columns: ["item_key"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "town_bank_item_vault_town_key_fkey"
+            columns: ["town_key"]
+            isOneToOne: false
+            referencedRelation: "towns"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       towns: {
         Row: {
           blurb: string
