@@ -2220,7 +2220,9 @@ export default function GameClient({ session }: { session: Session }) {
         onClose={() => setWorldMapOpen(false)}
         onGo={(cmd) => handleCommand(cmd)}
         onTravel={travelTo}
+        visited={visitedRooms}
       />
+
     </div>
   );
 }
