@@ -184,7 +184,9 @@ export default function GameClient({ session }: { session: Session }) {
   const [cacheClaimed, setCacheClaimed] = useState(false);
   const [roomLoot, setRoomLoot] = useState<{ id: string; gold: number; item_key: string | null; quantity: number; placed_by_name: string | null }[]>([]);
   const [worldRooms, setWorldRooms] = useState<MapRoom[]>([]);
+  const [visitedRooms, setVisitedRooms] = useState<Set<string>>(() => new Set());
   const [worldMapOpen, setWorldMapOpen] = useState(false);
+
   const [bucket, setBucket] = useState<TimeBucket>(getTimeBucket());
   const audioMode: "room" | "combat" | "rest" = profile?.in_combat_id
     ? "combat"
