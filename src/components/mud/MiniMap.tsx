@@ -82,8 +82,8 @@ export function MiniMap({
       </div>
       <div className="border border-border bg-background/40 relative overflow-hidden" style={{ height: size }}>
         <svg width="100%" height={size} viewBox={`0 0 ${size} ${size}`} className="block">
-          {/* connections */}
-          {layout.edges.filter((e) => isEdgeDrawable(layout, e)).map((e, i) => {
+          {/* connections — only when both endpoints are visible */}
+          {layout.edges.filter((e) => isEdgeDrawable(layout, e) && isVisible(e.from) && isVisible(e.to)).map((e, i) => {
             const a = layout.placed.get(e.from)!;
             const b = layout.placed.get(e.to)!;
             return (
@@ -112,7 +112,9 @@ export function MiniMap({
           {[...layout.placed.values()].map((p) => {
             const r = bySlug.get(p.slug);
             if (!r) return null;
+            if (!isVisible(p.slug)) return null;
             const isHere = p.slug === currentSlug;
+            const frontier = isFrontier(p.slug);
             const adjacentDir = dirBySlug.get(p.slug);
             const clickable = !isHere;
             const locked = !!r.requires_faction;
@@ -122,19 +124,25 @@ export function MiniMap({
                 onClick={() => {
                   if (isHere) return;
                   if (adjacentDir) onGo(`go ${adjacentDir}`);
-                  else onTravel(r.slug, r.name);
+                  else if (!frontier) onTravel(r.slug, r.name);
                 }}
               >
                 <rect
                   x={px(p.x) - NODE / 2} y={py(p.y) - NODE / 2}
                   width={NODE} height={NODE} rx={3}
-                  fill={isHere ? "hsl(var(--ember))" : kindColor(r.kind, r.town_key)}
-                  opacity={locked && !isHere ? 0.45 : isHere ? 1 : 0.9}
-                  stroke={isHere ? "hsl(var(--parchment, 40 30% 85%))" : "hsl(30 8% 18%)"}
+                  fill={isHere ? "hsl(var(--ember))" : frontier ? "hsl(30 6% 22%)" : kindColor(r.kind, r.town_key)}
+                  opacity={frontier ? 0.75 : locked && !isHere ? 0.45 : isHere ? 1 : 0.9}
+                  stroke={isHere ? "hsl(var(--parchment, 40 30% 85%))" : frontier ? "hsl(30 8% 40%)" : "hsl(30 8% 18%)"}
+                  strokeDasharray={frontier ? "2 2" : undefined}
                   strokeWidth={isHere ? 1.5 : 1}
                 >
-                  <title>{r.name}{locked ? " (sealed to outsiders)" : ""}{adjacentDir ? ` — go ${adjacentDir}` : isHere ? " — you are here" : " — set out"}</title>
+                  <title>{frontier
+                    ? `Unexplored — ${adjacentDir ? `go ${adjacentDir} to discover` : "walk here to discover"}`
+                    : `${r.name}${locked ? " (sealed to outsiders)" : ""}${adjacentDir ? ` — go ${adjacentDir}` : isHere ? " — you are here" : " — set out"}`}</title>
                 </rect>
+                {frontier && (
+                  <text x={px(p.x)} y={py(p.y) + 4} textAnchor="middle" fontSize={11} fill="hsl(30 10% 60%)" className="pointer-events-none">?</text>
+                )}
                 {isHere && (
                   <rect
                     x={px(p.x) - NODE / 2 - 3} y={py(p.y) - NODE / 2 - 3}
@@ -144,12 +152,13 @@ export function MiniMap({
                     <animate attributeName="opacity" values="0.7;0.15;0.7" dur="2s" repeatCount="indefinite" />
                   </rect>
                 )}
-                {locked && !isHere && (
+                {locked && !isHere && !frontier && (
                   <text x={px(p.x)} y={py(p.y) + 4} textAnchor="middle" fontSize={10} fill="hsl(40 30% 80%)">⚿</text>
                 )}
               </g>
             );
           })}
+
         </svg>
         <div className="absolute bottom-1 left-2 font-mono text-[9px] text-ash/70 pointer-events-none truncate max-w-[85%]">
           {current.name}
