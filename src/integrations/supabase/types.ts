@@ -430,6 +430,30 @@ export type Database = {
         }
         Relationships: []
       }
+      crafting_stations: {
+        Row: {
+          description: string | null
+          key: string
+          kind: string
+          name: string
+          room_slug: string
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          kind: string
+          name: string
+          room_slug: string
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          kind?: string
+          name?: string
+          room_slug?: string
+        }
+        Relationships: []
+      }
       dragons: {
         Row: {
           created_at: string
@@ -1440,6 +1464,36 @@ export type Database = {
           },
         ]
       }
+      player_buffs: {
+        Row: {
+          created_at: string
+          effect: Json
+          expires_at: string
+          id: string
+          name: string
+          source: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          effect: Json
+          expires_at: string
+          id?: string
+          name: string
+          source?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          effect?: Json
+          expires_at?: string
+          id?: string
+          name?: string
+          source?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       player_class_skills: {
         Row: {
           node_key: string
@@ -1761,6 +1815,30 @@ export type Database = {
           },
         ]
       }
+      player_lifeskills: {
+        Row: {
+          level: number
+          skill: string
+          updated_at: string
+          user_id: string
+          xp: number
+        }
+        Insert: {
+          level?: number
+          skill: string
+          updated_at?: string
+          user_id: string
+          xp?: number
+        }
+        Update: {
+          level?: number
+          skill?: string
+          updated_at?: string
+          user_id?: string
+          xp?: number
+        }
+        Relationships: []
+      }
       player_lore_discoveries: {
         Row: {
           discovered_at: string
@@ -1810,6 +1888,32 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      player_recipes: {
+        Row: {
+          learned_at: string
+          recipe_key: string
+          user_id: string
+        }
+        Insert: {
+          learned_at?: string
+          recipe_key: string
+          user_id: string
+        }
+        Update: {
+          learned_at?: string
+          recipe_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_recipes_recipe_key_fkey"
+            columns: ["recipe_key"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["key"]
+          },
+        ]
       }
       player_room_cache_claims: {
         Row: {
@@ -2513,6 +2617,84 @@ export type Database = {
           name?: string
           sort_order?: number
           visual_traits?: string
+        }
+        Relationships: []
+      }
+      recipes: {
+        Row: {
+          description: string | null
+          inputs: Json
+          key: string
+          level_req: number
+          name: string
+          output_item: string
+          output_qty: number
+          skill: string
+          starter: boolean
+          station_kind: string
+          xp_reward: number
+        }
+        Insert: {
+          description?: string | null
+          inputs: Json
+          key: string
+          level_req?: number
+          name: string
+          output_item: string
+          output_qty?: number
+          skill: string
+          starter?: boolean
+          station_kind: string
+          xp_reward?: number
+        }
+        Update: {
+          description?: string | null
+          inputs?: Json
+          key?: string
+          level_req?: number
+          name?: string
+          output_item?: string
+          output_qty?: number
+          skill?: string
+          starter?: boolean
+          station_kind?: string
+          xp_reward?: number
+        }
+        Relationships: []
+      }
+      resource_nodes: {
+        Row: {
+          created_at: string
+          depleted_until: string | null
+          id: string
+          kind: string
+          requires_tool: string | null
+          respawn_seconds: number
+          room_slug: string
+          skill: string
+          yields: Json
+        }
+        Insert: {
+          created_at?: string
+          depleted_until?: string | null
+          id?: string
+          kind: string
+          requires_tool?: string | null
+          respawn_seconds?: number
+          room_slug: string
+          skill: string
+          yields: Json
+        }
+        Update: {
+          created_at?: string
+          depleted_until?: string | null
+          id?: string
+          kind?: string
+          requires_tool?: string | null
+          respawn_seconds?: number
+          room_slug?: string
+          skill?: string
+          yields?: Json
         }
         Relationships: []
       }
