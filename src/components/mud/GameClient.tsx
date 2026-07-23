@@ -306,6 +306,29 @@ export default function GameClient({ session }: { session: Session }) {
     return () => { cancelled = true; };
   }, [session.user.id]);
 
+  // Fog-of-war: which rooms this player has personally set foot in.
+  // Realtime-subscribed so new visits light up the map instantly.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("player_room_visits")
+        .select("room_slug").eq("user_id", session.user.id);
+      if (cancelled) return;
+      setVisitedRooms(new Set((data ?? []).map((r: any) => r.room_slug as string)));
+    })();
+    const ch = supabase.channel(`visits:${session.user.id}`)
+      .on("postgres_changes",
+        { event: "INSERT", schema: "public", table: "player_room_visits", filter: `user_id=eq.${session.user.id}` },
+        (payload) => {
+          const slug = (payload.new as any)?.room_slug as string | undefined;
+          if (!slug) return;
+          setVisitedRooms((prev) => prev.has(slug) ? prev : new Set(prev).add(slug));
+        })
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(ch); };
+  }, [session.user.id]);
+
+
   // Quests realtime
   useEffect(() => {
     const ch = supabase.channel(`quests:${session.user.id}`)
