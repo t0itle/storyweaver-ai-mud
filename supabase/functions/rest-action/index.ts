@@ -57,7 +57,14 @@ Deno.serve(async (req) => {
     if (!roomRow) return json({ error: "Where are you?" }, 400);
 
     if (action === "inn") {
-      const isInn = room.endsWith("-inn") || roomRow.kind === "inn" || roomRow.kind === "tavern";
+      let isInn = room.endsWith("-inn") || room.includes("-inn-") || room.includes("tavern") || room.includes("-hearth") || roomRow.kind === "inn" || roomRow.kind === "tavern";
+      if (!isInn) {
+        const { data: innNpc } = await admin.from("npcs").select("id,role,title,name")
+          .eq("room", room)
+          .or("role.eq.innkeeper,role.eq.tavernkeeper,title.ilike.%innkeeper%,title.ilike.%tavern%,name.ilike.%innkeeper%")
+          .limit(1).maybeSingle();
+        if (innNpc) isInn = true;
+      }
       if (!isInn) return json({ error: "There's no innkeeper to take your coin here." }, 400);
       if ((profile.gold ?? 0) < INN_PRICE) return json({ error: `A bed costs ${INN_PRICE}g — you can't afford it.` }, 400);
       await admin.from("profiles").update({
