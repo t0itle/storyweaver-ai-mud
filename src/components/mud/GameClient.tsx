@@ -1862,6 +1862,45 @@ export default function GameClient({ session }: { session: Session }) {
               <Landmark className="w-4 h-4" /><span className="hidden sm:inline">teller</span>
             </button>
           )}
+          {stationsHere.map((s) => {
+            const Icon = s.kind === "kitchen" ? ChefHat : s.kind === "alchemy_bench" ? Sparkles : Hammer;
+            return (
+              <button key={s.key} onClick={() => setCraftStation(s)} className="flex items-center gap-1 px-2 py-1 rounded border border-amber-500/50 text-amber-200 hover:bg-amber-500/10 transition-colors text-xs" title={s.name}>
+                <Icon className="w-4 h-4" /><span className="hidden sm:inline">{s.kind === "kitchen" ? "cook" : s.kind === "alchemy_bench" ? "brew" : "forge"}</span>
+              </button>
+            );
+          })}
+          {nodesHere.filter((n) => !n.depleted_until || new Date(n.depleted_until).getTime() < Date.now()).map((n) => {
+            const Icon = n.skill === "mining" ? Pickaxe : n.skill === "fishing" ? Fish : Leaf;
+            return (
+              <button
+                key={n.id}
+                disabled={gatherBusy === n.id}
+                onClick={async () => {
+                  setGatherBusy(n.id);
+                  const { data, error } = await supabase.functions.invoke("gather-node", { body: { node_id: n.id } });
+                  setGatherBusy(null);
+                  if (error || (data as any)?.error) {
+                    toast.error((data as any)?.error ?? error?.message ?? "Nothing to gather");
+                    return;
+                  }
+                  const gained = Object.entries((data as any).gained ?? {}).map(([k, q]) => `${q}× ${k.replace(/^(herb_|ore_|gem_|fish_|mushroom_|wood_|salt_)/, "").replace(/_/g, " ")}`).join(", ");
+                  toast.success(`Gathered ${gained}${(data as any).leveled ? ` — ${n.skill} lvl ${(data as any).level}!` : ""}`);
+                  reloadInventory();
+                  // reload nodes to reflect depletion
+                  const { data: nd } = await supabase.from("resource_nodes").select("id,kind,skill,requires_tool,depleted_until").eq("room_slug", profile.current_room);
+                  setNodesHere((nd ?? []) as any);
+                }}
+                className="flex items-center gap-1 px-2 py-1 rounded border border-emerald-500/50 text-emerald-200 hover:bg-emerald-500/10 transition-colors text-xs disabled:opacity-50"
+                title={`Gather ${n.kind}${n.requires_tool ? ` (needs ${n.requires_tool.replace("tool_", "").replace(/_/g, " ")})` : ""}`}
+              >
+                <Icon className="w-4 h-4" /><span className="hidden sm:inline">{n.kind}</span>
+              </button>
+            );
+          })}
+          <button onClick={() => setLifeskillsOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Your lifeskills">
+            <Leaf className="w-4 h-4" /><span className="hidden sm:inline">skills</span>
+          </button>
           <button onClick={() => setKinOpen(true)} className="flex items-center gap-1 px-2 py-1 rounded border border-border text-whisper hover:text-ember hover:border-ember transition-colors text-xs" title="Kin spirits — friends & private messages">
             <Users className="w-4 h-4" /><span className="hidden sm:inline">kin</span>
           </button>
