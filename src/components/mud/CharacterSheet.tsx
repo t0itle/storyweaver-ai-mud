@@ -22,7 +22,18 @@ interface SheetProfile {
   char_description: string | null;
   portrait_variants?: Record<string, string> | null;
   last_damage_kind?: string | null;
+  class_key?: string | null;
+  awakened_class?: string | null;
+  awakening_available?: boolean;
+  unique_attribute?: { name?: string; description?: string; effect_note?: string } | null;
 }
+
+type ClassMeta = {
+  key: string;
+  name: string;
+  awakenings: Array<{ key: string; name: string; flavor: string }>;
+};
+
 
 type WoundState = "healthy" | "scratched" | "wounded" | "bloodied";
 function woundStateFor(hp: number, maxHp: number): WoundState {

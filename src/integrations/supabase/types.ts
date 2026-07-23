@@ -214,6 +214,83 @@ export type Database = {
         }
         Relationships: []
       }
+      class_defs: {
+        Row: {
+          awakenings: Json
+          created_at: string
+          flavor: string
+          hp_mod: number
+          key: string
+          name: string
+          sort_order: number
+          starting_kit: Json
+          tagline: string
+        }
+        Insert: {
+          awakenings?: Json
+          created_at?: string
+          flavor: string
+          hp_mod?: number
+          key: string
+          name: string
+          sort_order?: number
+          starting_kit?: Json
+          tagline: string
+        }
+        Update: {
+          awakenings?: Json
+          created_at?: string
+          flavor?: string
+          hp_mod?: number
+          key?: string
+          name?: string
+          sort_order?: number
+          starting_kit?: Json
+          tagline?: string
+        }
+        Relationships: []
+      }
+      class_skill_nodes: {
+        Row: {
+          class_key: string
+          created_at: string
+          description: string
+          effect: Json
+          key: string
+          name: string
+          sort_order: number
+          tier: number
+        }
+        Insert: {
+          class_key: string
+          created_at?: string
+          description: string
+          effect?: Json
+          key: string
+          name: string
+          sort_order?: number
+          tier: number
+        }
+        Update: {
+          class_key?: string
+          created_at?: string
+          description?: string
+          effect?: Json
+          key?: string
+          name?: string
+          sort_order?: number
+          tier?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_skill_nodes_class_key_fkey"
+            columns: ["class_key"]
+            isOneToOne: false
+            referencedRelation: "class_defs"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       combat_actions: {
         Row: {
           action: string
@@ -1363,6 +1440,32 @@ export type Database = {
           },
         ]
       }
+      player_class_skills: {
+        Row: {
+          node_key: string
+          taken_at: string
+          user_id: string
+        }
+        Insert: {
+          node_key: string
+          taken_at?: string
+          user_id: string
+        }
+        Update: {
+          node_key?: string
+          taken_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_class_skills_node_key_fkey"
+            columns: ["node_key"]
+            isOneToOne: false
+            referencedRelation: "class_skill_nodes"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       player_guild_membership: {
         Row: {
           guild_key: string
@@ -2044,8 +2147,12 @@ export type Database = {
         Row: {
           aether: string | null
           aether_chosen_at: string | null
+          awakened_at: string | null
+          awakened_class: string | null
+          awakening_available: boolean
           chaos_pressure: number
           char_description: string | null
+          class_key: string | null
           companion_mode: string
           companion_npc_id: string | null
           corruption: number
@@ -2084,6 +2191,7 @@ export type Database = {
           revived_at: string | null
           revived_by: string | null
           talent_points: number
+          unique_attribute: Json | null
           updated_at: string
           username: string
           voice: string
@@ -2093,8 +2201,12 @@ export type Database = {
         Insert: {
           aether?: string | null
           aether_chosen_at?: string | null
+          awakened_at?: string | null
+          awakened_class?: string | null
+          awakening_available?: boolean
           chaos_pressure?: number
           char_description?: string | null
+          class_key?: string | null
           companion_mode?: string
           companion_npc_id?: string | null
           corruption?: number
@@ -2133,6 +2245,7 @@ export type Database = {
           revived_at?: string | null
           revived_by?: string | null
           talent_points?: number
+          unique_attribute?: Json | null
           updated_at?: string
           username: string
           voice?: string
@@ -2142,8 +2255,12 @@ export type Database = {
         Update: {
           aether?: string | null
           aether_chosen_at?: string | null
+          awakened_at?: string | null
+          awakened_class?: string | null
+          awakening_available?: boolean
           chaos_pressure?: number
           char_description?: string | null
+          class_key?: string | null
           companion_mode?: string
           companion_npc_id?: string | null
           corruption?: number
@@ -2182,6 +2299,7 @@ export type Database = {
           revived_at?: string | null
           revived_by?: string | null
           talent_points?: number
+          unique_attribute?: Json | null
           updated_at?: string
           username?: string
           voice?: string
@@ -2194,6 +2312,13 @@ export type Database = {
             columns: ["aether"]
             isOneToOne: false
             referencedRelation: "aethers"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "profiles_class_key_fkey"
+            columns: ["class_key"]
+            isOneToOne: false
+            referencedRelation: "class_defs"
             referencedColumns: ["key"]
           },
           {

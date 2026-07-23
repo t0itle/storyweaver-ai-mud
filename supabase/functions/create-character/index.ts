@@ -29,19 +29,22 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supa.auth.getUser();
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const { race_key, description, direction, name } = await req.json();
+    const { race_key, description, direction, name, class_key } = await req.json();
     if (!race_key || typeof description !== "string" || description.trim().length < 8) {
       return json({ error: "Provide race and a description (min 8 chars)" }, 400);
     }
+    if (typeof class_key !== "string" || !class_key) {
+      return json({ error: "Choose a class" }, 400);
+    }
     const chosenName = typeof name === "string" ? name.trim().slice(0, 32) : "";
-    // Every player wakes on the road just outside the First City's great gate.
-    // The chosen direction colours their first journal entry but no longer
-    // changes the spawn point.
     const startRoom = "gates-approach";
     void direction;
 
     const { data: race } = await admin.from("races").select("*").eq("key", race_key).maybeSingle();
     if (!race) return json({ error: "Unknown race" }, 400);
+    const { data: klass } = await admin.from("class_defs").select("*").eq("key", class_key).maybeSingle();
+    if (!klass) return json({ error: "Unknown class" }, 400);
+
 
     const prompt = `Painterly fantasy character portrait, oil-painted concept art, soft naturalistic lighting, centered bust composition on a soft neutral backdrop, no text, no logo. Use colour that fits the subject — do NOT default to fire, embers, ash, or grimdark crimson unless the description specifically calls for it.
 
@@ -84,9 +87,9 @@ Style: painterly brushwork in the spirit of Studio Ghibli character art and Crai
     if (up.error) throw up.error;
     const { data: pub } = admin.storage.from("portraits").getPublicUrl(path);
 
-    // Apply HP mod
+    // Apply HP mod (race + class)
     const baseMaxHp = 20;
-    const newMax = Math.max(8, baseMaxHp + (race.hp_mod ?? 0));
+    const newMax = Math.max(8, baseMaxHp + (race.hp_mod ?? 0) + (klass.hp_mod ?? 0));
     let username = (chosenName || String(user.user_metadata?.username ?? user.email?.split("@")[0] ?? "wanderer"))
       .trim().slice(0, 32) || "wanderer";
 
@@ -103,6 +106,7 @@ Style: painterly brushwork in the spirit of Studio Ghibli character art and Crai
       id: user.id,
       username,
       race: race.key,
+      class_key: klass.key,
       char_description: description.trim().slice(0, 600),
       portrait_url: pub.publicUrl,
       created: true,
@@ -114,14 +118,22 @@ Style: painterly brushwork in the spirit of Studio Ghibli character art and Crai
     });
     if (updErr) throw updErr;
 
-    // Grant the standard starter garment: a tattered, dust-covered cloak (equipped)
-    const { data: existingCloak } = await admin.from("player_items")
-      .select("id").eq("user_id", user.id).eq("item_key", "tattered-cloak").maybeSingle();
-    if (!existingCloak) {
+    // Grant starting kit (class-defined). Skip items the player already owns.
+    const kit: Array<{ item_key: string; quantity?: number; equipped_slot?: string | null }>
+      = Array.isArray(klass.starting_kit) ? klass.starting_kit : [];
+    for (const entry of kit) {
+      if (!entry?.item_key) continue;
+      const { data: exists } = await admin.from("player_items")
+        .select("id").eq("user_id", user.id).eq("item_key", entry.item_key).maybeSingle();
+      if (exists) continue;
       await admin.from("player_items").insert({
-        user_id: user.id, item_key: "tattered-cloak", quantity: 1, equipped_slot: "body",
+        user_id: user.id,
+        item_key: entry.item_key,
+        quantity: entry.quantity ?? 1,
+        equipped_slot: entry.equipped_slot ?? null,
       });
     }
+
 
     return json({ portrait_url: pub.publicUrl });
   } catch (e) {
