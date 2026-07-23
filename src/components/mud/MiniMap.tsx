@@ -191,7 +191,7 @@ const W_CELL = 46;
 const W_NODE = 26;
 
 export function WorldMapModal({
-  open, rooms, currentSlug, onClose, onGo, onTravel,
+  open, rooms, currentSlug, onClose, onGo, onTravel, visited,
 }: {
   open: boolean;
   rooms: MapRoom[];
@@ -199,7 +199,10 @@ export function WorldMapModal({
   onClose: () => void;
   onGo: (command: string) => void;
   onTravel: (slug: string, name: string) => void;
+  /** Slugs the player has personally set foot in. When omitted, everything is treated as visited. */
+  visited?: Set<string>;
 }) {
+
   const layout = useMemo(
     () => (open ? buildMapLayout(rooms, currentSlug) : null),
     [open, rooms, currentSlug],
