@@ -2220,6 +2220,8 @@ export default function GameClient({ session }: { session: Session }) {
       <GuildModal open={!!guildmaster} guildmasterId={guildmaster} onClose={() => setGuildmaster(null)} onChanged={() => { reloadProfile(); reloadInventory(); reloadRunes(); reloadQuestCounts(); }} />
       <MusicModal open={musicOpen} bardId={bardId} onClose={() => { setMusicOpen(false); setBardId(null); }} onChanged={() => { reloadProfile(); reloadInventory(); }} />
       <ArtifactsPanel open={artifactsOpen} onClose={() => setArtifactsOpen(false)} onChanged={() => { reloadProfile(); }} />
+      <CraftingModal open={!!craftStation} station={craftStation} userId={profile.id} onClose={() => setCraftStation(null)} onChanged={() => reloadInventory()} />
+      <LifeskillsModal open={lifeskillsOpen} onClose={() => setLifeskillsOpen(false)} userId={profile.id} />
       <CharacterSheet open={sheetOpen} onClose={() => setSheetOpen(false)} profile={profile} inventory={inventory} userId={profile.id} talentPoints={profile.talent_points ?? 0} onProfileChange={reloadProfile} onPortraitUpdated={(url) => setProfile((p: any) => p ? { ...p, portrait_url: url } : p)} onRestarted={() => window.location.reload()} onRenamed={(name) => setProfile((p: any) => p ? { ...p, username: name } : p)} />
       <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
