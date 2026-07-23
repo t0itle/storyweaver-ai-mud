@@ -820,10 +820,17 @@ Deno.serve(async (req) => {
           });
         }
         await admin.from("player_items").delete().eq("user_id", user.id);
+        if (profile.companion_npc_id) {
+          const { data: comp } = await admin.from("npcs").select("name, home_room").eq("id", profile.companion_npc_id).maybeSingle();
+          if (comp?.home_room) {
+            await admin.from("npcs").update({ room: comp.home_room }).eq("id", profile.companion_npc_id);
+          }
+        }
         await admin.from("profiles").update({
           downed: false, downed_at: null, downed_combat_id: null,
           dead: true, dead_at: new Date().toISOString(),
           death_room: profile.current_room, hp: 0, in_combat_id: null, gold: 0,
+          companion_npc_id: null,
         }).eq("id", user.id);
         if (me.id) await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
         await pushAction(combatId, (combat?.turn_number ?? 0), user.id, me.name, "death_save", null,
