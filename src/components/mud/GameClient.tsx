@@ -183,6 +183,11 @@ export default function GameClient({ session }: { session: Session }) {
   const [hasCache, setHasCache] = useState(false);
   const [cacheClaimed, setCacheClaimed] = useState(false);
   const [roomLoot, setRoomLoot] = useState<{ id: string; gold: number; item_key: string | null; quantity: number; placed_by_name: string | null }[]>([]);
+  const [craftStation, setCraftStation] = useState<{ key: string; kind: "kitchen" | "alchemy_bench" | "forge"; name: string; description: string | null } | null>(null);
+  const [stationsHere, setStationsHere] = useState<{ key: string; kind: "kitchen" | "alchemy_bench" | "forge"; name: string; description: string | null }[]>([]);
+  const [nodesHere, setNodesHere] = useState<{ id: string; kind: string; skill: string; requires_tool: string | null; depleted_until: string | null }[]>([]);
+  const [lifeskillsOpen, setLifeskillsOpen] = useState(false);
+  const [gatherBusy, setGatherBusy] = useState<string | null>(null);
   const [worldRooms, setWorldRooms] = useState<MapRoom[]>([]);
   const [visitedRooms, setVisitedRooms] = useState<Set<string>>(() => new Set());
   const [worldMapOpen, setWorldMapOpen] = useState(false);
