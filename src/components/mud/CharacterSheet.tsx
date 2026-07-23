@@ -390,9 +390,48 @@ export function CharacterSheet({
                 </div>
               </TabsContent>
 
-              <TabsContent value="skills" className="mt-4">
+              <TabsContent value="skills" className="mt-4 space-y-4">
+                {(classMeta || profile.unique_attribute || profile.awakening_available) && (
+                  <div className="border border-emerald-500/40 bg-emerald-950/10 rounded-md p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-mono text-[10px] uppercase tracking-widest text-emerald-300/80">Class</div>
+                        <div className="font-display text-base text-parchment">
+                          {profile.awakened_class ? profile.awakened_class.replace(/-/g, " ") : (classMeta?.name ?? profile.class_key ?? "unchosen")}
+                        </div>
+                      </div>
+                      {profile.awakening_available && !profile.awakened_class && (
+                        <button
+                          onClick={() => setAwakeningOpen(true)}
+                          className="font-mono text-[10px] uppercase tracking-widest border border-emerald-400/60 text-emerald-200 hover:bg-emerald-500/10 px-2.5 py-1.5 transition-colors flex items-center gap-1.5"
+                        >
+                          <Sparkles className="w-3 h-3" /> seek the mirror of becoming
+                        </button>
+                      )}
+                    </div>
+                    {profile.unique_attribute?.name && (
+                      <div className="mt-2 pt-2 border-t border-emerald-500/20">
+                        <div className="font-mono text-[10px] uppercase tracking-widest text-emerald-300/80">Signature</div>
+                        <div className="font-display text-sm text-parchment">{profile.unique_attribute.name}</div>
+                        {profile.unique_attribute.description && (
+                          <p className="text-xs text-whisper italic leading-snug mt-1">{profile.unique_attribute.description}</p>
+                        )}
+                        {profile.unique_attribute.effect_note && (
+                          <p className="text-[11px] text-emerald-200/70 mt-1">{profile.unique_attribute.effect_note}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {userId ? (
-                  <SkillTreePanel userId={userId} talentPoints={talentPoints ?? 0} onChanged={() => onProfileChange?.()} />
+                  <SkillTreePanel
+                    userId={userId}
+                    talentPoints={talentPoints ?? 0}
+                    classKey={profile.class_key ?? null}
+                    className={classMeta?.name ?? null}
+                    onChanged={() => onProfileChange?.()}
+                  />
+
                 ) : (
                   <p className="text-xs text-ash italic">Sign in to spend your talents.</p>
                 )}
