@@ -107,11 +107,34 @@ export function CharacterSheet({
   const [nameDraft, setNameDraft] = useState(profile.username);
   const [renaming, setRenaming] = useState(false);
   const [aetherMark, setAetherMark] = useState<{ key: string; name: string; glyph: string; domain: string } | null>(null);
+  const [classMeta, setClassMeta] = useState<ClassMeta | null>(null);
+  const [awakeningOpen, setAwakeningOpen] = useState(false);
+  const [awakening, setAwakening] = useState<string | null>(null);
   useEffect(() => {
     if (!profile.aether) { setAetherMark(null); return; }
     supabase.from("aethers").select("key,name,glyph,domain").eq("key", profile.aether).maybeSingle()
       .then(({ data }) => { if (data) setAetherMark(data as any); });
   }, [profile.aether]);
+  useEffect(() => {
+    if (!profile.class_key) { setClassMeta(null); return; }
+    supabase.from("class_defs").select("key,name,awakenings").eq("key", profile.class_key).maybeSingle()
+      .then(({ data }) => { if (data) setClassMeta(data as unknown as ClassMeta); });
+  }, [profile.class_key]);
+
+  const awaken = async (awakened_key: string) => {
+    setAwakening(awakened_key);
+    try {
+      const { data, error } = await supabase.functions.invoke("awaken-class", { body: { awakened_key } });
+      if (error || (data as any)?.error) throw new Error((data as any)?.error ?? error?.message);
+      const uniqueName = (data as any)?.unique?.name ?? "your signature";
+      toast.success(`Awakened. A new name is written on your bones — ${uniqueName}.`);
+      setAwakeningOpen(false);
+      onProfileChange?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The mirror refuses.");
+    } finally { setAwakening(null); }
+  };
+
   const equipped = inventory.filter(i => i.equipped_slot);
   const findSlot = (slot: string) => equipped.find(i => i.equipped_slot === slot);
 
