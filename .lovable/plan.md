@@ -1,67 +1,75 @@
-# Character Creation Overhaul + Class System
+# Lifeskills, Gathering & Crafting
 
-Three connected pieces: (1) split creation into one-attribute-per-screen, (2) add a Class step with 12 starting classes and per-class skill trees, (3) add an Awakening evolution at level 15 with a generated unique attribute.
+A parallel, non-combat progression track. Players gather resources from the world, level up lifeskills through use, and turn raw materials into food, potions, gear, and utility items at crafting stations.
 
-## 1. Multi-screen Character Creation
+## 1. The Six Lifeskills
 
-Rewrite `src/components/mud/CharacterCreation.tsx` into a stepper. Each step is one focused screen with back/next, keyboard support (Enter to advance), and a progress bar (Step X of Y).
+Each has its own XP pool, level (1–50), and a small perk every 5 levels (yield chance, quality bonus, rare-find odds). All progress via a shared `player_lifeskills` table — no talent-point cost, no competition with combat skills.
 
-Screens, in order:
+- **Foraging** — herbs, mushrooms, fibers (wilds, desert oases, forests)
+- **Mining** — ore, gems, salt (mountain, cave, ruin rooms)
+- **Fishing** — river/lake/coast rooms; requires a rod
+- **Cooking** — food that grants short buffs and heals over rest
+- **Alchemy** — potions (heal, cure, cleanse, temp buffs) and reagents
+- **Smithing** — weapons, armor, tools; can improve existing gear (+1 lines)
 
-1. **Name** — single input, min 2 chars, uniqueness check on blur.
-2. **Gender** — Woman / Man (keeps the current 2-option rule).
-3. **Race** — the existing race grid, one per screen (visual chooser).
-4. **Class** — the new 12-class chooser (see §2 below), with class flavor + starting talent hint.
-5. **Description** — freeform (min 8 chars, same rules as today's field).
-6. **Starting direction** — north/south/east/west flavor choice (already collected today, kept for the journal line).
-7. **Review + Awaken** — summary card, then a single "Step onto the road" button that calls `create-character`.
+(Runewright/inscription already exists as a Sigil path — we deliberately don't duplicate it here.)
 
-State lives in one `useReducer` in the component; nothing is persisted server-side until step 7 submits (matches today's behavior). Portrait generation still happens once, at submit.
+## 2. Gathering in the World
 
-## 2. 12 Classes + Class Skill Trees
+Rooms get **resource nodes** based on their environment. Nodes are shared, respawn on a timer, and yield randomized loot scaled to the player's skill level.
 
-Twelve starting classes, each with its own 8-node skill tree that sits *alongside* the existing Steel/Whisper/Sigil branches (the "normal" tree stays untouched — class trees are a fourth column that shows only your class).
+- New table `resource_nodes` (per-room type, current stock, respawn_at).
+- Seed nodes from `rooms.kind` + `room_env_tags`: e.g. `wilds → herbs + wood`, `mountain → ore`, `coast/river → fish`.
+- New button in the room panel: **Gather** — appears only when a node is present and matches a skill the player has (Foraging/Mining/Fishing).
+- Edge function `gather-node`: rolls yield vs skill level, deposits items, grants XP, marks node depleted for N minutes. Fishing requires an equipped rod; Mining requires a pick.
+- World-tick refreshes depleted nodes.
 
-Classes: **Warrior, Mage, Monk, Paladin, Ranger, Rogue, Summoner, Gambler, Bard, Alchemist, Necromancer, Runewright**.
+## 3. Crafting Stations & Recipes
 
-Data model (new migration):
+Stations are just NPCs or fixtures already in town rooms — no map changes needed. Interacting with one opens a **Craft** modal.
 
-- `class_defs` — key, name, tagline, flavor, starting_hp_mod, starting_kit (jsonb: items granted at creation), awakening_quest_key.
-- `class_skill_nodes` — same shape as `skill_nodes` but scoped by `class_key`; tiers 1–4, gated the same way (1 → 2 → 3 → capstone).
-- `player_class_skills` — user_id, node_key. Uses the same `talent_points` pool as today.
-- `profiles.class_key TEXT` — set at creation, immutable except via Awakening.
+- `crafting_stations` (station_key, room_slug, kind: kitchen | alchemy_bench | forge | tanning_rack).
+- `recipes` (key, skill, level_req, station_kind, inputs jsonb, output_item, output_qty, xp_reward).
+- Player recipe unlocks: `player_recipes` (learned via level-ups, buying scrolls from merchants, quest rewards, or discovery by trying combinations at a station).
+- Edge function `craft-item`: validates station proximity, level, inputs; consumes materials; rolls quality (crit on high skill grants a `+quality` item variant); grants XP.
 
-`spend-talent` extends to accept either a normal node key or a class node key (looks up in both tables). Same gating logic, same balance check.
+Starter recipe set (~40 total for launch): 8 cooking, 8 alchemy, 8 smithing weapons, 8 smithing armor, 8 misc (tools, dyes, bait).
 
-`SkillTreePanel.tsx` grows a fourth column titled with the player's class name, rendered only when `profile.class_key` is set. `usePlayerSkills` fetches both node sets in parallel.
+## 4. Items & Materials
 
-## 3. Awakening at Level 15
+- Expand `items` with new slots already used elsewhere (`material`, `tool`, `food`, `potion`). Materials stack; tools are equippable in `main_hand`/`off_hand`.
+- Seed ~60 new materials (herbs, ores, gems already partially exist — extend without duplicates), 10 tools (fishing rod, pickaxe, kitchen knife, alchemy kit, smithing hammer, tongs, etc.), starter foods/potions.
+- Food grants short "well-fed" buffs stored in a new `player_buffs` table (name, expires_at, effect_json). Combat/rest checks read active buffs.
 
-When a player hits level 15, the existing `handle_profile_xp_change` trigger flags `profiles.awakening_available = true` and posts a system message: *"Something is stirring in you. Seek the Mirror of Becoming."*
+## 5. UI
 
-- New NPC per capital: **Mirror of Becoming** (reuses the existing mirror-well rooms). Talking to it while `awakening_available` opens a modal listing 2 evolved forms per class (e.g. Warrior → Warlord / Blade Saint; Summoner → Beastlord / Voidcaller).
-- Choosing one starts an **Awakening Quest** — a scripted 3-step quest inserted into `quests` (kill/collect/deliver, class-flavored). Standard quest UI, no new systems.
-- On quest completion, `quest-award` calls the new edge function **`awaken-class`**:
-  - Sets `profiles.awakened_class TEXT` and `profiles.awakened_at`.
-  - Grants the awakened class's capstone node for free.
-  - Calls Lovable AI (`google/gemini-2.5-flash`, cheap text) once to generate the player's **unique attribute** — a 2-sentence signature ability tailored to their `char_description` + chosen awakened form. Stored in `profiles.unique_attribute JSONB` `{ name, description, effect_note }`.
-  - The unique attribute displays on the Character Sheet as a glowing "Signature" card. It is flavor + a small mechanical hook (a re-roll, a +N to a specific check, an environmental interaction) — kept narrow so it doesn't destabilize combat.
+- **Lifeskills panel** in the character sheet: 6 skill bars with level, XP, next perk, recent unlocks.
+- **Gather** button on the room card when a node is present.
+- **Craft** modal at stations: recipe list (locked/unlocked/level-gated), ingredient checklist, quality preview, craft-N slider.
+- **Buffs strip** on the HUD showing active food/potion buffs with countdowns.
 
-Awakening is one-shot per character. `unique_attribute` is generated once and cached; players can re-read but not re-roll.
+## 6. Economy Hooks (light-touch)
 
-## Technical Details
+- Merchants in each capital stock 1–2 starter recipe scrolls for their specialty (Bastion = smithing, Bazaar = alchemy, Horizon = cooking, etc.).
+- Crafted goods can be sold through the existing mercantile system; high-quality items fetch more.
+- No new currency, no auction house.
 
-- Migration order: `class_defs` → seed 12 classes → `class_skill_nodes` → seed 96 nodes (8 per class) → `player_class_skills` → profile columns (`class_key`, `awakened_class`, `awakened_at`, `awakening_available`, `unique_attribute`).
-- All new public tables get `GRANT SELECT` to authenticated, `GRANT ALL` to service_role, RLS enabled, and a `has_role`-style policy where writes are service-only (edge functions do them).
-- `create-character` accepts `class_key`, validates it, writes it to the profile, and inserts the class's starting kit into `player_items`.
-- `spend-talent` unified lookup: try `skill_nodes` first, then `class_skill_nodes`; branch/tier gating uses whichever set the node lives in.
-- Awakening quest content lives in seed data so it can be tuned without code changes.
-- No changes to combat, movement, or the map.
+## Technical
 
-## Out of scope for this pass
+- Migrations: `player_lifeskills`, `resource_nodes`, `crafting_stations`, `recipes`, `player_recipes`, `player_buffs`, extend `items.slot` check trigger. All get GRANTs + RLS (reads for authenticated where scoped by `user_id`; service-only writes via edge functions).
+- Edge functions: `gather-node`, `craft-item`, `learn-recipe`, `consume-buff`. All validate room, tool, level, and inputs server-side.
+- `world-tick` extended to respawn nodes and expire buffs.
+- No changes to combat balance beyond buffs reading from `player_buffs`.
+- Seed data lives in a single SQL file so it can be tuned without code changes.
 
-- Class balance tuning (starter numbers, refine later).
-- Awakened forms beyond 2 per class (can grow).
-- Class-locked equipment (all gear remains class-neutral for now).
+## Out of scope
 
-Say the word and I'll ship it. This is a big one — I'd suggest breaking delivery into three PRs matching §1, §2, §3, but I can do it all in one go if you'd rather.
+- Player-owned housing / workshops.
+- Multi-player co-op crafting.
+- Rare "master" recipes gated behind Aether or awakening (can layer in later).
+- Rebalancing existing items to fit tiered materials.
+
+## Rollout
+
+Suggest three PRs matching sections 2, 3, 5 — but I can ship it all in one pass. Say the word.
