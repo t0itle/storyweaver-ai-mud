@@ -101,8 +101,11 @@ Deno.serve(async (req) => {
     const fromRoom = profile.current_room;
     const newDepth = (profile.desert_depth ?? 0) + 1;
     const enteredFrom = profile.desert_entered_from ?? (fromRoom === "deep-desert" ? null : fromRoom);
+    // A sandstorm makes losing your bearings far more likely.
+    const { data: weather } = await admin.from("world_weather").select("kind").eq("id", 1).maybeSingle();
+    const stormPenalty = weather?.kind === "sandstorm" ? 0.25 : 0;
     // bearing 0 = true, 1 = scrambled. Probability of being lost grows with depth.
-    const lostChance = Math.min(0.85, 0.15 + newDepth * 0.12);
+    const lostChance = Math.min(0.9, 0.15 + newDepth * 0.12 + stormPenalty);
     const becameLost = Math.random() < lostChance;
     const newBearing = becameLost ? 1 : (profile.desert_bearing ?? 0);
 
@@ -170,7 +173,8 @@ Deno.serve(async (req) => {
     } else if (outcome === "mirage") {
       arrival = extraFlavor!;
     } else {
-      arrival = `*${pick(FLAVOR_DEEPER)}*${becameLost && !profile.desert_bearing ? `\n\n*${pick(FLAVOR_LOST)}*` : ""}`;
+      const stormLine = stormPenalty > 0 ? `\n\n*The sandstorm erases the world past arm's reach. Every direction is the same howling red.*` : "";
+      arrival = `*${pick(FLAVOR_DEEPER)}*${becameLost && !profile.desert_bearing ? `\n\n*${pick(FLAVOR_LOST)}*` : ""}${stormLine}`;
     }
     await admin.from("messages").insert({
       room: arriveSlug, author_name: "—", kind: "ambient",

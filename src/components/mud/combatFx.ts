@@ -93,6 +93,20 @@ export const combatFx = {
   hover() {
     envTone({ freq: 1100, freqEnd: 1100, type: "sine", dur: 0.04, gain: 0.05 });
   },
+  ambush() {
+    // danger sting — low brass hit with a rattle of grit
+    envTone({ freq: 110, freqEnd: 70, type: "sawtooth", dur: 0.4, gain: 0.3 });
+    envTone({ freq: 220, freqEnd: 160, type: "square", dur: 0.25, gain: 0.12, delay: 0.03 });
+    noiseBurst(0.22, 0.14, 700);
+    vibrate([30, 40, 30]);
+  },
+  success() {
+    // quest chime — rising fifth with a soft shimmer
+    envTone({ freq: 660, freqEnd: 660, type: "sine", dur: 0.22, gain: 0.18 });
+    envTone({ freq: 990, freqEnd: 990, type: "sine", dur: 0.34, gain: 0.16, delay: 0.1 });
+    envTone({ freq: 1980, freqEnd: 1980, type: "sine", dur: 0.28, gain: 0.06, delay: 0.14 });
+    vibrate(15);
+  },
 };
 
 export type CombatFxKind = keyof typeof combatFx;

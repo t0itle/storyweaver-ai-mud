@@ -164,7 +164,7 @@ const W_CELL = 46;
 const W_NODE = 26;
 
 export function WorldMapModal({
-  open, rooms, currentSlug, onClose, onGo, onTravel,
+  open, rooms, currentSlug, onClose, onGo, onTravel, visited, fog = false, onToggleFog,
 }: {
   open: boolean;
   rooms: MapRoom[];
@@ -172,6 +172,11 @@ export function WorldMapModal({
   onClose: () => void;
   onGo: (command: string) => void;
   onTravel: (slug: string, name: string) => void;
+  // Cartographer mode: with fog on, only places you've stood are named;
+  // the rest show as uncharted ground you must walk to reveal.
+  visited?: Set<string>;
+  fog?: boolean;
+  onToggleFog?: () => void;
 }) {
   const layout = useMemo(
     () => (open ? buildMapLayout(rooms, currentSlug) : null),
@@ -232,7 +237,18 @@ export function WorldMapModal({
               {layout.placed.size} places · click to set out
             </span>
           </div>
-          <button onClick={onClose} className="text-ash hover:text-parchment"><X className="w-4 h-4" /></button>
+          <div className="flex items-center gap-3">
+            {onToggleFog && (
+              <button
+                onClick={onToggleFog}
+                className={`font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 border transition-colors ${fog ? "border-ember text-ember" : "border-border text-ash hover:text-parchment"}`}
+                title={fog ? "Cartographer mode ON — unvisited ground is uncharted. Click to reveal all." : "Show only where you've walked (cartographer mode)"}
+              >
+                {fog ? "fog: on" : "fog: off"}
+              </button>
+            )}
+            <button onClick={onClose} className="text-ash hover:text-parchment"><X className="w-4 h-4" /></button>
+          </div>
         </div>
 
         <div ref={scrollRef} className="flex-1 overflow-auto scrollbar-thin bg-background/60">
@@ -251,11 +267,14 @@ export function WorldMapModal({
               const isHere = p.slug === currentSlug;
               const dir = adjacent.get(p.slug);
               const locked = !!r.requires_faction;
+              // With fog on, only places you've stood — or can see from here — are charted.
+              const known = !fog || isHere || !!dir || (visited?.has(p.slug) ?? false);
+              const canClick = !isHere && (known || !!dir);
               return (
                 <g key={p.slug}
-                  className={isHere ? undefined : "cursor-pointer"}
+                  className={canClick ? "cursor-pointer" : undefined}
                   onClick={() => {
-                    if (isHere) return;
+                    if (!canClick) return;
                     onClose();
                     if (dir) onGo(`go ${dir}`);
                     else onTravel(r.slug, r.name);
@@ -264,12 +283,12 @@ export function WorldMapModal({
                   <rect
                     x={px(p.x) - W_NODE / 2} y={py(p.y) - W_NODE / 2}
                     width={W_NODE} height={W_NODE} rx={4}
-                    fill={isHere ? "hsl(var(--ember))" : kindColor(r.kind, r.town_key)}
-                    opacity={locked && !isHere ? 0.45 : 0.95}
+                    fill={isHere ? "hsl(var(--ember))" : known ? kindColor(r.kind, r.town_key) : "hsl(30 5% 20%)"}
+                    opacity={!known ? 0.5 : locked && !isHere ? 0.45 : 0.95}
                     stroke={isHere ? "hsl(40 30% 85%)" : "hsl(30 8% 15%)"}
                     strokeWidth={isHere ? 2 : 1}
                   >
-                    <title>{r.name}{locked ? " (sealed to outsiders)" : ""}</title>
+                    <title>{known ? `${r.name}${locked ? " (sealed to outsiders)" : ""}` : "Uncharted ground — walk there to reveal it"}</title>
                   </rect>
                   {isHere && (
                     <rect x={px(p.x) - W_NODE / 2 - 4} y={py(p.y) - W_NODE / 2 - 4}
@@ -278,10 +297,10 @@ export function WorldMapModal({
                       <animate attributeName="opacity" values="0.8;0.2;0.8" dur="2s" repeatCount="indefinite" />
                     </rect>
                   )}
-                  {locked && !isHere && (
+                  {locked && !isHere && known && (
                     <text x={px(p.x)} y={py(p.y) + 5} textAnchor="middle" fontSize={13} fill="hsl(40 30% 80%)">⚿</text>
                   )}
-                  {(isHere || labeled(r)) && (
+                  {known && (isHere || labeled(r)) && (
                     <text
                       x={px(p.x)} y={py(p.y) + W_NODE / 2 + 11}
                       textAnchor="middle" fontSize={9}
@@ -300,7 +319,8 @@ export function WorldMapModal({
         {(() => {
           // Places that can't sit on the road-grid — reached by stair, tunnel,
           // wander, or rite. Still part of the world; still one click away.
-          const elsewhere = rooms.filter((r) => !layout.placed.has(r.slug));
+          const elsewhere = rooms.filter((r) =>
+            !layout.placed.has(r.slug) && (!fog || (visited?.has(r.slug) ?? false)));
           if (elsewhere.length === 0) return null;
           return (
             <div className="border-t border-border px-4 py-2 max-h-24 overflow-y-auto scrollbar-thin">

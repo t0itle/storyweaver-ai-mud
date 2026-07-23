@@ -84,6 +84,41 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 3. Weather: drift the sky roughly every other tick. Single world row;
+    // clients subscribe via realtime and paint the change locally.
+    let weatherResult: { kind: string; changed: boolean } | null = null;
+    try {
+      const WEATHER: { kind: string; note: string; weight: number }[] = [
+        { kind: "clear",     note: "The sky is clear and pitiless.",                              weight: 34 },
+        { kind: "wind",      note: "A hard wind combs the land, carrying grit and far-off voices.", weight: 22 },
+        { kind: "overcast",  note: "Low cloud presses down; the light goes flat and grey.",       weight: 16 },
+        { kind: "rain",      note: "A thin rain falls — rare enough that people stand out in it.", weight: 8 },
+        { kind: "sandstorm", note: "A wall of red dust is walking the horizon. The desert is closed to the careless.", weight: 12 },
+        { kind: "starfall",  note: "Falling stars scratch the dark. The Veiled call it the Speaker turning in sleep.", weight: 8 },
+      ];
+      const { data: cur } = await admin.from("world_weather").select("kind").eq("id", 1).maybeSingle();
+      if (Math.random() < 0.5) {
+        const pool = WEATHER.filter((w) => w.kind !== cur?.kind);
+        const total = pool.reduce((s, w) => s + w.weight, 0);
+        let roll = Math.random() * total;
+        let picked = pool[0];
+        for (const w of pool) { roll -= w.weight; if (roll <= 0) { picked = w; break; } }
+        await admin.from("world_weather").upsert({
+          id: 1, kind: picked.kind, note: picked.note, changed_at: nowIso,
+        });
+        await admin.from("world_events").insert({
+          kind: "weather_shift", actor_name: "the sky", room: "gates-approach",
+          details: { from: cur?.kind ?? "clear", to: picked.kind },
+          decay_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        });
+        weatherResult = { kind: picked.kind, changed: true };
+      } else {
+        weatherResult = { kind: cur?.kind ?? "clear", changed: false };
+      }
+    } catch (e) {
+      console.error("weather shift failed", e);
+    }
+
     // Roll for dragon stir based on current hoards.
     let dragonResult: any = null;
     try {
@@ -99,7 +134,7 @@ Deno.serve(async (req) => {
       console.error("dragon-check failed", e);
     }
 
-    return new Response(JSON.stringify({ ok: true, bucket, moved, logged, dragonResult }),
+    return new Response(JSON.stringify({ ok: true, bucket, moved, logged, weatherResult, dragonResult }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);

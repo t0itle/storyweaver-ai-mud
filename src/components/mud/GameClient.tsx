@@ -8,6 +8,10 @@ import { useRoomAudio } from "./useRoomAudio";
 import { getTimeBucket, filterNpcsForBucket, type TimeBucket } from "./worldTime";
 import { MiniMap, WorldMapModal } from "./MiniMap";
 import type { MapRoom } from "./mapLayout";
+import { FirstSteps } from "./FirstSteps";
+import { LegendsModal } from "./LegendsModal";
+import { completeInput } from "./completion";
+import { combatFx } from "./combatFx";
 import { CombatHUD, InventoryPanel, RunesPanel, type InvItem, type KnownRune } from "./Panels";
 import { KinPanel } from "./KinPanel";
 import { ChronicleModal } from "./ChronicleModal";
@@ -92,6 +96,7 @@ const HELP = [
   ["defend / cast <rune> / flee", "in combat"],
   ["lore", "open your codex"],
   ["map", "open the world map (mini map lives in the sidebar)"],
+  ["legends", "the most storied walkers & sung deeds"],
   ["who", "list players in this room"],
   ["follow <npc>", "ask an NPC to travel with you"],
   ["dismiss", "part ways with your companion"],
@@ -185,6 +190,12 @@ export default function GameClient({ session }: { session: Session }) {
   const [roomLoot, setRoomLoot] = useState<{ id: string; gold: number; item_key: string | null; quantity: number; placed_by_name: string | null }[]>([]);
   const [worldRooms, setWorldRooms] = useState<MapRoom[]>([]);
   const [worldMapOpen, setWorldMapOpen] = useState(false);
+  const [legendsOpen, setLegendsOpen] = useState(false);
+  const [visitedRooms, setVisitedRooms] = useState<Set<string>>(new Set());
+  const [mapFog, setMapFog] = useState<boolean>(() => {
+    try { return localStorage.getItem("everbloom-map-fog") === "1"; } catch { return false; }
+  });
+  const [weather, setWeather] = useState<{ kind: string; note: string } | null>(null);
   const [bucket, setBucket] = useState<TimeBucket>(getTimeBucket());
   const audioMode: "room" | "combat" | "rest" = profile?.in_combat_id
     ? "combat"
@@ -204,6 +215,17 @@ export default function GameClient({ session }: { session: Session }) {
   const draftRef = useRef("");
 
   const onInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Tab") {
+      const res = completeInput(input, npcs.map((n) => n.name));
+      if (res) {
+        e.preventDefault();
+        setInput(res.completed);
+        if (res.candidates.length > 1) {
+          setMessages((m) => [...m, localSys(`~ ${res.candidates.join("  ")}`)]);
+        }
+      }
+      return;
+    }
     const hist = historyRef.current;
     if (e.key === "ArrowUp") {
       if (!hist.length) return;
@@ -302,6 +324,52 @@ export default function GameClient({ session }: { session: Session }) {
         if (!cancelled) setWorldRooms((data ?? []) as unknown as MapRoom[]);
       });
     return () => { cancelled = true; };
+  }, [session.user.id]);
+
+  // Cartography: load everywhere this walker has ever stood (fog-of-war data).
+  // (Table is newer than the generated Supabase types — hence the cast.)
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from("player_room_visits" as any).select("room").eq("user_id", session.user.id)
+      .then(({ data }) => {
+        if (!cancelled && data) setVisitedRooms(new Set((data as unknown as { room: string }[]).map((r) => r.room)));
+      });
+    return () => { cancelled = true; };
+  }, [session.user.id]);
+
+  // Record each new room underfoot (id-keyed insert; duplicates are ignored).
+  useEffect(() => {
+    const slug = profile?.current_room;
+    if (!slug || visitedRooms.has(slug)) return;
+    setVisitedRooms((prev) => {
+      const next = new Set(prev); next.add(slug); return next;
+    });
+    supabase.from("player_room_visits" as any)
+      .upsert({ user_id: session.user.id, room: slug } as any, { onConflict: "user_id,room", ignoreDuplicates: true })
+      .then(() => {});
+  }, [profile?.current_room, session.user.id]);
+
+  // Weather: one world-wide sky, painted locally when it turns.
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from("world_weather" as any).select("kind, note").eq("id", 1).maybeSingle()
+      .then(({ data }) => { if (!cancelled && data) setWeather(data as unknown as { kind: string; note: string }); });
+    const ch = supabase.channel("weather")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "world_weather" }, (p) => {
+        const next = p.new as { kind: string; note: string };
+        setWeather((prev) => {
+          if (prev && prev.kind !== next.kind) {
+            setMessages((m) => [...m, {
+              id: crypto.randomUUID(), room: profile?.current_room ?? "", author_name: "—",
+              kind: "ambient", content: `*The sky turns. ${next.note}*`,
+              created_at: new Date().toISOString(), user_id: null, npc_id: null,
+            } as Message]);
+          }
+          return next;
+        });
+      })
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(ch); };
   }, [session.user.id]);
 
   // Quests realtime
@@ -564,7 +632,7 @@ export default function GameClient({ session }: { session: Session }) {
       supabase.functions.invoke("random-encounter", { body: { room: slug } })
         .then(({ data }) => {
           if (!data?.ok) return;
-          if (data.kind === "ambush") toast.error(`⚔ ${data.npc_name} finds you where you linger!`);
+          if (data.kind === "ambush") { combatFx.ambush(); toast.error(`⚔ ${data.npc_name} finds you where you linger!`); }
           else if (data.kind === "traveler") toast(`✉ ${data.npc_name} asks for safe passage to ${data.destination_name}. Open Quests to accept.`);
           else if (data.kind === "patrol") toast(`${data.npc_name} passes through and looks you over.`);
           else if (data.kind === "discovery") {
@@ -896,7 +964,7 @@ export default function GameClient({ session }: { session: Session }) {
       for (const r of completed) {
         toast.success(`✦ Quest complete: ${r.title} — +${r.gold ?? 0}g, +${r.xp ?? 0}xp`);
       }
-      if (completed.length) reloadProfile();
+      if (completed.length) { combatFx.success(); reloadProfile(); }
     }).catch(() => null);
 
     // Mirror (Aether guide) greets sworn players the moment they enter their well-room.
@@ -916,11 +984,13 @@ export default function GameClient({ session }: { session: Session }) {
       try {
         if (ongoing) {
           await supabase.functions.invoke("combat-action", { body: { action: "join" } });
+          combatFx.ambush();
           toast.error(`⚔ ${guardian.name} turns on you — you join the fray!`);
         } else {
           await supabase.functions.invoke("combat-action", {
             body: { action: "start", target_name: guardian.name },
           });
+          combatFx.ambush();
           toast.error(`⚔ ${guardian.name} attacks on sight!`);
         }
         reloadProfile();
@@ -973,6 +1043,7 @@ export default function GameClient({ session }: { session: Session }) {
       .then(({ data }) => {
         if (!data?.ok) return;
         if (data.kind === "ambush") {
+          combatFx.ambush();
           toast.error(`⚔ Ambush! ${data.npc_name} blocks the way.`);
         } else if (data.kind === "traveler") {
           toast(`✉ ${data.npc_name} asks for safe passage to ${data.destination_name}. Open Quests to accept.`);
@@ -1199,6 +1270,7 @@ export default function GameClient({ session }: { session: Session }) {
         }
         if (data?.quest_resolution?.outcome === "complete") {
           const r = data.quest_resolution;
+          combatFx.success();
           toast.success(`✦ Quest complete: ${r.title} — +${r.gold ?? 0}g, +${r.xp ?? 0}xp`);
           reloadProfile();
         } else if (data?.quest_resolution?.outcome === "fail") {
@@ -1292,6 +1364,8 @@ export default function GameClient({ session }: { session: Session }) {
       }
     } else if (c === "map" || c === "atlas" || c === "worldmap") {
       setWorldMapOpen(true);
+    } else if (c === "legends" || c === "fame" || c === "leaderboard") {
+      setLegendsOpen(true);
     } else if (c === "wagon" || c === "ride") {
       if (wagonRoutes.length === 0) {
         setMessages((m) => [...m, localSys("No wagonmaster runs from here.")]);
@@ -1490,7 +1564,7 @@ export default function GameClient({ session }: { session: Session }) {
       try {
         const { data, error } = await supabase.functions.invoke("rest-action", { body: { action: "camp" } });
         if (error || data?.error) throw new Error(data?.error ?? error?.message);
-        if (data.ambushed) toast.error(`Ambushed mid-rest by ${data.npc_name}!`);
+        if (data.ambushed) { combatFx.ambush(); toast.error(`Ambushed mid-rest by ${data.npc_name}!`); }
         else toast.success(`Camped safely. (+${data.healed} HP)`);
         reloadProfile();
       } catch (e) { toast.error(e instanceof Error ? e.message : "no"); }
@@ -1834,7 +1908,7 @@ export default function GameClient({ session }: { session: Session }) {
         {/* Main log */}
         <main className="flex-1 flex flex-col min-w-0">
           <div ref={logRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-6 space-y-3 font-body text-[17px] leading-relaxed">
-            <RoomBlock room={room} npcs={npcs} dragons={dragons} sceneUrl={sceneUrl} sceneLoading={sceneLoading} events={roomEvents} bucket={bucket} companionId={profile?.companion_npc_id ?? null} roommates={roommates} onPlayerClick={(r) => setPreviewPlayer(r)} />
+            <RoomBlock room={room} npcs={npcs} dragons={dragons} sceneUrl={sceneUrl} sceneLoading={sceneLoading} events={roomEvents} bucket={bucket} companionId={profile?.companion_npc_id ?? null} roommates={roommates} onPlayerClick={(r) => setPreviewPlayer(r)} weather={weather} onNpcClick={(name) => { setInput(`ask ${name.split(" ")[0]} `); inputRef.current?.focus(); }} />
             {corpses.length > 0 && (
               <div className="border border-red-900/50 bg-red-950/20 px-3 py-2 mb-3 text-sm">
                 <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-red-400 mb-1">⚰ Corpses here</div>
@@ -1901,6 +1975,7 @@ export default function GameClient({ session }: { session: Session }) {
 
         {/* Sidebar */}
         <aside className="md:w-72 border-t md:border-t-0 md:border-l border-border bg-card/40 p-4 space-y-5 text-sm">
+          <FirstSteps refreshKey={`${profile.current_room}:${profile.in_combat_id ?? ""}:${profile.xp}`} />
           {worldRooms.length > 0 && (
             <MiniMap
               rooms={worldRooms}
@@ -2168,12 +2243,22 @@ export default function GameClient({ session }: { session: Session }) {
         onClose={() => setWorldMapOpen(false)}
         onGo={(cmd) => handleCommand(cmd)}
         onTravel={travelTo}
+        visited={visitedRooms}
+        fog={mapFog}
+        onToggleFog={() => {
+          setMapFog((f) => {
+            const next = !f;
+            try { localStorage.setItem("everbloom-map-fog", next ? "1" : "0"); } catch { /* private mode */ }
+            return next;
+          });
+        }}
       />
+      <LegendsModal open={legendsOpen} onClose={() => setLegendsOpen(false)} />
     </div>
   );
 }
 
-function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket, companionId, roommates, onPlayerClick }: {
+function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket, companionId, roommates, onPlayerClick, weather, onNpcClick }: {
   room: Room; npcs: Npc[]; dragons: { name: string; epithet: string; personality: string }[];
   sceneUrl: string | null; sceneLoading: boolean;
   events: { kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[];
@@ -2181,6 +2266,8 @@ function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket
   companionId?: string | null;
   roommates?: { id: string; username: string; portrait_url: string | null; level: number; aether: string | null; faction: string | null; downed: boolean; dead: boolean }[];
   onPlayerClick?: (r: any) => void;
+  weather?: { kind: string; note: string } | null;
+  onNpcClick?: (name: string) => void;
 }) {
   const tint = pickTimeTint(bucket, (room.kind ?? "room") as string);
   return (
@@ -2245,6 +2332,9 @@ function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket
         })()}
       </p>
       {tint && <p className="text-whisper italic mt-2">{tint}</p>}
+      {weather && weather.kind !== "clear" && !isIndoor((room.kind ?? "room") as string) && (
+        <p className="text-ash italic mt-1 text-sm">☁ {weather.note}</p>
+      )}
       {room.ambience && <p className="text-ash italic mt-2">{room.ambience}</p>}
       {dragons.length > 0 && (
         <div className="mt-3 border border-ember/60 bg-ember/10 px-3 py-2">
@@ -2264,7 +2354,11 @@ function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket
             const activity = isCompanion ? "walking at your side" : n.current_activity;
             return (
               <p key={n.id}>
-                <span className="text-parchment">{n.name}</span>
+                <button
+                  onClick={() => onNpcClick?.(n.name)}
+                  className="text-parchment hover:text-ember underline decoration-dotted decoration-ash/40 underline-offset-2 transition-colors"
+                  title={`Speak to ${n.name}`}
+                >{n.name}</button>
                 {n.title ? <span>, {n.title}</span> : null}
                 {activity ? <span className="text-ash"> — {activity}</span> : null}
               </p>
