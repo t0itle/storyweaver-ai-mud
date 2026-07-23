@@ -354,9 +354,10 @@ export function WorldMapModal({
 
         {(() => {
           // Places that can't sit on the road-grid — reached by stair, tunnel,
-          // wander, or rite. Still part of the world; still one click away.
-          const elsewhere = rooms.filter((r) => !layout.placed.has(r.slug));
+          // wander, or rite. Only listed once the player has actually been there.
+          const elsewhere = rooms.filter((r) => !layout.placed.has(r.slug) && isVisited(r.slug));
           if (elsewhere.length === 0) return null;
+
           return (
             <div className="border-t border-border px-4 py-2 max-h-24 overflow-y-auto scrollbar-thin">
               <span className="font-mono text-[9px] uppercase tracking-widest text-ash mr-2">Elsewhere — off the charted roads:</span>
