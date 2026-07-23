@@ -754,6 +754,17 @@ Deno.serve(async (req) => {
             });
           }
           await admin.from("player_items").delete().eq("user_id", user.id);
+          // Dismiss any companion — send them back to their home room.
+          if (profile.companion_npc_id) {
+            const { data: comp } = await admin.from("npcs").select("name, home_room").eq("id", profile.companion_npc_id).maybeSingle();
+            if (comp?.home_room) {
+              await admin.from("npcs").update({ room: comp.home_room }).eq("id", profile.companion_npc_id);
+              await admin.from("messages").insert({
+                room: profile.current_room, user_id: null, author_name: "—", kind: "system",
+                content: `✶ With ${me.name} fallen, ${comp.name} slips away into the dark, bound for old ground.`,
+              });
+            }
+          }
           await admin.from("profiles").update({
             downed: false, downed_at: null, downed_combat_id: null,
             dead: false, dead_at: null, death_room: null,
