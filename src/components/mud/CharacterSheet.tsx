@@ -457,7 +457,38 @@ export function CharacterSheet({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={awakeningOpen} onOpenChange={(o) => !awakening && setAwakeningOpen(o)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-display text-emerald-200 flex items-center gap-2">
+              <Sparkles className="w-4 h-4" /> The Mirror of Becoming
+            </DialogTitle>
+            <DialogDescription className="font-body text-ash leading-relaxed">
+              You have walked far enough that the road offers a second name. Choose the shape your practice will take — this cannot be unchosen.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            {(classMeta?.awakenings ?? []).map((aw) => (
+              <button
+                key={aw.key}
+                onClick={() => awaken(aw.key)}
+                disabled={!!awakening}
+                className="w-full text-left border border-border hover:border-emerald-400/60 hover:bg-emerald-500/5 rounded p-3 transition-colors disabled:opacity-50"
+              >
+                <div className="font-display text-base text-parchment flex items-center justify-between">
+                  <span>{aw.name}</span>
+                  {awakening === aw.key && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                </div>
+                <p className="text-xs text-whisper italic leading-snug mt-1">{aw.flavor}</p>
+              </button>
+            ))}
+            {!classMeta && <p className="text-xs text-ash italic">The mirror is still clouded…</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
+
   );
 }
 
