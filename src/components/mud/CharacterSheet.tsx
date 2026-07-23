@@ -22,7 +22,18 @@ interface SheetProfile {
   char_description: string | null;
   portrait_variants?: Record<string, string> | null;
   last_damage_kind?: string | null;
+  class_key?: string | null;
+  awakened_class?: string | null;
+  awakening_available?: boolean;
+  unique_attribute?: { name?: string; description?: string; effect_note?: string } | null;
 }
+
+type ClassMeta = {
+  key: string;
+  name: string;
+  awakenings: Array<{ key: string; name: string; flavor: string }>;
+};
+
 
 type WoundState = "healthy" | "scratched" | "wounded" | "bloodied";
 function woundStateFor(hp: number, maxHp: number): WoundState {
@@ -96,11 +107,34 @@ export function CharacterSheet({
   const [nameDraft, setNameDraft] = useState(profile.username);
   const [renaming, setRenaming] = useState(false);
   const [aetherMark, setAetherMark] = useState<{ key: string; name: string; glyph: string; domain: string } | null>(null);
+  const [classMeta, setClassMeta] = useState<ClassMeta | null>(null);
+  const [awakeningOpen, setAwakeningOpen] = useState(false);
+  const [awakening, setAwakening] = useState<string | null>(null);
   useEffect(() => {
     if (!profile.aether) { setAetherMark(null); return; }
     supabase.from("aethers").select("key,name,glyph,domain").eq("key", profile.aether).maybeSingle()
       .then(({ data }) => { if (data) setAetherMark(data as any); });
   }, [profile.aether]);
+  useEffect(() => {
+    if (!profile.class_key) { setClassMeta(null); return; }
+    supabase.from("class_defs").select("key,name,awakenings").eq("key", profile.class_key).maybeSingle()
+      .then(({ data }) => { if (data) setClassMeta(data as unknown as ClassMeta); });
+  }, [profile.class_key]);
+
+  const awaken = async (awakened_key: string) => {
+    setAwakening(awakened_key);
+    try {
+      const { data, error } = await supabase.functions.invoke("awaken-class", { body: { awakened_key } });
+      if (error || (data as any)?.error) throw new Error((data as any)?.error ?? error?.message);
+      const uniqueName = (data as any)?.unique?.name ?? "your signature";
+      toast.success(`Awakened. A new name is written on your bones — ${uniqueName}.`);
+      setAwakeningOpen(false);
+      onProfileChange?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "The mirror refuses.");
+    } finally { setAwakening(null); }
+  };
+
   const equipped = inventory.filter(i => i.equipped_slot);
   const findSlot = (slot: string) => equipped.find(i => i.equipped_slot === slot);
 
@@ -356,9 +390,48 @@ export function CharacterSheet({
                 </div>
               </TabsContent>
 
-              <TabsContent value="skills" className="mt-4">
+              <TabsContent value="skills" className="mt-4 space-y-4">
+                {(classMeta || profile.unique_attribute || profile.awakening_available) && (
+                  <div className="border border-emerald-500/40 bg-emerald-950/10 rounded-md p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-mono text-[10px] uppercase tracking-widest text-emerald-300/80">Class</div>
+                        <div className="font-display text-base text-parchment">
+                          {profile.awakened_class ? profile.awakened_class.replace(/-/g, " ") : (classMeta?.name ?? profile.class_key ?? "unchosen")}
+                        </div>
+                      </div>
+                      {profile.awakening_available && !profile.awakened_class && (
+                        <button
+                          onClick={() => setAwakeningOpen(true)}
+                          className="font-mono text-[10px] uppercase tracking-widest border border-emerald-400/60 text-emerald-200 hover:bg-emerald-500/10 px-2.5 py-1.5 transition-colors flex items-center gap-1.5"
+                        >
+                          <Sparkles className="w-3 h-3" /> seek the mirror of becoming
+                        </button>
+                      )}
+                    </div>
+                    {profile.unique_attribute?.name && (
+                      <div className="mt-2 pt-2 border-t border-emerald-500/20">
+                        <div className="font-mono text-[10px] uppercase tracking-widest text-emerald-300/80">Signature</div>
+                        <div className="font-display text-sm text-parchment">{profile.unique_attribute.name}</div>
+                        {profile.unique_attribute.description && (
+                          <p className="text-xs text-whisper italic leading-snug mt-1">{profile.unique_attribute.description}</p>
+                        )}
+                        {profile.unique_attribute.effect_note && (
+                          <p className="text-[11px] text-emerald-200/70 mt-1">{profile.unique_attribute.effect_note}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {userId ? (
-                  <SkillTreePanel userId={userId} talentPoints={talentPoints ?? 0} onChanged={() => onProfileChange?.()} />
+                  <SkillTreePanel
+                    userId={userId}
+                    talentPoints={talentPoints ?? 0}
+                    classKey={profile.class_key ?? null}
+                    className={classMeta?.name ?? null}
+                    onChanged={() => onProfileChange?.()}
+                  />
+
                 ) : (
                   <p className="text-xs text-ash italic">Sign in to spend your talents.</p>
                 )}
@@ -384,7 +457,38 @@ export function CharacterSheet({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={awakeningOpen} onOpenChange={(o) => !awakening && setAwakeningOpen(o)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-display text-emerald-200 flex items-center gap-2">
+              <Sparkles className="w-4 h-4" /> The Mirror of Becoming
+            </DialogTitle>
+            <DialogDescription className="font-body text-ash leading-relaxed">
+              You have walked far enough that the road offers a second name. Choose the shape your practice will take — this cannot be unchosen.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            {(classMeta?.awakenings ?? []).map((aw) => (
+              <button
+                key={aw.key}
+                onClick={() => awaken(aw.key)}
+                disabled={!!awakening}
+                className="w-full text-left border border-border hover:border-emerald-400/60 hover:bg-emerald-500/5 rounded p-3 transition-colors disabled:opacity-50"
+              >
+                <div className="font-display text-base text-parchment flex items-center justify-between">
+                  <span>{aw.name}</span>
+                  {awakening === aw.key && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                </div>
+                <p className="text-xs text-whisper italic leading-snug mt-1">{aw.flavor}</p>
+              </button>
+            ))}
+            {!classMeta && <p className="text-xs text-ash italic">The mirror is still clouded…</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
+
   );
 }
 

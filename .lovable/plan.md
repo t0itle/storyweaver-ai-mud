@@ -1,51 +1,67 @@
-## First Walker onboarding — diegetic
+# Character Creation Overhaul + Class System
 
-Goal: no new player permadies without ever hearing the word **Sana**. Everything happens through an NPC who speaks to you in-fiction. The only new UI is one line in the existing Vows tab so a player who ignores the guide can still find the thread.
+Three connected pieces: (1) split creation into one-attribute-per-screen, (2) add a Class step with 12 starting classes and per-class skill trees, (3) add an Awakening evolution at level 15 with a generated unique attribute.
 
-### The four beats
+## 1. Multi-screen Character Creation
 
-```text
-Step 1  Wake              You spawn on Crescent Shore. A stranger — the First Walker's Mirror — is already there and speaks first.
-Step 2  Word of Sana      Ask/accept the lesson. Mirror teaches the WORD "sana" (writes to player_lesser_rune_knowledge.knows_word).
-Step 3  Shape of Sana     Mirror traces the sigil in wet sand; a single guided trace pass grants knows_symbol = true.
-Step 4  First blood       Mirror points you at a weak shore-crab / driftwake NPC in an adjacent room; killing anything counts.
-Step 5  The Sigils        Mirror tells you to walk north to the First City. Reaching first-city-gate closes the chain.
-```
+Rewrite `src/components/mud/CharacterCreation.tsx` into a stepper. Each step is one focused screen with back/next, keyboard support (Enter to advance), and a progress bar (Step X of Y).
 
-No hand-holding overlays, no arrows, no forced modals — just the Mirror talking, and the Vows tab quietly showing the current beat.
+Screens, in order:
 
-### Diegetic surface
+1. **Name** — single input, min 2 chars, uniqueness check on blur.
+2. **Gender** — Woman / Man (keeps the current 2-option rule).
+3. **Race** — the existing race grid, one per screen (visual chooser).
+4. **Class** — the new 12-class chooser (see §2 below), with class flavor + starting talent hint.
+5. **Description** — freeform (min 8 chars, same rules as today's field).
+6. **Starting direction** — north/south/east/west flavor choice (already collected today, kept for the journal line).
+7. **Review + Awaken** — summary card, then a single "Step onto the road" button that calls `create-character`.
 
-- **New shore Mirror NPC** (`onboarding-mirror`) spawned in `crescent-shore`, greets any player whose onboarding step < 5 the moment they arrive (reuses the throttle pattern from `mirror-greet`).
-- **Ask chips on this NPC**: "What is this place?", "Teach me Sana", "Show me the sigil", "Where do I go?" — the same quick-ask UI already used for Aether Mirrors.
-- **Vows tab** gets a compact "First Steps" card above the Aether/Chaos chains showing the current beat's one-line hint. Dismisses itself when step 5 completes.
+State lives in one `useReducer` in the component; nothing is persisted server-side until step 7 submits (matches today's behavior). Portrait generation still happens once, at submit.
 
-### Wiring into existing systems
+## 2. 12 Classes + Class Skill Trees
 
-- `handle_new_user` trigger seeds `onboarding_progress(user_id, step=1)`.
-- `combat-action` on any `npc_killed` by an onboarding player bumps step 3→4.
-- Room-entry (already tracked in `GameClient`) calls `onboarding-tick` when `current_room = 'first-city-gate'` to close step 4→5.
-- The Sana lesson uses the existing `player_lesser_rune_knowledge` row for `rune_key='sana'` so `DeathSaveModal` "knows" check just works — no changes to death code.
+Twelve starting classes, each with its own 8-node skill tree that sits *alongside* the existing Steel/Whisper/Sigil branches (the "normal" tree stays untouched — class trees are a fourth column that shows only your class).
 
-### Technical
+Classes: **Warrior, Mage, Monk, Paladin, Ranger, Rogue, Summoner, Gambler, Bard, Alchemist, Necromancer, Runewright**.
 
-**Migration** (single file):
-- `onboarding_progress(user_id uuid PK → auth.users, step int not null default 1, updated_at timestamptz)` + GRANTs + RLS own-row select/update + `updated_at` trigger.
-- Insert one NPC row into `npcs` for `onboarding-mirror` at `crescent-shore` (greeting + is_guide flag reused).
-- Extend `handle_new_user` to also insert the onboarding row.
+Data model (new migration):
 
-**New edge function** `onboarding-tick` — actions `list` / `advance { to }` / `learn_word` / `learn_symbol`. Validates JWT, never lets step go backward, idempotent.
+- `class_defs` — key, name, tagline, flavor, starting_hp_mod, starting_kit (jsonb: items granted at creation), awakening_quest_key.
+- `class_skill_nodes` — same shape as `skill_nodes` but scoped by `class_key`; tiers 1–4, gated the same way (1 → 2 → 3 → capstone).
+- `player_class_skills` — user_id, node_key. Uses the same `talent_points` pool as today.
+- `profiles.class_key TEXT` — set at creation, immutable except via Awakening.
 
-**Edits**:
-- `combat-action/index.ts` — after a successful `npc_killed`, if actor is on step ≤ 3, set step = 4.
-- `GameClient.tsx` — on room enter, if room = `first-city-gate` and step = 4, call `onboarding-tick { advance: 5 }`.
-- `QuestsPanel.tsx` — add "First Steps" card at the top of the Vows tab, driven by `onboarding_progress`.
-- Reuse the Mirror NPC quick-ask chip code already in `GameClient.tsx` — extend the branch so it recognises `onboarding-mirror` too.
+`spend-talent` extends to accept either a normal node key or a class node key (looks up in both tables). Same gating logic, same balance check.
 
-### Out of scope
+`SkillTreePanel.tsx` grows a fourth column titled with the player's class name, rendered only when `profile.class_key` is set. `usePlayerSkills` fetches both node sets in parallel.
 
-Weather, SFX, tab-complete, clickable keywords, fog-of-war, P2P trade, leaderboard — parked. Deploy/cron audit is a separate ~5-minute task I'll do right after this if you want.
+## 3. Awakening at Level 15
 
-### One thing to confirm
+When a player hits level 15, the existing `handle_profile_xp_change` trigger flags `profiles.awakening_available = true` and posts a system message: *"Something is stirring in you. Seek the Mirror of Becoming."*
 
-New players currently spawn at `crescent-shore`, and `first-city-gate` is a few rooms north. That geography works for a diegetic "walk toward the sigils" beat. If you'd rather spawn onboarding players directly at `gates-approach` (one step south of the First City gate) so step 5 is a single move, say the word and I'll shorten it.
+- New NPC per capital: **Mirror of Becoming** (reuses the existing mirror-well rooms). Talking to it while `awakening_available` opens a modal listing 2 evolved forms per class (e.g. Warrior → Warlord / Blade Saint; Summoner → Beastlord / Voidcaller).
+- Choosing one starts an **Awakening Quest** — a scripted 3-step quest inserted into `quests` (kill/collect/deliver, class-flavored). Standard quest UI, no new systems.
+- On quest completion, `quest-award` calls the new edge function **`awaken-class`**:
+  - Sets `profiles.awakened_class TEXT` and `profiles.awakened_at`.
+  - Grants the awakened class's capstone node for free.
+  - Calls Lovable AI (`google/gemini-2.5-flash`, cheap text) once to generate the player's **unique attribute** — a 2-sentence signature ability tailored to their `char_description` + chosen awakened form. Stored in `profiles.unique_attribute JSONB` `{ name, description, effect_note }`.
+  - The unique attribute displays on the Character Sheet as a glowing "Signature" card. It is flavor + a small mechanical hook (a re-roll, a +N to a specific check, an environmental interaction) — kept narrow so it doesn't destabilize combat.
+
+Awakening is one-shot per character. `unique_attribute` is generated once and cached; players can re-read but not re-roll.
+
+## Technical Details
+
+- Migration order: `class_defs` → seed 12 classes → `class_skill_nodes` → seed 96 nodes (8 per class) → `player_class_skills` → profile columns (`class_key`, `awakened_class`, `awakened_at`, `awakening_available`, `unique_attribute`).
+- All new public tables get `GRANT SELECT` to authenticated, `GRANT ALL` to service_role, RLS enabled, and a `has_role`-style policy where writes are service-only (edge functions do them).
+- `create-character` accepts `class_key`, validates it, writes it to the profile, and inserts the class's starting kit into `player_items`.
+- `spend-talent` unified lookup: try `skill_nodes` first, then `class_skill_nodes`; branch/tier gating uses whichever set the node lives in.
+- Awakening quest content lives in seed data so it can be tuned without code changes.
+- No changes to combat, movement, or the map.
+
+## Out of scope for this pass
+
+- Class balance tuning (starter numbers, refine later).
+- Awakened forms beyond 2 per class (can grow).
+- Class-locked equipment (all gear remains class-neutral for now).
+
+Say the word and I'll ship it. This is a big one — I'd suggest breaking delivery into three PRs matching §1, §2, §3, but I can do it all in one go if you'd rather.

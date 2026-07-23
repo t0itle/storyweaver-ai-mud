@@ -24,29 +24,49 @@ Deno.serve(async (req) => {
 
     const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    const [{ data: node }, { data: profile }, { data: owned }] = await Promise.all([
+    // Look up node in either the general or class tree.
+    const [{ data: generalNode }, { data: classNode }, { data: profile }] = await Promise.all([
       admin.from("skill_nodes").select("key, branch, tier").eq("key", nodeKey).maybeSingle(),
-      admin.from("profiles").select("talent_points, username").eq("id", user.id).maybeSingle(),
-      admin.from("player_skills").select("node_key").eq("user_id", user.id),
+      admin.from("class_skill_nodes").select("key, class_key, tier").eq("key", nodeKey).maybeSingle(),
+      admin.from("profiles").select("talent_points, username, class_key").eq("id", user.id).maybeSingle(),
     ]);
-
+    const node = generalNode ?? classNode;
+    const isClassNode = !generalNode && !!classNode;
     if (!node) return new Response(JSON.stringify({ error: "unknown node" }), { status: 400, headers: corsHeaders });
     if (!profile) return new Response(JSON.stringify({ error: "no profile" }), { status: 400, headers: corsHeaders });
 
-    const ownedKeys = new Set((owned ?? []).map((r: any) => r.node_key));
-    if (ownedKeys.has(nodeKey)) {
+    if (isClassNode && classNode!.class_key !== profile.class_key) {
+      return new Response(JSON.stringify({ error: "not your class" }), { status: 400, headers: corsHeaders });
+    }
+
+    // Gather owned keys from BOTH trees, plus branch/tier members for gating.
+    const [{ data: ownedGen }, { data: ownedCls }] = await Promise.all([
+      admin.from("player_skills").select("node_key").eq("user_id", user.id),
+      admin.from("player_class_skills").select("node_key").eq("user_id", user.id),
+    ]);
+    const ownedGenKeys = new Set((ownedGen ?? []).map((r: any) => r.node_key));
+    const ownedClsKeys = new Set((ownedCls ?? []).map((r: any) => r.node_key));
+    if (ownedGenKeys.has(nodeKey) || ownedClsKeys.has(nodeKey)) {
       return new Response(JSON.stringify({ error: "already taken" }), { status: 400, headers: corsHeaders });
     }
     if ((profile.talent_points ?? 0) < 1) {
       return new Response(JSON.stringify({ error: "no talent points" }), { status: 400, headers: corsHeaders });
     }
 
-    // Gating: how many points already in this branch?
-    const { data: branchNodes } = await admin
-      .from("skill_nodes").select("key, tier").eq("branch", node.branch);
-    const inBranch = (branchNodes ?? []).filter((n: any) => ownedKeys.has(n.key));
-    const inBranchCount = inBranch.length;
-    const inLowerTiers = inBranch.filter((n: any) => n.tier < node.tier).length;
+    let inBranchCount = 0, inLowerTiers = 0;
+    if (isClassNode) {
+      const { data: siblings } = await admin
+        .from("class_skill_nodes").select("key, tier").eq("class_key", classNode!.class_key);
+      const mine = (siblings ?? []).filter((n: any) => ownedClsKeys.has(n.key));
+      inBranchCount = mine.length;
+      inLowerTiers = mine.filter((n: any) => n.tier < node.tier).length;
+    } else {
+      const { data: siblings } = await admin
+        .from("skill_nodes").select("key, tier").eq("branch", (generalNode as any).branch);
+      const mine = (siblings ?? []).filter((n: any) => ownedGenKeys.has(n.key));
+      inBranchCount = mine.length;
+      inLowerTiers = mine.filter((n: any) => n.tier < node.tier).length;
+    }
 
     let needLower = 0;
     if (node.tier === 2) needLower = 1;
@@ -62,7 +82,9 @@ Deno.serve(async (req) => {
     }
 
     // Spend
-    const { error: insErr } = await admin.from("player_skills").insert({ user_id: user.id, node_key: nodeKey });
+    const table = isClassNode ? "player_class_skills" : "player_skills";
+    const { error: insErr } = await admin.from(table).insert({ user_id: user.id, node_key: nodeKey });
+
     if (insErr) return new Response(JSON.stringify({ error: insErr.message }), { status: 500, headers: corsHeaders });
 
     const { error: updErr } = await admin.from("profiles")
