@@ -274,8 +274,9 @@ export function WorldMapModal({
             <MapIcon className="w-4 h-4 text-ember" />
             <h2 className="font-display text-lg text-parchment">The Charted World</h2>
             <span className="font-mono text-[10px] text-ash uppercase tracking-widest hidden sm:inline">
-              {layout.placed.size} places · click to set out
+              {visibleCount} of {layout.placed.size} charted · click to set out
             </span>
+
           </div>
           <button onClick={onClose} className="text-ash hover:text-parchment"><X className="w-4 h-4" /></button>
         </div>
