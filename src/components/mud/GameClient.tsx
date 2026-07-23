@@ -450,6 +450,20 @@ export default function GameClient({ session }: { session: Session }) {
     finally { setReviving(false); }
   };
 
+  // Load crafting stations + gather nodes for current room
+  useEffect(() => {
+    if (!profile) return;
+    const slug = profile.current_room;
+    (async () => {
+      const [{ data: st }, { data: nd }] = await Promise.all([
+        supabase.from("crafting_stations").select("key,kind,name,description").eq("room_slug", slug),
+        supabase.from("resource_nodes").select("id,kind,skill,requires_tool,depleted_until").eq("room_slug", slug),
+      ]);
+      setStationsHere((st ?? []) as any);
+      setNodesHere((nd ?? []) as any);
+    })();
+  }, [profile?.current_room]);
+
   // Load room + npcs + history when room changes
   useEffect(() => {
     if (!profile) return;
