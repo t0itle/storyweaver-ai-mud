@@ -1936,8 +1936,10 @@ export default function GameClient({ session }: { session: Session }) {
               onOpenFull={() => setWorldMapOpen(true)}
               desertDepth={profile.desert_depth ?? 0}
               desertLost={(profile.desert_bearing ?? 0) === 1}
+              visited={visitedRooms}
             />
           )}
+
           <div className="hidden md:block">
             <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Exits</h3>
             <div className="flex flex-wrap gap-1.5">
