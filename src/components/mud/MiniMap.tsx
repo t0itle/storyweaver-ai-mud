@@ -283,7 +283,7 @@ export function WorldMapModal({
 
         <div ref={scrollRef} className="flex-1 overflow-auto scrollbar-thin bg-background/60">
           <svg width={width} height={height} className="block">
-            {layout.edges.filter((e) => isEdgeDrawable(layout, e)).map((e, i) => {
+            {layout.edges.filter((e) => isEdgeDrawable(layout, e) && isVisible(e.from) && isVisible(e.to)).map((e, i) => {
               const a = layout.placed.get(e.from)!;
               const b = layout.placed.get(e.to)!;
               return (
@@ -294,7 +294,9 @@ export function WorldMapModal({
             {[...layout.placed.values()].map((p) => {
               const r = bySlug.get(p.slug);
               if (!r) return null;
+              if (!isVisible(p.slug)) return null;
               const isHere = p.slug === currentSlug;
+              const frontier = isFrontier(p.slug);
               const dir = adjacent.get(p.slug);
               const locked = !!r.requires_faction;
               return (
@@ -304,19 +306,25 @@ export function WorldMapModal({
                     if (isHere) return;
                     onClose();
                     if (dir) onGo(`go ${dir}`);
-                    else onTravel(r.slug, r.name);
+                    else if (!frontier) onTravel(r.slug, r.name);
                   }}
                 >
                   <rect
                     x={px(p.x) - W_NODE / 2} y={py(p.y) - W_NODE / 2}
                     width={W_NODE} height={W_NODE} rx={4}
-                    fill={isHere ? "hsl(var(--ember))" : kindColor(r.kind, r.town_key)}
-                    opacity={locked && !isHere ? 0.45 : 0.95}
-                    stroke={isHere ? "hsl(40 30% 85%)" : "hsl(30 8% 15%)"}
+                    fill={isHere ? "hsl(var(--ember))" : frontier ? "hsl(30 6% 22%)" : kindColor(r.kind, r.town_key)}
+                    opacity={frontier ? 0.7 : locked && !isHere ? 0.45 : 0.95}
+                    stroke={isHere ? "hsl(40 30% 85%)" : frontier ? "hsl(30 8% 40%)" : "hsl(30 8% 15%)"}
+                    strokeDasharray={frontier ? "3 3" : undefined}
                     strokeWidth={isHere ? 2 : 1}
                   >
-                    <title>{r.name}{locked ? " (sealed to outsiders)" : ""}</title>
+                    <title>{frontier
+                      ? `Unexplored — ${dir ? `go ${dir} to discover` : "walk here to discover"}`
+                      : `${r.name}${locked ? " (sealed to outsiders)" : ""}`}</title>
                   </rect>
+                  {frontier && (
+                    <text x={px(p.x)} y={py(p.y) + 5} textAnchor="middle" fontSize={14} fill="hsl(30 10% 60%)" className="font-mono pointer-events-none">?</text>
+                  )}
                   {isHere && (
                     <rect x={px(p.x) - W_NODE / 2 - 4} y={py(p.y) - W_NODE / 2 - 4}
                       width={W_NODE + 8} height={W_NODE + 8} rx={6}
@@ -324,10 +332,10 @@ export function WorldMapModal({
                       <animate attributeName="opacity" values="0.8;0.2;0.8" dur="2s" repeatCount="indefinite" />
                     </rect>
                   )}
-                  {locked && !isHere && (
+                  {locked && !isHere && !frontier && (
                     <text x={px(p.x)} y={py(p.y) + 5} textAnchor="middle" fontSize={13} fill="hsl(40 30% 80%)">⚿</text>
                   )}
-                  {(isHere || labeled(r)) && (
+                  {!frontier && (isHere || labeled(r)) && (
                     <text
                       x={px(p.x)} y={py(p.y) + W_NODE / 2 + 11}
                       textAnchor="middle" fontSize={9}
@@ -340,6 +348,7 @@ export function WorldMapModal({
                 </g>
               );
             })}
+
           </svg>
         </div>
 
