@@ -17,6 +17,7 @@ const RADIUS = 3;      // rooms shown out to N steps → 7×7 viewport
 
 export function MiniMap({
   rooms, currentSlug, currentExits, onGo, onTravel, onOpenFull, desertDepth = 0, desertLost = false,
+  visited,
 }: {
   rooms: MapRoom[];
   currentSlug: string;
@@ -27,6 +28,8 @@ export function MiniMap({
   onOpenFull: () => void;
   desertDepth?: number;
   desertLost?: boolean;
+  /** Slugs the player has personally set foot in. When omitted, everything is treated as visited. */
+  visited?: Set<string>;
 }) {
   const layout = useMemo(() => buildMapLayout(rooms, currentSlug, RADIUS), [rooms, currentSlug]);
   const bySlug = useMemo(() => new Map(rooms.map((r) => [r.slug, r])), [rooms]);
@@ -39,6 +42,20 @@ export function MiniMap({
   const px = (x: number) => mid + x * CELL;
   const py = (y: number) => mid + y * CELL;
 
+  // Fog-of-war: a placed room is drawn if the player has visited it OR it's
+  // one step from a visited room (the frontier — rendered as an unknown "?").
+  const visitedSet = visited ?? null;
+  const isVisited = (slug: string) => !visitedSet || visitedSet.has(slug);
+  const isFrontier = (slug: string) => {
+    if (!visitedSet || visitedSet.has(slug)) return false;
+    for (const e of layout.edges) {
+      if (e.from === slug && visitedSet.has(e.to)) return true;
+      if (e.to === slug && visitedSet.has(e.from)) return true;
+    }
+    return false;
+  };
+  const isVisible = (slug: string) => isVisited(slug) || isFrontier(slug);
+
   // Which compass dirs walk to an adjacent placed room (for click targets).
   const dirBySlug = new Map<string, string>();
   for (const [dir, to] of Object.entries(currentExits ?? {})) {
@@ -49,6 +66,7 @@ export function MiniMap({
   const wanderDirs = isDesert
     ? Object.keys(COMPASS_VECTORS).filter((d) => currentSlug === "deep-desert" || !currentExits?.[d])
     : [];
+
 
   return (
     <div>
