@@ -1056,15 +1056,56 @@ Deno.serve(async (req) => {
         await pushAction(combatId, combat.turn_number, user.id, me.name, "flee", null,
           `${me.name} tries to flee — and stumbles. The enemy lashes out!`);
         await advanceTurn(combatId);
-      } else {
-        await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
-        await admin.from("profiles").update({ in_combat_id: null }).eq("id", user.id);
-        await pushAction(combatId, combat.turn_number, user.id, me.name, "flee", null,
-          `${me.name} breaks away from the fight.`);
-        await advanceTurn(combatId);
+        return ok({ ok: true, fled: false });
       }
-      return ok({ ok: true });
+
+      // Successful flee — bolt into a random adjacent room.
+      const { data: hereRoom } = await admin.from("rooms")
+        .select("exits, name").eq("slug", profile.current_room).maybeSingle();
+      const exitMap = (hereRoom?.exits ?? {}) as Record<string, string>;
+      const exitEntries = Object.entries(exitMap).filter(([, to]) => !!to && typeof to === "string");
+
+      let escapeRoom = profile.current_room as string;
+      let escapeDir: string | null = null;
+      let escapeName: string | null = null;
+      if (exitEntries.length > 0) {
+        // Prefer exits without a live aggro NPC waiting on the other side.
+        const candidateSlugs = exitEntries.map(([, to]) => to as string);
+        const { data: hostiles } = await admin.from("npcs")
+          .select("room").in("room", candidateSlugs)
+          .or("aggro_on_sight.eq.true,is_boss.eq.true")
+          .is("dead_until", null);
+        const hostileRooms = new Set((hostiles ?? []).map((n: any) => n.room));
+        const safe = exitEntries.filter(([, to]) => !hostileRooms.has(to as string));
+        const pool = safe.length > 0 ? safe : exitEntries;
+        const [dir, to] = pool[Math.floor(Math.random() * pool.length)];
+        escapeRoom = to as string; escapeDir = dir;
+        const { data: dest } = await admin.from("rooms").select("name").eq("slug", escapeRoom).maybeSingle();
+        escapeName = (dest?.name as string) ?? escapeRoom;
+      }
+
+      await admin.from("combatants").update({ defeated: true }).eq("id", me.id);
+      await admin.from("profiles").update({
+        in_combat_id: null,
+        current_room: escapeRoom,
+      }).eq("id", user.id);
+
+      await pushAction(combatId, combat.turn_number, user.id, me.name, "flee", null,
+        escapeDir
+          ? `${me.name} breaks away and bolts ${escapeDir} into ${escapeName}!`
+          : `${me.name} breaks away from the fight.`);
+
+      if (escapeDir && escapeRoom !== profile.current_room) {
+        await admin.from("messages").insert({
+          room: escapeRoom, user_id: null, author_name: "—", kind: "system",
+          content: `↯ ${me.name} stumbles in from the ${escapeDir === "north" ? "south" : escapeDir === "south" ? "north" : escapeDir === "east" ? "west" : escapeDir === "west" ? "east" : "way behind"}, breath ragged — fleeing a fight.`,
+        });
+      }
+
+      await advanceTurn(combatId);
+      return ok({ ok: true, fled: true, room: escapeRoom, dir: escapeDir });
     }
+
 
     return ok({ error: "Unknown action" }, 400);
   } catch (e) {
