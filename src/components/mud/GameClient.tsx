@@ -184,7 +184,9 @@ export default function GameClient({ session }: { session: Session }) {
   const [cacheClaimed, setCacheClaimed] = useState(false);
   const [roomLoot, setRoomLoot] = useState<{ id: string; gold: number; item_key: string | null; quantity: number; placed_by_name: string | null }[]>([]);
   const [worldRooms, setWorldRooms] = useState<MapRoom[]>([]);
+  const [visitedRooms, setVisitedRooms] = useState<Set<string>>(() => new Set());
   const [worldMapOpen, setWorldMapOpen] = useState(false);
+
   const [bucket, setBucket] = useState<TimeBucket>(getTimeBucket());
   const audioMode: "room" | "combat" | "rest" = profile?.in_combat_id
     ? "combat"
@@ -303,6 +305,29 @@ export default function GameClient({ session }: { session: Session }) {
       });
     return () => { cancelled = true; };
   }, [session.user.id]);
+
+  // Fog-of-war: which rooms this player has personally set foot in.
+  // Realtime-subscribed so new visits light up the map instantly.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.from("player_room_visits")
+        .select("room_slug").eq("user_id", session.user.id);
+      if (cancelled) return;
+      setVisitedRooms(new Set((data ?? []).map((r: any) => r.room_slug as string)));
+    })();
+    const ch = supabase.channel(`visits:${session.user.id}`)
+      .on("postgres_changes",
+        { event: "INSERT", schema: "public", table: "player_room_visits", filter: `user_id=eq.${session.user.id}` },
+        (payload) => {
+          const slug = (payload.new as any)?.room_slug as string | undefined;
+          if (!slug) return;
+          setVisitedRooms((prev) => prev.has(slug) ? prev : new Set(prev).add(slug));
+        })
+      .subscribe();
+    return () => { cancelled = true; supabase.removeChannel(ch); };
+  }, [session.user.id]);
+
 
   // Quests realtime
   useEffect(() => {
@@ -1911,8 +1936,10 @@ export default function GameClient({ session }: { session: Session }) {
               onOpenFull={() => setWorldMapOpen(true)}
               desertDepth={profile.desert_depth ?? 0}
               desertLost={(profile.desert_bearing ?? 0) === 1}
+              visited={visitedRooms}
             />
           )}
+
           <div className="hidden md:block">
             <h3 className="font-mono text-[10px] uppercase tracking-widest text-ash mb-2">Exits</h3>
             <div className="flex flex-wrap gap-1.5">
@@ -2193,7 +2220,9 @@ export default function GameClient({ session }: { session: Session }) {
         onClose={() => setWorldMapOpen(false)}
         onGo={(cmd) => handleCommand(cmd)}
         onTravel={travelTo}
+        visited={visitedRooms}
       />
+
     </div>
   );
 }

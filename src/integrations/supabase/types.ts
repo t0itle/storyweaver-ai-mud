@@ -1753,6 +1753,24 @@ export type Database = {
         }
         Relationships: []
       }
+      player_room_visits: {
+        Row: {
+          first_visited_at: string
+          room_slug: string
+          user_id: string
+        }
+        Insert: {
+          first_visited_at?: string
+          room_slug: string
+          user_id: string
+        }
+        Update: {
+          first_visited_at?: string
+          room_slug?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       player_rune_solves: {
         Row: {
           effect_id: string
