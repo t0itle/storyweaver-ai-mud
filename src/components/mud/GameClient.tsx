@@ -1065,17 +1065,24 @@ export default function GameClient({ session }: { session: Session }) {
     if (!profile?.companion_npc_id) {
       setMessages((m) => [...m, localSys(`No one travels with you.`)]); return;
     }
+    const companionId = profile.companion_npc_id;
     const { data: comp } = await supabase.from("npcs")
-      .select("name, home_room").eq("id", profile.companion_npc_id).maybeSingle();
+      .select("name, home_room").eq("id", companionId).maybeSingle();
     await supabase.from("profiles").update({ companion_npc_id: null }).eq("id", profile.id);
+    // Send the former companion back to their home room so they stop being
+    // painted into the player's scene wherever they were last dropped.
+    if (comp?.home_room) {
+      await supabase.from("npcs").update({ room: comp.home_room }).eq("id", companionId);
+    }
     setProfile({ ...profile, companion_npc_id: null });
     if (comp) {
       await supabase.from("messages").insert({
         room: profile.current_room, author_name: "—", kind: "ambient",
-        content: `*${comp.name} nods, parting ways with ${profile.username}.*`, user_id: null,
+        content: `*${comp.name} nods, parting ways with ${profile.username}, and turns back toward ${comp.home_room ?? "the road"}.*`, user_id: null,
       });
     }
   };
+
 
   const handleCommand = async (raw: string) => {
     const text = raw.trim();
