@@ -242,6 +242,20 @@ export function WorldMapModal({
   const labeled = (r: MapRoom) =>
     !!r.town_key || r.kind === "gate" || r.kind === "temple" || r.kind === "desert";
 
+  // Fog-of-war for the world atlas — mirror the mini-map rules.
+  const visitedSet = visited ?? null;
+  const isVisited = (slug: string) => !visitedSet || visitedSet.has(slug);
+  const isFrontier = (slug: string) => {
+    if (!visitedSet || visitedSet.has(slug)) return false;
+    for (const e of layout.edges) {
+      if (e.from === slug && visitedSet.has(e.to)) return true;
+      if (e.to === slug && visitedSet.has(e.from)) return true;
+    }
+    return false;
+  };
+  const isVisible = (slug: string) => isVisited(slug) || isFrontier(slug);
+  const visibleCount = [...layout.placed.keys()].filter(isVisible).length;
+
   const LEGEND: [string, string][] = [
     ["settlement", kindColor(null, "x")],
     ["road / gate", kindColor("road")],
@@ -250,6 +264,7 @@ export function WorldMapModal({
     ["water", kindColor("shore")],
     ["underdark", kindColor("cave")],
   ];
+
 
   return (
     <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-center justify-center p-2 sm:p-6" onClick={onClose}>
