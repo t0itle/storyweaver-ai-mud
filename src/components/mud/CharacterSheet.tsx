@@ -10,6 +10,7 @@ import type { InvItem } from "./Panels";
 import { SkillTreePanel } from "./SkillTreePanel";
 
 interface SheetProfile {
+  id?: string;
   username: string;
   race: string | null;
   level: number;
