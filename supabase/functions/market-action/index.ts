@@ -11,6 +11,7 @@
 //
 // Weight: enforced via profile.max_weight vs. sum(player_items.quantity * items.weight).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { tierUnlocked, SHOP_STOCK_CAP } from "../_shared/shopTiers.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -110,14 +111,18 @@ Deno.serve(async (req) => {
       const cats = (merchant.merchant_categories ?? []) as string[];
       // Stock = goods of merchant's categories, prefer in-town origins for variety; we cap at 60.
       const { data: goods } = await admin.from("trade_goods")
-        .select("item_key, category, origin_town_key, base_price, demand_phase, blurb, items!inner(name, weight)")
+        .select("item_key, category, origin_town_key, base_price, demand_phase, blurb, items!inner(name, weight, tier)")
         .in("category", cats)
-        .limit(800);
+        .limit(1500);
 
-      // Score: prefer origin == this town (3x), else random sample within the rest.
-      const scored = (goods ?? []).map((g: any) => ({
-        ...g, _score: (g.origin_town_key === town ? 3 : 1) * Math.random(),
-      })).sort((a: any, b: any) => b._score - a._score).slice(0, 60);
+      // Score: prefer origin == this town (3x), specialist gear boosted, hide tiers above player's rep.
+      const GEAR = ["weapon", "armor", "arcana", "provisions"];
+      const scored = (goods ?? [])
+        .filter((g: any) => tierUnlocked(g.items.tier, town_rep))
+        .map((g: any) => ({
+          ...g, _score: (g.origin_town_key === town ? 3 : 1) * (GEAR.includes(g.category) ? 2 : 1) * Math.random(),
+        })).sort((a: any, b: any) => b._score - a._score).slice(0, SHOP_STOCK_CAP)
+        .sort((a: any, b: any) => a.category.localeCompare(b.category));
 
       const stock = scored.map((g: any) => ({
         item_key: g.item_key,
