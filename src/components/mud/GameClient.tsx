@@ -1773,6 +1773,14 @@ export default function GameClient({ session }: { session: Session }) {
     );
   }
 
+  const openNpc = (n: Npc) => {
+    const firstName = n.name.split(" ")[0];
+    if (n.is_merchant) { setMarketMerchant(n.id); }
+    else if (n.is_guildmaster) { setGuildmaster(n.id); }
+    else if (n.is_bard) { setBardId(n.id); setMusicOpen(true); }
+    else { setInput(`ask ${firstName} `); inputRef.current?.focus(); }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Top bar */}
