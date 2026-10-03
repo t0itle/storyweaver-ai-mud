@@ -1523,8 +1523,10 @@ export type Database = {
       player_guild_membership: {
         Row: {
           guild_key: string
+          guild_xp: number
           initiation_quest_id: string | null
           joined_at: string | null
+          left_at: string | null
           quests_completed: number
           rank: number
           status: string
@@ -1533,8 +1535,10 @@ export type Database = {
         }
         Insert: {
           guild_key: string
+          guild_xp?: number
           initiation_quest_id?: string | null
           joined_at?: string | null
+          left_at?: string | null
           quests_completed?: number
           rank?: number
           status?: string
@@ -1543,8 +1547,10 @@ export type Database = {
         }
         Update: {
           guild_key?: string
+          guild_xp?: number
           initiation_quest_id?: string | null
           joined_at?: string | null
+          left_at?: string | null
           quests_completed?: number
           rank?: number
           status?: string
@@ -2838,6 +2844,7 @@ export type Database = {
           ambience: string | null
           description: string
           exits: Json
+          guild_hall_access: string | null
           hidden: boolean
           kind: string
           label: string
@@ -2850,6 +2857,7 @@ export type Database = {
           ambience?: string | null
           description: string
           exits?: Json
+          guild_hall_access?: string | null
           hidden?: boolean
           kind?: string
           label?: string
@@ -2862,6 +2870,7 @@ export type Database = {
           ambience?: string | null
           description?: string
           exits?: Json
+          guild_hall_access?: string | null
           hidden?: boolean
           kind?: string
           label?: string
