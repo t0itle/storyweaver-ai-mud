@@ -249,13 +249,16 @@ Deno.serve(async (req) => {
         .eq("user_id", user.id).eq("status", "active");
       if ((activeCount ?? 0) >= 5) return json({ error: "you already carry too many promises (5 max)" }, 400);
 
-      const severity = tpl.rank_required <= 0 ? "minor" : tpl.rank_required === 1 ? "standard" : "major";
+      const { data: allTpls } = await admin.from("guild_quest_templates")
+        .select("id").eq("guild_key", gm.guild_key).eq("town_key", gm.guild_town).lte("rank_required", playerRank);
+      const isWeekly = boardPicks(allTpls ?? [], `${gm.guild_key}:${gm.guild_town}:` + weekKey(), 1)[0]?.id === tpl.id;
+      const severity = isWeekly ? "major" : tpl.rank_required <= 0 ? "minor" : tpl.rank_required === 1 ? "standard" : "major";
       const { data: q, error } = await admin.from("quests").insert({
         user_id: user.id, giver_npc_id: gm.id, giver_npc_name: gm.name,
-        title: tpl.title, objective: tpl.objective, description: tpl.description,
+        title: (isWeekly ? "[Chapter Charge] " : "") + tpl.title, objective: tpl.objective, description: tpl.description,
         kind: "favor", severity, status: "active",
         target_kind: tpl.target_kind, target_ref: tpl.target_ref ?? chapter.hall_room,
-        reward_gold: tpl.reward_gold, reward_xp: tpl.reward_xp, reward_amity: 4,
+        reward_gold: tpl.reward_gold * (isWeekly ? 3 : 1), reward_xp: tpl.reward_xp * (isWeekly ? 2 : 1), reward_amity: 4,
         reward_item_key: tpl.reward_item_key, reward_rune_key: tpl.reward_rune_key,
         offered_room: chapter.hall_room,
         accepted_at: new Date().toISOString(),
