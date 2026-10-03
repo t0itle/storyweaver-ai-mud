@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { Backpack, Flame, HelpCircle, Landmark, Loader2, LogOut, Map as MapIcon, ScrollText, Users, Volume2, VolumeX, Hammer, Sparkles, ChefHat, Leaf, Pickaxe, Fish } from "lucide-react";
 import { CraftingModal } from "./CraftingModal";
@@ -1781,6 +1782,28 @@ export default function GameClient({ session }: { session: Session }) {
     else { setInput(`ask ${firstName} `); inputRef.current?.focus(); }
   };
 
+  const nameActions = (name: string): NameAction[] => {
+    const prefill = (t: string) => { setInput(t); inputRef.current?.focus(); };
+    const npc = npcs.find(n => n.name === name);
+    if (npc) {
+      const first = npc.name.split(" ")[0];
+      const acts: NameAction[] = [
+        { label: "Talk", run: () => prefill(`ask ${first} `) },
+        { label: "Examine", run: () => prefill(`examine ${first}`) },
+      ];
+      if (npc.is_merchant || npc.is_guildmaster || npc.is_bard) acts.push({ label: npc.is_merchant ? "Trade" : npc.is_guildmaster ? "Guild" : "Music", run: () => openNpc(npc) });
+      acts.push({ label: "Attack", run: () => prefill(`attack ${first}`), danger: true });
+      return acts;
+    }
+    const rm = roommates.find((r: any) => r.username === name);
+    const acts: NameAction[] = [{ label: "Reply", run: () => prefill(`say ${name}, `) }];
+    if (rm) {
+      acts.unshift({ label: "View", run: () => setPreviewPlayer(rm) });
+      acts.push({ label: "Attack", run: () => prefill(`attack ${name}`), danger: true });
+    }
+    return acts;
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Top bar */}
@@ -1959,7 +1982,7 @@ export default function GameClient({ session }: { session: Session }) {
             {profile.in_combat_id && (
               <CombatHUD combatId={profile.in_combat_id} userId={profile.id} onAct={combatAct} />
             )}
-            {messages.map((m) => <MessageLine key={m.id} m={m} you={profile.username} />)}
+            {messages.map((m) => <MessageLine key={m.id} m={m} you={profile.username} nameActions={nameActions} />)}
             {thinking && <div className="text-whisper italic typewriter">a voice gathers in the dark</div>}
           </div>
 
@@ -2448,13 +2471,35 @@ function ShadowWhisper({ content }: { content: string }) {
   );
 }
 
-function MessageLine({ m, you }: { m: Message; you: string }) {
+type NameAction = { label: string; run: () => void; danger?: boolean };
+
+function NameMenu({ name, className, actions }: { name: string; className: string; actions?: (n: string) => NameAction[] }) {
+  if (!actions) return <span className={className}>{name}</span>;
+  const list = actions(name);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className={`${className} hover:underline underline-offset-2 cursor-pointer`}>{name}</button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[10rem]">
+        <DropdownMenuLabel className="font-display">{name}</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {list.map(a => (
+          <DropdownMenuItem key={a.label} onSelect={a.run} className={a.danger ? "text-destructive" : ""}>{a.label}</DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function MessageLine({ m, you, nameActions }: { m: Message; you: string; nameActions?: (n: string) => NameAction[] }) {
   const isYou = m.author_name === you;
+  const acts = isYou ? undefined : nameActions;
   if (m.kind === "system" || m.kind === "local") {
     return <div className="text-ash italic font-mono text-xs whitespace-pre-wrap">{m.content}</div>;
   }
   if (m.kind === "emote") {
-    return <div className="text-moss italic">* {m.author_name} {m.content}</div>;
+    return <div className="text-moss italic">* <NameMenu name={m.author_name} className="" actions={acts} /> {m.content}</div>;
   }
   if (m.kind === "ambient") {
     return <div className="text-whisper italic text-sm">{m.content}</div>;
@@ -2476,7 +2521,7 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
   if (m.kind === "npc") {
     return (
       <div className="border-l-2 border-whisper/60 pl-3">
-        <span className="font-display text-whisper">{m.author_name}</span>
+        <NameMenu name={m.author_name} className="font-display text-whisper" actions={acts} />
         <span className="text-ash text-xs"> says</span>
         <p className="text-parchment whitespace-pre-line italic">"{m.content}"</p>
       </div>
@@ -2485,7 +2530,7 @@ function MessageLine({ m, you }: { m: Message; you: string }) {
   // say
   return (
     <div>
-      <span className={isYou ? "font-display text-ember" : "font-display text-accent"}>{m.author_name}</span>
+      <NameMenu name={m.author_name} className={isYou ? "font-display text-ember" : "font-display text-accent"} actions={acts} />
       <span className="text-ash text-xs"> says,</span>{" "}
       <span className="text-parchment">"{m.content}"</span>
     </div>
