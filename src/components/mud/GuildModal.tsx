@@ -148,7 +148,7 @@ export function GuildModal({ open, onClose, guildmasterId, onChanged }: Props) {
                 {data.quests.map((t) => (
                   <div key={t.id} className="flex items-center gap-2 text-xs border-b border-border/40 py-1.5">
                     <div className="flex-1 min-w-0">
-                      <div className="font-body text-parchment truncate">{t.title}</div>
+                      <div className="font-body text-parchment truncate">{t.weekly && <span className="text-ember mr-1">[Chapter Charge]</span>}{t.title}</div>
                       <div className="text-ash text-[10px]">{t.objective}</div>
                     </div>
                     <div className="text-ember font-mono whitespace-nowrap text-[10px]">
