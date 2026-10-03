@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { GuildBlock } from "./GuildBlock";
 import { Sword, Shield, Shirt, HardHat, Footprints, Circle, Gem, Wand2, Loader2, Skull, Droplet, Pencil, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -331,6 +332,7 @@ export function CharacterSheet({
               </TabsList>
 
               <TabsContent value="stats" className="space-y-4 mt-4">
+                <GuildBlock userId={profile.id} />
                 <div>
                   <div className="flex items-baseline justify-between">
                     <span className="font-mono text-[10px] uppercase tracking-widest text-ash">Experience</span>
