@@ -145,20 +145,30 @@ Deno.serve(async (req) => {
         .select("title,status,id").eq("user_id", user.id)
         .eq("source_guild", gm.guild_key).eq("source_guild_town", gm.guild_town)
         .in("status", ["offered", "active"]);
-      const usedTitles = new Set((activeGuildQuests ?? []).map((q: any) => q.title));
-      const availableQuests = (tpls ?? []).filter((t: any) =>
-        !usedTitles.has(t.title) && isMember);
+      const usedTitles = new Set((activeGuildQuests ?? []).map((q: any) => q.title.replace(/^\[Chapter Charge\] /, "")));
+      const pool = (tpls ?? []).filter((t: any) => !usedTitles.has(t.title) && isMember);
+      const seed = `${gm.guild_key}:${gm.guild_town}:`;
+      const weekly = boardPicks(tpls ?? [], seed + weekKey(), 1).map((t: any) => ({
+        ...t, weekly: true, reward_gold: t.reward_gold * 3, reward_xp: t.reward_xp * 2,
+      })).filter((t: any) => !usedTitles.has(t.title) && isMember);
+      const daily = boardPicks(pool.filter((t: any) => !weekly.some((w: any) => w.id === t.id)), seed + dayKey(), 3);
+      const availableQuests = [...weekly, ...daily];
+
+      const hallSlug = `${gm.guild_town}-${gm.guild_key}-hall`;
+      const { data: hall } = await admin.from("rooms").select("slug,name").eq("slug", hallSlug).maybeSingle();
 
       return json({
         ok: true,
-        guild, chapter,
+        guild, chapter, hall,
         guildmaster: { id: gm.id, name: gm.name, title: gm.title },
         membership: {
           status: mem!.status,
           rank: playerRank,
           rank_name: RANK_NAMES[playerRank],
           quests_completed: qc,
-          next_threshold: RANK_THRESHOLDS[Math.min(playerRank + 1, 4)],
+          guild_xp: gxp,
+          rank_floor: GUILD_XP_THRESHOLDS[playerRank],
+          next_threshold: GUILD_XP_THRESHOLDS[Math.min(playerRank + 1, 4)],
         },
         gold: profile?.gold ?? 0,
         stock: decoratedStock,
@@ -167,8 +177,30 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "leave") {
+      if (mem!.status === "prospect") return json({ error: "you are not part of this guild" }, 400);
+      await admin.from("player_guild_membership").update({
+        status: "prospect", rank: 0, left_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      }).eq("user_id", user.id).eq("guild_key", gm.guild_key);
+      return json({ ok: true, message: "You lay down the chapter's mark. Return within 7 days and it will remember you." });
+    }
+
     if (action === "initiate") {
       if (mem!.status !== "prospect") return json({ error: "you have already begun your initiation" }, 400);
+      const { data: other } = await admin.from("player_guild_membership")
+        .select("guild_key").eq("user_id", user.id).neq("guild_key", gm.guild_key).in("status", ["member", "initiating"]);
+      if (other && other.length) return json({ error: `you already belong to the ${other[0].guild_key}. Leave them first.` }, 400);
+      const leftAt = (mem as any).left_at ? new Date((mem as any).left_at).getTime() : 0;
+      if (leftAt && Date.now() - leftAt < 7 * 86400000) {
+        await admin.from("player_guild_membership").update({
+          status: "member", left_at: null, rank: guildRankFor(gxp), updated_at: new Date().toISOString(),
+        }).eq("user_id", user.id).eq("guild_key", gm.guild_key);
+        return json({ ok: true, message: "The chapter remembers you. Welcome back." });
+      }
+      if (leftAt) {
+        await admin.from("player_guild_membership").update({ guild_xp: 0, left_at: null })
+          .eq("user_id", user.id).eq("guild_key", gm.guild_key);
+      }
       // Build the initiation quest in the quests table.
       const initTpl = {
         warriors: { title: "An Oath in Steel — " + chapter.hall_room,
