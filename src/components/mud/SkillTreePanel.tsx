@@ -176,7 +176,8 @@ export function SkillTreePanel({ userId, talentPoints, classKey, className, onCh
   };
 
   const renderBranch = (
-    name: string, tagline: string, icon: JSX.Element, branchNodes: SkillNode[],
+    name: string, tagline: string, icon: JSX.Element,
+    branchNodes: { key: string; tier: number; name: string; description: string }[],
     ownedSet: Set<string>, accent: Accent,
   ) => {
     const ownedCount = branchNodes.filter((n) => ownedSet.has(n.key)).length;
