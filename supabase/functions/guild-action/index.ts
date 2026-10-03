@@ -79,8 +79,9 @@ Deno.serve(async (req) => {
       .select("*", { count: "exact", head: true })
       .eq("user_id", user.id).eq("status", "complete").eq("source_guild", gm.guild_key);
     const qc = completedCount ?? 0;
-    const newRank = mem!.status === "member" ? rankFor(qc) : 0;
-    if (qc !== mem!.quests_completed || newRank !== mem!.rank || mem!.status !== (mem as any).__prev) {
+    const gxp = (mem as any).guild_xp ?? 0;
+    const newRank = mem!.status === "member" ? guildRankFor(gxp) : 0;
+    if (qc !== mem!.quests_completed || newRank !== mem!.rank) {
       await admin.from("player_guild_membership").update({
         status: mem!.status, rank: newRank, quests_completed: qc,
         joined_at: mem!.joined_at, updated_at: new Date().toISOString(),
