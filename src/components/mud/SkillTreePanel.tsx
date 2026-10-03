@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Lock, Check, Sword, Coins, Sparkles, Flame } from "lucide-react";
+import { Lock, Sword, Coins, Sparkles, Flame } from "lucide-react";
 import { usePlayerSkills, type SkillNode, type ClassSkillNode } from "@/hooks/usePlayerSkills";
 
 interface Props {
@@ -16,11 +15,74 @@ interface Props {
 
 type Branch = "steel" | "whisper" | "sigil";
 
-const BRANCHES: { key: Branch; name: string; tagline: string; tone: string; icon: JSX.Element }[] = [
-  { key: "steel",   name: "Steel",   tagline: "body, blade, road",        tone: "border-sky-500/40 text-sky-200/90",      icon: <Sword className="w-4 h-4" /> },
-  { key: "whisper", name: "Whisper", tagline: "silver, secrets, sleight", tone: "border-amber-500/40 text-amber-200/90",  icon: <Coins className="w-4 h-4" /> },
-  { key: "sigil",   name: "Sigil",   tagline: "runes, kanji, the grain",  tone: "border-rose-500/40 text-rose-200/90",    icon: <Sparkles className="w-4 h-4" /> },
+type Accent = {
+  heading: string;
+  headerRule: string;
+  ownedBar: string;
+  ownedBorder: string;
+  ownedHover: string;
+  takeBtn: string;
+  cardHover: string;
+  hoverGlow: string;
+  hoverTitle: string;
+};
+
+const BRANCHES: { key: Branch; name: string; tagline: string; icon: JSX.Element; accent: Accent }[] = [
+  {
+    key: "steel", name: "Steel", tagline: "body, blade, road", icon: <Sword className="w-3.5 h-3.5" />,
+    accent: {
+      heading: "text-sky-300/90",
+      headerRule: "border-sky-800/40",
+      ownedBar: "border-sky-800/50 bg-sky-950/30 text-sky-300",
+      ownedBorder: "border-l-2 border-sky-500/70",
+      ownedHover: "hover:bg-sky-950/20",
+      takeBtn: "bg-secondary hover:bg-sky-700 text-parchment",
+      cardHover: "hover:border-sky-700/70",
+      hoverGlow: "hover:shadow-[0_0_15px_rgba(56,189,248,0.10)]",
+      hoverTitle: "group-hover:text-sky-100",
+    },
+  },
+  {
+    key: "whisper", name: "Whisper", tagline: "silver, secrets, sleight", icon: <Coins className="w-3.5 h-3.5" />,
+    accent: {
+      heading: "text-amber-300/90",
+      headerRule: "border-amber-800/40",
+      ownedBar: "border-amber-800/50 bg-amber-950/30 text-amber-300",
+      ownedBorder: "border-l-2 border-amber-500/70",
+      ownedHover: "hover:bg-amber-950/20",
+      takeBtn: "bg-secondary hover:bg-amber-700 text-parchment",
+      cardHover: "hover:border-amber-700/70",
+      hoverGlow: "hover:shadow-[0_0_15px_rgba(251,191,36,0.10)]",
+      hoverTitle: "group-hover:text-amber-100",
+    },
+  },
+  {
+    key: "sigil", name: "Sigil", tagline: "runes, kanji, the grain", icon: <Sparkles className="w-3.5 h-3.5" />,
+    accent: {
+      heading: "text-rose-300/90",
+      headerRule: "border-rose-800/40",
+      ownedBar: "border-rose-800/50 bg-rose-950/30 text-rose-300",
+      ownedBorder: "border-l-2 border-rose-500/70",
+      ownedHover: "hover:bg-rose-950/20",
+      takeBtn: "bg-secondary hover:bg-rose-700 text-parchment",
+      cardHover: "hover:border-rose-700/70",
+      hoverGlow: "hover:shadow-[0_0_15px_rgba(251,113,133,0.10)]",
+      hoverTitle: "group-hover:text-rose-100",
+    },
+  },
 ];
+
+const CLASS_ACCENT: Accent = {
+  heading: "text-emerald-300/90",
+  headerRule: "border-emerald-800/40",
+  ownedBar: "border-emerald-800/50 bg-emerald-950/30 text-emerald-300",
+  ownedBorder: "border-l-2 border-emerald-500/70",
+  ownedHover: "hover:bg-emerald-950/20",
+  takeBtn: "bg-secondary hover:bg-emerald-700 text-parchment",
+  cardHover: "hover:border-emerald-700/70",
+  hoverGlow: "hover:shadow-[0_0_15px_rgba(52,211,153,0.10)]",
+  hoverTitle: "group-hover:text-emerald-100",
+};
 
 function gateMessage(tier: number, ownedInBranchCount: number, ownedInLowerTiers: number): string | null {
   if (tier === 2 && ownedInLowerTiers < 1) return "Take 1 talent in tier 1";
@@ -62,107 +124,129 @@ export function SkillTreePanel({ userId, talentPoints, classKey, className, onCh
 
   const renderNode = (
     key: string, tier: number, nodeName: string, description: string, isOwned: boolean,
-    gate: string | null, isCapstone: boolean,
+    gate: string | null, canAfford: boolean, accent: Accent,
   ) => {
-    const canTake = !isOwned && !gate && talentPoints > 0;
+    const canTake = !isOwned && !gate && canAfford;
     return (
       <li
         key={key}
-        className={`relative rounded border p-2 transition-colors ${
+        className={`group relative p-4 transition-all duration-300 ${
           isOwned
-            ? "border-amber-400/50 bg-amber-950/20"
+            ? `bg-black/20 border border-border ${accent.ownedBorder} ${accent.ownedHover}`
             : gate
-              ? "border-ash/20 bg-black/30 opacity-60"
-              : "border-ash/40 bg-black/30 hover:border-parchment/60"
+              ? "bg-black/40 border border-border/50 opacity-40 grayscale select-none"
+              : `bg-card/60 border border-border ${accent.cardHover} ${accent.hoverGlow}`
         }`}
       >
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-parchment">
-              {isOwned ? <Check className="w-3.5 h-3.5 text-amber-300" /> : gate ? <Lock className="w-3.5 h-3.5 text-ash/60" /> : null}
-              <span>{nodeName}</span>
-              {isCapstone && (
-                <Badge variant="outline" className="border-rose-400/60 text-rose-200 text-[9px] px-1 py-0">capstone</Badge>
-              )}
-            </div>
-            <p className="text-[11px] leading-snug text-ash/80 mt-1">{description}</p>
-            {gate && <p className="text-[10px] text-ash/60 italic mt-1">{gate}</p>}
-          </div>
-          {!isOwned && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={!canTake || busy === key}
-              onClick={() => take(key, nodeName)}
-              className="text-[11px] h-7 px-2 shrink-0"
-            >
-              {busy === key ? "…" : "Take"}
-            </Button>
-          )}
+        <div className="flex justify-between items-start gap-2 mb-2">
+          <h4
+            className={`font-display font-bold tracking-wide uppercase text-xs leading-snug ${
+              isOwned ? "text-parchment" : gate ? "text-ash/60" : `text-parchment/80 ${accent.hoverTitle}`
+            }`}
+          >
+            {nodeName}
+          </h4>
+          <span className="text-[9px] uppercase tracking-[0.2em] text-ash/50 shrink-0 font-mono mt-0.5">T{tier}</span>
         </div>
+        <p className={`text-[11px] leading-relaxed mb-3 font-body ${gate ? "text-ash/50" : "text-ash/80"}`}>
+          {description}
+        </p>
+        {isOwned ? (
+          <div className={`h-7 flex items-center justify-center border text-[10px] uppercase tracking-[0.2em] font-mono ${accent.ownedBar}`}>
+            Owned
+          </div>
+        ) : gate ? (
+          <>
+            <div className="h-7 w-full border border-border/50 bg-black/40 flex items-center justify-center text-ash/50 text-[10px] uppercase tracking-[0.2em] font-mono cursor-not-allowed">
+              <Lock className="w-3 h-3 mr-1.5" /> Locked
+            </div>
+            <p className="text-[10px] text-ash/60 italic mt-1.5 font-body">{gate}</p>
+          </>
+        ) : (
+          <button
+            disabled={!canTake || busy === key}
+            onClick={() => take(key, nodeName)}
+            className={`w-full h-7 text-[10px] uppercase tracking-[0.2em] font-mono transition-colors duration-300 disabled:opacity-40 disabled:cursor-not-allowed ${accent.takeBtn} border border-border`}
+          >
+            {busy === key ? "…" : canAfford ? "Take" : "No points"}
+          </button>
+        )}
       </li>
     );
   };
 
+  const renderBranch = (
+    name: string, tagline: string, icon: JSX.Element,
+    branchNodes: { key: string; tier: number; name: string; description: string }[],
+    ownedSet: Set<string>, accent: Accent,
+  ) => {
+    const ownedCount = branchNodes.filter((n) => ownedSet.has(n.key)).length;
+    return (
+      <section className="space-y-3">
+        <header className={`border-b ${accent.headerRule} pb-2`}>
+          <div className="flex items-center justify-between">
+            <h2 className={`font-display text-sm font-bold uppercase tracking-[0.2em] flex items-center gap-1.5 ${accent.heading}`}>
+              {icon}{name}
+            </h2>
+            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-ash/60">
+              {ownedCount}/{branchNodes.length}
+            </span>
+          </div>
+          <p className="text-[10px] text-ash/60 italic font-body mt-0.5">{tagline}</p>
+        </header>
+        <ol className="space-y-3">
+          {branchNodes.map((node) => {
+            const isOwned = ownedSet.has(node.key);
+            const ownedThisTree = branchNodes.filter((n) => ownedSet.has(n.key));
+            const inLower = ownedThisTree.filter((n) => n.tier < node.tier).length;
+            const gate = !isOwned ? gateMessage(node.tier, ownedThisTree.length, inLower) : null;
+            return renderNode(node.key, node.tier, node.name, node.description, isOwned, gate, talentPoints > 0, accent);
+          })}
+        </ol>
+      </section>
+    );
+  };
+
   return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <h3 className="font-display text-lg text-parchment">The Long Path</h3>
-          <p className="text-[11px] text-ash/70 italic">Small choices, made over many roads. Each one is permanent.</p>
+    <div className="border-x border-border bg-black/20 pb-2">
+      {/* Header */}
+      <div className="text-center pt-6 pb-5 border-b border-border/60 mb-5 px-6">
+        <h3 className="font-display text-2xl tracking-[0.2em] text-parchment/85 uppercase font-bold">The Long Path</h3>
+        <div className="h-px w-24 mx-auto mt-3 bg-gradient-to-r from-transparent via-ember/70 to-transparent" />
+        <p className="text-[11px] text-ash/70 italic font-body mt-3">Small choices, made over many roads. Each one is permanent.</p>
+        <div className="mt-3">
+          <Badge variant="outline" className="border-amber-400/60 text-amber-200 bg-amber-950/30 font-mono tracking-[0.15em]">
+            {talentPoints} unspent talent point{talentPoints === 1 ? "" : "s"}
+          </Badge>
         </div>
-        <Badge variant="outline" className="border-amber-400/60 text-amber-200 bg-amber-950/30 shrink-0">
-          {talentPoints} talent point{talentPoints === 1 ? "" : "s"}
-        </Badge>
       </div>
 
-      <div className={`grid grid-cols-1 ${classKey ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-3"} gap-3`}>
-        {BRANCHES.map((br) => {
-          const branchNodes = byBranch[br.key];
-          const ownedInBranch = branchNodes.filter((n) => owned.has(n.key));
-          return (
-            <section key={br.key} className={`border ${br.tone} rounded-md p-2.5 bg-black/20`}>
-              <header className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 font-display text-base">
-                  {br.icon}<span>{br.name}</span>
-                </div>
-                <span className="text-[10px] uppercase tracking-widest text-ash/60">{ownedInBranch.length}/{branchNodes.length}</span>
-              </header>
-              <p className="text-[11px] text-ash/70 italic mb-3">{br.tagline}</p>
-              <ol className="space-y-1.5">
-                {branchNodes.map((node) => {
-                  const isOwned = owned.has(node.key);
-                  const inLower = ownedInBranch.filter((n) => n.tier < node.tier).length;
-                  const gate = !isOwned ? gateMessage(node.tier, ownedInBranch.length, inLower) : null;
-                  return renderNode(node.key, node.tier, node.name, node.description, isOwned, gate, node.tier === 4);
-                })}
-              </ol>
-            </section>
-          );
-        })}
+      {/* Tree */}
+      <div className={`grid grid-cols-1 ${classKey && sortedClassNodes.length > 0 ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-3"} gap-6 px-6`}>
+        {BRANCHES.map((br) => renderBranch(br.name, br.tagline, br.icon, byBranch[br.key], owned, br.accent))}
 
         {classKey && sortedClassNodes.length > 0 && (
-          <section className="border border-emerald-500/40 text-emerald-200/90 rounded-md p-2.5 bg-black/20">
-            <header className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 font-display text-base">
-                <Flame className="w-4 h-4" /><span>{className ?? "Class"}</span>
-              </div>
-              <span className="text-[10px] uppercase tracking-widest text-ash/60">
-                {sortedClassNodes.filter((n) => ownedClass.has(n.key)).length}/{sortedClassNodes.length}
-              </span>
-            </header>
-            <p className="text-[11px] text-ash/70 italic mb-3">your bloodline of practice</p>
-            <ol className="space-y-1.5">
-              {sortedClassNodes.map((node) => {
-                const isOwned = ownedClass.has(node.key);
-                const ownedThisTree = sortedClassNodes.filter((n) => ownedClass.has(n.key));
-                const inLower = ownedThisTree.filter((n) => n.tier < node.tier).length;
-                const gate = !isOwned ? gateMessage(node.tier, ownedThisTree.length, inLower) : null;
-                return renderNode(node.key, node.tier, node.name, node.description, isOwned, gate, node.tier === 4);
-              })}
-            </ol>
-          </section>
+          <>{renderBranch(className ?? "Class", "your bloodline of practice", <Flame className="w-3.5 h-3.5" />, sortedClassNodes, ownedClass, CLASS_ACCENT)}</>
         )}
+      </div>
+
+      {/* Footer stats */}
+      <div className="mt-6 mx-6 pt-4 border-t border-border/60 flex flex-wrap justify-between items-center gap-2 text-[10px] uppercase tracking-[0.25em] font-mono text-ash/50">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          {BRANCHES.map((br) => {
+            const total = byBranch[br.key].length;
+            const ownedCount = byBranch[br.key].filter((n) => owned.has(n.key)).length;
+            const pct = total ? Math.round((ownedCount / total) * 100) : 0;
+            return (
+              <span key={br.key}>
+                {br.name} <span className="text-parchment/70">{pct}%</span>
+              </span>
+            );
+          })}
+        </div>
+        <span className={talentPoints > 0 ? "text-amber-300/80 font-bold" : ""}>
+          {talentPoints} point{talentPoints === 1 ? "" : "s"} unspent
+        </span>
       </div>
     </div>
   );
