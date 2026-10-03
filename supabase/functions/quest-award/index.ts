@@ -1,6 +1,7 @@
 // Award quest rewards. Called server-side by npc-respond when a quest resolves,
 // or by automated checks (visit/slay/fetch). Server clamps rewards to severity bands.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { GUILD_RANK_NAMES, GUILD_XP_PER_QUEST, GUILD_XP_WEEKLY_BONUS, guildRankFor } from "../_shared/guildRanks.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -114,6 +115,26 @@ export async function completeQuest(admin: any, questId: string, note = "") {
     // Retire the traveler NPC so they don't linger forever.
     await admin.from("npcs").update({ hidden: true }).eq("id", quest.escort_npc_id);
   }
+
+  // Guild XP + rank-up announcement.
+  if (quest.source_guild && !quest.is_initiation) {
+    const { data: mem } = await admin.from("player_guild_membership")
+      .select("guild_xp, rank, status").eq("user_id", quest.user_id).eq("guild_key", quest.source_guild).maybeSingle();
+    if (mem?.status === "member") {
+      const gain = GUILD_XP_PER_QUEST + (String(quest.title).startsWith("[Chapter Charge]") ? GUILD_XP_WEEKLY_BONUS : 0);
+      const nx = (mem.guild_xp ?? 0) + gain;
+      const nr = guildRankFor(nx);
+      await admin.from("player_guild_membership").update({ guild_xp: nx, rank: nr, updated_at: new Date().toISOString() })
+        .eq("user_id", quest.user_id).eq("guild_key", quest.source_guild);
+      if (nr > (mem.rank ?? 0) && quest.source_guild_town) {
+        await admin.from("messages").insert({
+          room: `${quest.source_guild_town}-${quest.source_guild}-hall`, user_id: null, author_name: "—", kind: "system",
+          content: `✦ ${profile?.username ?? "A member"} is raised to ${GUILD_RANK_NAMES[nr]} of the chapter.`,
+        });
+      }
+    }
+  }
+
 
   // Journal-yielding event.
   await admin.from("world_events").insert({
