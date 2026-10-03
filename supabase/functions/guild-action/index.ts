@@ -9,14 +9,7 @@ const cors = {
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
-const RANK_NAMES = ["Initiate", "Journeyman", "Adept", "Master", "Grandmaster"];
-const RANK_THRESHOLDS = [0, 3, 8, 16, 30]; // quests_completed needed for that rank
-
-function rankFor(qc: number) {
-  let r = 0;
-  for (let i = 0; i < RANK_THRESHOLDS.length; i++) if (qc >= RANK_THRESHOLDS[i]) r = i;
-  return r;
-}
+import { GUILD_RANK_NAMES as RANK_NAMES, GUILD_XP_THRESHOLDS, guildRankFor, boardPicks, dayKey, weekKey } from "../_shared/guildRanks.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
