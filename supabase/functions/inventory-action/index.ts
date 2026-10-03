@@ -57,6 +57,14 @@ Deno.serve(async (req) => {
       const pi = await loadItem(body.player_item_id!);
       const it = pi.items;
       if (it.slot !== "consumable") throw new Error("That cannot be used.");
+      if (it.teaches_rune) {
+        const { data: known } = await admin.from("player_runes").select("id").eq("user_id", user.id).eq("rune_key", it.teaches_rune).maybeSingle();
+        if (known) throw new Error("You already know the rune in this book.");
+        await admin.from("player_runes").insert({ user_id: user.id, rune_key: it.teaches_rune, source: "spell_book" });
+        if ((pi.quantity ?? 1) > 1) await admin.from("player_items").update({ quantity: pi.quantity - 1 }).eq("id", pi.id);
+        else await admin.from("player_items").delete().eq("id", pi.id);
+        return ok({ ok: true, message: `You read the ${it.name}. A new rune settles into your memory, and the pages crumble to ash.` });
+      }
       const heal = it.heal_amount ?? 0;
       const { data: profile } = await admin.from("profiles").select("hp,max_hp").eq("id", user.id).maybeSingle();
       const newHp = Math.min((profile?.max_hp ?? 20), (profile?.hp ?? 0) + heal);
