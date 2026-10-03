@@ -698,6 +698,8 @@ export type Database = {
           rune_slots: number
           slot: string
           stackable: boolean
+          teaches_rune: string | null
+          tier: number
           unique_per_player: boolean
           value: number
           weight: number
@@ -714,6 +716,8 @@ export type Database = {
           rune_slots?: number
           slot?: string
           stackable?: boolean
+          teaches_rune?: string | null
+          tier?: number
           unique_per_player?: boolean
           value?: number
           weight?: number
@@ -730,11 +734,21 @@ export type Database = {
           rune_slots?: number
           slot?: string
           stackable?: boolean
+          teaches_rune?: string | null
+          tier?: number
           unique_per_player?: boolean
           value?: number
           weight?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "items_teaches_rune_fkey"
+            columns: ["teaches_rune"]
+            isOneToOne: false
+            referencedRelation: "runes"
+            referencedColumns: ["key"]
+          },
+        ]
       }
       kanji_compounds: {
         Row: {

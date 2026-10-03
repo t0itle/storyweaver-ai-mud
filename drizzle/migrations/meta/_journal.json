@@ -8,6 +8,13 @@
       "when": 1791034085302,
       "tag": "0000_guild_halls_xp",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791034471451,
+      "tag": "0001_shop_tiers_spellbooks",
+      "breakpoints": true
     }
   ]
 }
