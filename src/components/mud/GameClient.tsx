@@ -2391,7 +2391,11 @@ function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket
             const activity = isCompanion ? "walking at your side" : n.current_activity;
             return (
               <p key={n.id}>
-                <span className="text-parchment">{n.name}</span>
+                <span
+                  onClick={() => onNpcClick?.(n)}
+                  className="text-parchment cursor-pointer hover:text-ember transition-colors"
+                  title={`Interact with ${n.name}`}
+                >{n.name}</span>
                 {n.title ? <span>, {n.title}</span> : null}
                 {activity ? <span className="text-ash"> — {activity}</span> : null}
               </p>
