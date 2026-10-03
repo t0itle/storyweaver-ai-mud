@@ -12,13 +12,14 @@ type Stock = {
   price_gold: number; rank_required: number; blurb: string;
   display: string; owned: boolean; locked: boolean;
 };
-type QuestTpl = { id: string; title: string; objective: string; rank_required: number; reward_gold: number; reward_xp: number; };
+type QuestTpl = { id: string; title: string; objective: string; rank_required: number; reward_gold: number; reward_xp: number; weekly?: boolean };
 type ListResp = {
   ok: true;
   guild: { key: string; name: string; blurb: string; glyph: string; specialty: string };
   chapter: { hall_room: string; flavor_blurb: string };
+  hall: { slug: string; name: string } | null;
   guildmaster: { id: string; name: string; title: string };
-  membership: { status: "prospect" | "initiating" | "member"; rank: number; rank_name: string; quests_completed: number; next_threshold: number };
+  membership: { status: "prospect" | "initiating" | "member"; rank: number; rank_name: string; quests_completed: number; guild_xp: number; rank_floor: number; next_threshold: number };
   gold: number;
   stock: Stock[];
   quests: QuestTpl[];
@@ -87,13 +88,25 @@ export function GuildModal({ open, onClose, guildmasterId, onChanged }: Props) {
                 <Badge variant="outline" className="ml-1">{data.membership.rank_name}</Badge>
                 <span className="text-[10px]">
                   {data.membership.status === "member"
-                    ? `${data.membership.quests_completed} / ${data.membership.next_threshold} guild tasks`
+                    ? `${data.membership.guild_xp} / ${data.membership.next_threshold} guild xp`
                     : data.membership.status === "initiating" ? "initiation in progress"
                     : "not a member"}
                 </span>
               </span>
               <span className="italic">{data.guild.specialty}</span>
             </div>
+            {data.membership.status === "member" && (
+              <>
+                <div className="h-1.5 bg-border relative overflow-hidden">
+                  <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-accent to-ember"
+                    style={{ width: `${Math.min(100, ((data.membership.guild_xp - data.membership.rank_floor) / Math.max(1, data.membership.next_threshold - data.membership.rank_floor)) * 100)}%` }} />
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-ash">
+                  <span>{data.hall ? <>Your hall: <span className="text-parchment">{data.hall.name}</span> — members may rest free.</> : null}</span>
+                  <Button size="sm" variant="ghost" disabled={busy} onClick={() => call("leave")}>Leave guild</Button>
+                </div>
+              </>
+            )}
 
             {data.membership.status === "prospect" && (
               <div className="rounded border border-ember/40 bg-ember/5 p-3 space-y-2">
