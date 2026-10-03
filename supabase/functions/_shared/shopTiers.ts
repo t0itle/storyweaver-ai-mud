@@ -5,5 +5,5 @@ export const SHOP_STOCK_CAP = 90;
 
 export function tierUnlocked(tier: number | null | undefined, townRep: number): boolean {
   const t = Math.min(4, Math.max(1, tier ?? 1));
-  return townRep >= SHOP_TIER_REP[t];
+  return t <= 2 || townRep >= SHOP_TIER_REP[t];
 }
