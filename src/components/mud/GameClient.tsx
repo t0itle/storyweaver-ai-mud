@@ -892,7 +892,15 @@ export default function GameClient({ session }: { session: Session }) {
     if (!profile) return;
     // Faction-locked enclaves: only those who belong may cross the threshold.
     const { data: targetRoom } = await supabase.from("rooms")
-      .select("requires_faction, name").eq("slug", slug).maybeSingle();
+      .select("requires_faction, name, guild_hall_access").eq("slug", slug).maybeSingle();
+    if (targetRoom?.guild_hall_access) {
+      const { data: mem } = await supabase.from("player_guild_membership").select("status")
+        .eq("user_id", profile.id).eq("guild_key", targetRoom.guild_hall_access).maybeSingle();
+      if (mem?.status !== "member") {
+        setMessages((m) => [...m, localSys(`A doorwarden bars the way to ${targetRoom.name}. "Members only. Earn the mark first."`)]);
+        return;
+      }
+    }
     if (targetRoom?.requires_faction) {
       const playerFaction = profile.non_serviam_at ? "chaos" : profile.faction;
       if (targetRoom.requires_faction !== playerFaction) {
