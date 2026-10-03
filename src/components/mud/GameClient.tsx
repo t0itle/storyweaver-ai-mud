@@ -1934,7 +1934,7 @@ export default function GameClient({ session }: { session: Session }) {
         {/* Main log */}
         <main className="flex-1 flex flex-col min-w-0">
           <div ref={logRef} className="flex-1 overflow-y-auto scrollbar-thin px-5 py-6 space-y-3 font-body text-[17px] leading-relaxed">
-            <RoomBlock room={room} npcs={npcs} dragons={dragons} sceneUrl={sceneUrl} sceneLoading={sceneLoading} events={roomEvents} bucket={bucket} companionId={profile?.companion_npc_id ?? null} roommates={roommates} onPlayerClick={(r) => setPreviewPlayer(r)} />
+            <RoomBlock room={room} npcs={npcs} dragons={dragons} sceneUrl={sceneUrl} sceneLoading={sceneLoading} events={roomEvents} bucket={bucket} companionId={profile?.companion_npc_id ?? null} roommates={roommates} onPlayerClick={(r) => setPreviewPlayer(r)} onNpcClick={openNpc} />
             {corpses.length > 0 && (
               <div className="border border-red-900/50 bg-red-950/20 px-3 py-2 mb-3 text-sm">
                 <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-red-400 mb-1">⚰ Corpses here</div>
@@ -2073,12 +2073,7 @@ export default function GameClient({ session }: { session: Session }) {
                   <div key={n.id} className="flex flex-col gap-1">
                     <div className="flex items-center gap-1">
                     <button
-                      onClick={() => {
-                        if (n.is_merchant) { setMarketMerchant(n.id); }
-                        else if (n.is_guildmaster) { setGuildmaster(n.id); }
-                        else if (n.is_bard) { setBardId(n.id); setMusicOpen(true); }
-                        else { setInput(`ask ${firstName} `); inputRef.current?.focus(); }
-                      }}
+                      onClick={() => openNpc(n)}
                       className="flex-1 text-left font-body text-parchment hover:text-ember transition-colors">
                       <span className={n.is_fence ? "text-whisper" : n.is_merchant ? "text-ember" : n.is_bard ? "text-moss" : n.is_guildmaster ? "text-accent" : isMirror ? "text-ember" : "text-accent"}>
                         {isMirror ? "✦" : n.is_fence ? "✥" : n.is_merchant ? "⚖" : n.is_bard ? "♪" : n.is_guildmaster ? (n.guild_key === "warriors" ? "⚔" : n.guild_key === "traders" ? "⚖" : "✶") : "●"}
@@ -2304,7 +2299,7 @@ export default function GameClient({ session }: { session: Session }) {
   );
 }
 
-function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket, companionId, roommates, onPlayerClick }: {
+function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket, companionId, roommates, onPlayerClick, onNpcClick }: {
   room: Room; npcs: Npc[]; dragons: { name: string; epithet: string; personality: string }[];
   sceneUrl: string | null; sceneLoading: boolean;
   events: { kind: string; actor_name: string; target_name: string | null; details: any; created_at: string }[];
@@ -2312,6 +2307,7 @@ function RoomBlock({ room, npcs, dragons, sceneUrl, sceneLoading, events, bucket
   companionId?: string | null;
   roommates?: { id: string; username: string; portrait_url: string | null; level: number; aether: string | null; faction: string | null; downed: boolean; dead: boolean }[];
   onPlayerClick?: (r: any) => void;
+  onNpcClick?: (n: Npc) => void;
 }) {
   const tint = pickTimeTint(bucket, (room.kind ?? "room") as string);
   return (
