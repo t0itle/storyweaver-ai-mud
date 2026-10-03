@@ -164,11 +164,13 @@ Deno.serve(async (req) => {
     const itemKey = String((body as any).item_key);
 
     const { data: good } = await admin.from("trade_goods")
-      .select("item_key, category, origin_town_key, base_price, demand_phase, items!inner(name, weight, max_stack)")
+      .select("item_key, category, origin_town_key, base_price, demand_phase, items!inner(name, weight, max_stack, tier)")
       .eq("item_key", itemKey).maybeSingle();
     if (!good) return json({ error: "Not in this trader's stock" }, 400);
     const cats = (merchant.merchant_categories ?? []) as string[];
     if (!cats.includes((good as any).category)) return json({ error: "This trader doesn't deal in that." }, 400);
+    if (body.action === "buy" && !tierUnlocked((good as any).items.tier, town_rep))
+      return json({ error: "The trader won't part with that until this town trusts you more." }, 400);
 
     if (body.action === "buy") {
       const unit = priceFor(good as any, town, town_rep, evs, "buy");
