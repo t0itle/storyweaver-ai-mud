@@ -1,0 +1,1 @@
+- Guild rank math and board picks live in `supabase/functions/_shared/guildRanks.ts`; edge functions and tests import it so thresholds stay in one place.

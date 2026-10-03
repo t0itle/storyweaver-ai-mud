@@ -56,6 +56,19 @@ Deno.serve(async (req) => {
     const { data: roomRow } = await admin.from("rooms").select("slug, kind, name").eq("slug", room).maybeSingle();
     if (!roomRow) return json({ error: "Where are you?" }, 400);
 
+    if (action === "inn" && roomRow.kind === "guild_hall") {
+      const { data: hallRoom } = await admin.from("rooms").select("guild_hall_access").eq("slug", room).maybeSingle();
+      const { data: mem } = await admin.from("player_guild_membership").select("status")
+        .eq("user_id", user.id).eq("guild_key", hallRoom?.guild_hall_access ?? "").maybeSingle();
+      if (mem?.status !== "member") return json({ error: "Only members may sleep in this hall." }, 400);
+      await admin.from("profiles").update({ hp: profile.max_hp }).eq("id", user.id);
+      await admin.from("messages").insert({
+        room, author_name: "—", kind: "ambient", user_id: null,
+        content: `*${profile.username} takes a cot in the hall. The chapter asks no coin of its own.*`,
+      });
+      return json({ ok: true, mode: "inn", healed: profile.max_hp - profile.hp, cost: 0 });
+    }
+
     if (action === "inn") {
       let isInn = room.endsWith("-inn") || room.includes("-inn-") || room.includes("tavern") || room.includes("-hearth") || roomRow.kind === "inn" || roomRow.kind === "tavern";
       if (!isInn) {
