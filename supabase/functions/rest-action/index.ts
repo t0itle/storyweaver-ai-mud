@@ -3,6 +3,7 @@
 //   action: "camp" — in road / wilds / desert / grove / hollow / shore / bridge:
 //                    free, partial heal, ~35% chance of an ambush mid-rest.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { abilityScores, check, checkModifier, dcForChance, formatCheck } from "../_shared/dice.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -40,7 +41,7 @@ Deno.serve(async (req) => {
     if (action !== "inn" && action !== "camp") return json({ error: "action must be 'inn' or 'camp'" }, 400);
 
     const { data: profile } = await admin.from("profiles")
-      .select("username, current_room, hp, max_hp, gold, in_combat_id, downed, dead")
+      .select("username, current_room, hp, max_hp, gold, in_combat_id, downed, dead, level, str, dex, con, int, wis, cha")
       .eq("id", user.id).maybeSingle();
     if (!profile) return json({ error: "no profile" }, 404);
     if (profile.in_combat_id) return json({ error: "You can't rest mid-fight." }, 400);
@@ -97,7 +98,13 @@ Deno.serve(async (req) => {
     }
 
     const healed = Math.min(profile.max_hp - profile.hp, Math.ceil(profile.max_hp * 0.5) + restBonus);
-    const ambushed = Math.random() < CAMP_AMBUSH_CHANCE;
+    // WIS watch check (d20 + WIS mod + level bonus). A neutral level-1 character keeps the old
+    // CAMP_AMBUSH_CHANCE odds; a watchful one is caught less often.
+    const watch = check({
+      dc: dcForChance(1 - CAMP_AMBUSH_CHANCE),
+      modifier: checkModifier(abilityScores(profile as any), "wis", (profile as any).level ?? 1),
+    });
+    const ambushed = !watch.success;
 
     if (!ambushed) {
       await admin.from("profiles").update({
@@ -106,9 +113,9 @@ Deno.serve(async (req) => {
       }).eq("id", user.id);
       await admin.from("messages").insert({
         room, author_name: "—", kind: "ambient", user_id: null,
-        content: `*${profile.username} makes camp. The fire crackles low; sleep comes uneventful.* (+${healed} HP)`,
+        content: `*${profile.username} makes camp. The fire crackles low; sleep comes uneventful.* (+${healed} HP · watch **${formatCheck(watch)}**)`,
       });
-      return json({ ok: true, mode: "camp", healed, ambushed: false });
+      return json({ ok: true, mode: "camp", healed, ambushed: false, watch });
     }
 
     // Heal a little, then jump them.
@@ -148,7 +155,7 @@ Deno.serve(async (req) => {
 
     await admin.from("messages").insert({
       room, author_name: "—", kind: "ambient", user_id: null,
-      content: `*${profile.username} settles by the fire — and wakes to ${t.name}, ${t.title}, looming over the embers.* "${t.greeting}"`,
+      content: `*${profile.username} settles by the fire — and wakes to ${t.name}, ${t.title}, looming over the embers.* "${t.greeting}" (watch **${formatCheck(watch)}**)`,
     });
     await admin.from("combat_actions").insert({
       combat_id: combat!.id, turn_number: 1, actor_id: null,

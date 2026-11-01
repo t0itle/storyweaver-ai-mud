@@ -1,5 +1,6 @@
 // Craft an item at a station.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { abilityMod, abilityScores, check, dcForChance, LIFESKILL_ABILITY } from "../_shared/dice.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -28,7 +29,7 @@ Deno.serve(async (req) => {
 
     const [{ data: recipe }, { data: profile }] = await Promise.all([
       admin.from("recipes").select("*").eq("key", recipeKey).maybeSingle(),
-      admin.from("profiles").select("current_room,username").eq("id", user.id).maybeSingle(),
+      admin.from("profiles").select("current_room,username,str,dex,con,int,wis,cha").eq("id", user.id).maybeSingle(),
     ]);
     if (!recipe) return json({ error: "unknown recipe" }, 400);
     if (!profile) return json({ error: "no profile" }, 400);
@@ -82,11 +83,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Produce output (× count × output_qty). Quality crit chance = level%.
+    // Produce output (× count × output_qty). Quality crit: d100 vs a DC worth level% (max 50%),
+    // plus 5% per point of the skill's ability modifier.
     const critChance = Math.min(0.5, level / 100);
     const produced = (recipe.output_qty ?? 1) * count;
+    const critMod = 5 * abilityMod(abilityScores(profile as any)[LIFESKILL_ABILITY[recipe.skill] ?? "int"]);
     let quality = 0;
-    for (let i = 0; i < count; i++) if (Math.random() < critChance) quality++;
+    for (let i = 0; i < count; i++) if (check({ die: 100, dc: dcForChance(critChance, 100), modifier: critMod }).success) quality++;
 
     const { data: outItem } = await admin.from("items").select("key,stackable").eq("key", recipe.output_item).maybeSingle();
     if (!outItem) return json({ error: "output item missing" }, 500);

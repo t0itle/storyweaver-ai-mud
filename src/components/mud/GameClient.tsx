@@ -1674,7 +1674,9 @@ export default function GameClient({ session }: { session: Session }) {
         });
         if (error || data?.error) throw new Error(data?.error ?? error?.message);
         // Post as an emote-like ambient line so others in the room can witness it.
-        await post("emote", `${c}s ${targetText || "the surroundings"} — ${data.content}`);
+        const r = data.roll;
+        const rollNote = r ? ` (${String(r.ability).toUpperCase()} ${r.roll}${r.modifier ? (r.modifier > 0 ? "+" : "") + r.modifier : ""} vs ${r.dc} — ${r.outcome})` : "";
+        await post("emote", `${c}s ${targetText || "the surroundings"} — ${data.content}${rollNote}`);
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "the world does not respond");
       } finally { setThinking(false); }

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { abilityScores, check, checkModifier, formatCheck } from "../_shared/dice.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,7 +24,7 @@ Deno.serve(async (req) => {
     const npcId: string | undefined = body?.npc_id;
     if (!npcId) return new Response(JSON.stringify({ error: "npc_id required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const { data: profile } = await admin.from("profiles").select("id, username, gold, current_room").eq("id", user.id).maybeSingle();
+    const { data: profile } = await admin.from("profiles").select("id, username, gold, current_room, level, str, dex, con, int, wis, cha").eq("id", user.id).maybeSingle();
     if (!profile) throw new Error("no profile");
 
     const { data: npc } = await admin.from("npcs")
@@ -37,14 +38,15 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "they have nothing to take — they are not of this world." }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // d20 attempt vs DC. Higher DC for marks who would notice.
-    const roll = 1 + Math.floor(Math.random() * 20);
+    // d20 + DEX modifier + level bonus vs DC. Higher DC for marks who would notice.
     let dc = 10;
     if (npc.is_merchant) dc += 4;        // sharp eyes for coins
     if (npc.is_warden) dc += 5;          // trained
     if (npc.is_aether) dc += 12;         // forget it
     if (npc.is_guildmaster) dc += 3;
-    const success = roll >= dc;
+    const chk = check({ dc, modifier: checkModifier(abilityScores(profile as any), "dex", (profile as any).level ?? 1) });
+    const { roll, success } = chk;
+    const rollText = formatCheck(chk);
     const room = profile.current_room;
 
     if (!success) {
@@ -57,14 +59,14 @@ Deno.serve(async (req) => {
       );
       await admin.from("messages").insert({
         room, author_name: "—", kind: "ambient",
-        content: `*${profile.username} tries to lift a coin from ${npc.name}'s purse — and is caught red-handed (rolled **${roll}** vs **${dc}**). ${npc.name} jerks back with a snarl.*`,
+        content: `*${profile.username} tries to lift a coin from ${npc.name}'s purse — and is caught red-handed (rolled **${rollText}**). ${npc.name} jerks back with a snarl.*`,
         user_id: null,
       });
       await admin.from("world_events").insert({
         kind: "steal_failed",
         actor_name: profile.username, actor_id: user.id,
         target_name: npc.name, target_id: npc.id, room,
-        details: { dc, roll },
+        details: { dc, roll, modifier: chk.modifier, total: chk.total },
         decay_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 3).toISOString(),
       });
       return new Response(JSON.stringify({ ok: true, success: false, roll, dc, amity: newScore }),
@@ -76,7 +78,7 @@ Deno.serve(async (req) => {
     if (purse <= 0) {
       await admin.from("messages").insert({
         room, author_name: "—", kind: "ambient",
-        content: `*${profile.username} dips into ${npc.name}'s purse unseen (rolled **${roll}** vs **${dc}**) — but it is empty. They got nothing for the risk.*`,
+        content: `*${profile.username} dips into ${npc.name}'s purse unseen (rolled **${rollText}**) — but it is empty. They got nothing for the risk.*`,
         user_id: null,
       });
       return new Response(JSON.stringify({ ok: true, success: true, gold: 0, roll, dc }),
@@ -121,14 +123,14 @@ Deno.serve(async (req) => {
     const lifted = stolenItem ? `, plus a *${stolenItem.name}* tucked from their stock` : "";
     await admin.from("messages").insert({
       room, author_name: "—", kind: "ambient",
-      content: `*${profile.username} slips a hand past ${npc.name} — unseen (rolled **${roll}** vs **${dc}**). +${taken}g${lifted}.*`,
+      content: `*${profile.username} slips a hand past ${npc.name} — unseen (rolled **${rollText}**). +${taken}g${lifted}.*`,
       user_id: null,
     });
     await admin.from("world_events").insert({
       kind: "steal_success",
       actor_name: profile.username, actor_id: user.id,
       target_name: npc.name, target_id: npc.id, room,
-      details: { gold: taken, dc, roll, item: stolenItem?.key ?? null },
+      details: { gold: taken, dc, roll, modifier: chk.modifier, total: chk.total, item: stolenItem?.key ?? null },
       decay_at: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString(),
     });
 
