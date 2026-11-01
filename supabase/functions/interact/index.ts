@@ -2,6 +2,7 @@
 // Resolves the target against the player's inventory, NPCs in the room, or just the room itself,
 // then asks the AI to write a short, in-world flavor response. May unlock lore.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { abilityScores, check, checkModifier, DEFAULT_DC, INTERACT_VERB_ABILITY, outcomeOf, type CheckResult } from "../_shared/dice.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -60,6 +61,16 @@ Deno.serve(async (req) => {
 
     const { data: lore } = await supabase.from("lore_entries").select("slug,title,summary,keywords");
 
+    // Effortful verbs get a d20 + ability check. Code decides the outcome; the AI only narrates it.
+    const ability = INTERACT_VERB_ABILITY[v];
+    let roll: (CheckResult & { ability: string; outcome: string }) | null = null;
+    if (ability) {
+      const { data: prof } = await supabase.from("profiles")
+        .select("level, str, dex, con, int, wis, cha").eq("id", user.id).maybeSingle();
+      const r = check({ dc: DEFAULT_DC, modifier: checkModifier(abilityScores(prof as any), ability, (prof as any)?.level ?? 1) });
+      roll = { ...r, ability, outcome: outcomeOf(r) };
+    }
+
     const system = `You narrate small in-world interactions for EverBloom — a dying world; First City; seven Aethers; mouth-bound Veiled (priests of the silenced Speaker); the EverBloom in the deep dunes; the Shadow as unspoken counterweight.
 
 Write a single short paragraph (1-3 sentences, max ~70 words) describing what happens when ${player_name} ${v}s "${resolvedName}". Stay grounded, evocative, sensory. No second person ("you"). No game mechanics. No quest hooks unless the object naturally implies one.
@@ -68,7 +79,9 @@ If the object is a scroll/book/inscription/sign and the verb is "read", invent S
 
 If the verb cannot meaningfully apply (e.g. "drink the wall"), describe the attempt failing in-character with dignity, briefly.
 
-Reference world lore naturally if it fits — never list it.`;
+Reference world lore naturally if it fits — never list it.
+
+If an OUTCOME line is given, it was decided by a dice roll and is final. Narrate exactly that result: a success means the attempt works; a failure means it does not (the object resists, the hand slips, nothing is heard); a critical success is unusually good; a critical failure is an embarrassing or mildly costly mishap. Never mention dice, rolls or numbers.`;
 
     const ctx = `LOCATION: ${roomRow?.name ?? room}
 ${roomRow?.description ?? ""}
@@ -76,7 +89,7 @@ ${roomRow?.description ?? ""}
 TARGET (${resolvedKind}): ${resolvedName}
 ${resolvedDesc ? `Details: ${resolvedDesc}` : ""}
 
-VERB: ${v}`;
+VERB: ${v}${roll ? `\nOUTCOME: ${roll.outcome}` : ""}`;
 
     const ai = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -110,7 +123,7 @@ VERB: ${v}`;
       );
     }
 
-    return new Response(JSON.stringify({ content, kind: resolvedKind, target: resolvedName, discovered }),
+    return new Response(JSON.stringify({ content, kind: resolvedKind, target: resolvedName, discovered, roll }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);

@@ -1,6 +1,7 @@
 // Generates a portrait via Lovable AI (Nano Banana), uploads to storage,
 // updates the player's profile with race/description/portrait/created=true.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { startingScores } from "../_shared/dice.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -113,6 +114,8 @@ Style: painterly brushwork in the spirit of Studio Ghibli character art and Crai
       max_hp: newMax,
       hp: newMax,
       current_room: startRoom,
+      // Ability scores: 10 + race mods + class mods (see _shared/dice.ts).
+      ...startingScores(race.ability_mods, klass.ability_mods),
     }, {
       onConflict: "id",
     });

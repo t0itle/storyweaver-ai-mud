@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { abilityScores, check, checkModifier, DEFAULT_DC, outcomeOf } from "../_shared/dice.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -205,9 +206,17 @@ Deno.serve(async (req) => {
     // chaos/heretic/cult) feel a kinship, and only Veiled/wardens sense unease.
     const { data: speakerProfile } = await supabase
       .from("profiles")
-      .select("aether, faction, hall_refusals, non_serviam_at, corruption")
+      .select("aether, faction, hall_refusals, non_serviam_at, corruption, level, str, dex, con, int, wis, cha")
       .eq("id", user.id)
       .maybeSingle();
+
+    // Social check: d20 + CHA mod + level bonus, rolled every time the player speaks. The NPC
+    // applies it only when the player is trying to persuade, haggle, deceive, intimidate or charm.
+    const socialCheck = check({
+      dc: DEFAULT_DC,
+      modifier: checkModifier(abilityScores(speakerProfile as any), "cha", (speakerProfile as any)?.level ?? 1),
+    });
+    const socialOutcome = outcomeOf(socialCheck);
 
     const corruption = speakerProfile?.corruption ?? 0;
     const isNightmare = corruption >= 70;
@@ -404,6 +413,9 @@ ${gossipBlock}
 
 YOUR CURRENT FEELING TOWARD ${player_name}: **${amityBlock}** on a scale from -100 (Hostile) to +100 (Devoted).
 This MUST color your tone, generosity, and willingness to share secrets, give favors, or even raise a hand. Hostile = sharp, dismissive, possibly threatening; Wary = guarded; Neutral = polite stranger; Friendly = warm, helpful; Devoted = loyal, loving, will share secrets and offer aid.
+
+HOW ${player_name}'S WORDS LAND THIS TURN (decided by a dice roll — it is final): **${socialOutcome}**.
+Apply this ONLY if ${player_name} is trying to persuade, haggle, deceive, intimidate, charm or ask a favour of you. Success = you are moved (within what your character and amity allow); failure = you are not convinced; critical success = unusually swayed; critical failure = they offend or alarm you. For ordinary conversation, ignore this line. Never mention dice or rolls.
 
 WHAT YOU KNOW OF ${player_name}'S STANDING WITH THE SEVEN:
 ${stanceBlock}

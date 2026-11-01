@@ -4,6 +4,7 @@
 // occasionally lands them at a real desert landmark, more often deeper
 // into the sands. Rare encounters; the desert mostly wants you alone.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { abilityScores, check, checkModifier, dcForChance } from "../_shared/dice.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -88,7 +89,7 @@ Deno.serve(async (req) => {
     }
 
     const { data: profile } = await admin.from("profiles")
-      .select("id, username, current_room, desert_depth, desert_bearing, desert_entered_from")
+      .select("id, username, current_room, desert_depth, desert_bearing, desert_entered_from, level, str, dex, con, int, wis, cha")
       .eq("id", user.id).maybeSingle();
     if (!profile) return new Response(JSON.stringify({ error: "no profile" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
@@ -103,7 +104,13 @@ Deno.serve(async (req) => {
     const enteredFrom = profile.desert_entered_from ?? (fromRoom === "deep-desert" ? null : fromRoom);
     // bearing 0 = true, 1 = scrambled. Probability of being lost grows with depth.
     const lostChance = Math.min(0.85, 0.15 + newDepth * 0.12);
-    const becameLost = Math.random() < lostChance;
+    // WIS survival check (d20 + WIS mod + level bonus) to keep the bearing. The DC gives a neutral
+    // level-1 character the same odds as the old lostChance roll; wiser walkers stray less.
+    const bearingCheck = check({
+      dc: dcForChance(1 - lostChance),
+      modifier: checkModifier(abilityScores(profile as any), "wis", (profile as any).level ?? 1),
+    });
+    const becameLost = !bearingCheck.success;
     const newBearing = becameLost ? 1 : (profile.desert_bearing ?? 0);
 
     // Determine outcome.
@@ -183,6 +190,7 @@ Deno.serve(async (req) => {
       outcome,
       depth: landed ? 0 : newDepth,
       lost: becameLost && !landed,
+      bearing_check: bearingCheck,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);

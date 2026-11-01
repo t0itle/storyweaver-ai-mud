@@ -1,5 +1,6 @@
 // Gather from a resource node in the current room.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { abilityMod, abilityScores, check, dcForChance, LIFESKILL_ABILITY } from "../_shared/dice.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -37,7 +38,7 @@ Deno.serve(async (req) => {
     const { data: node } = await admin.from("resource_nodes").select("*").eq("id", nodeId).maybeSingle();
     if (!node) return json({ error: "node missing" }, 404);
 
-    const { data: profile } = await admin.from("profiles").select("current_room,username").eq("id", user.id).maybeSingle();
+    const { data: profile } = await admin.from("profiles").select("current_room,username,str,dex,con,int,wis,cha").eq("id", user.id).maybeSingle();
     if (!profile) return json({ error: "no profile" }, 400);
     if (profile.current_room !== node.room_slug) return json({ error: "You're not near that." }, 400);
     if (node.depleted_until && new Date(node.depleted_until).getTime() > Date.now()) {
@@ -59,8 +60,10 @@ Deno.serve(async (req) => {
     const level = skillRow?.level ?? 1;
     const xp = skillRow?.xp ?? 0;
 
-    // Roll 1-3 pulls scaled by level
-    const pulls = 1 + Math.floor(Math.random() * 2) + Math.floor(level / 15);
+    // 1 pull, +1 on a d20 + ability-mod check (50% for a neutral gatherer), +1 per 15 skill levels.
+    const ability = LIFESKILL_ABILITY[node.skill] ?? "wis";
+    const bonusPull = check({ dc: dcForChance(0.5), modifier: abilityMod(abilityScores(profile as any)[ability]) });
+    const pulls = 1 + (bonusPull.success ? 1 : 0) + Math.floor(level / 15);
     const gained: Record<string, number> = {};
     const yields = node.yields as Yield[];
     for (let i = 0; i < pulls; i++) {

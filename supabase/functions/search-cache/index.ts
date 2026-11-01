@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { abilityScores, check, checkModifier, formatCheck } from "../_shared/dice.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,7 +21,7 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const { data: profile } = await admin.from("profiles").select("id, username, gold, current_room").eq("id", user.id).maybeSingle();
+    const { data: profile } = await admin.from("profiles").select("id, username, gold, current_room, level, str, dex, con, int, wis, cha").eq("id", user.id).maybeSingle();
     if (!profile) return new Response(JSON.stringify({ error: "no profile" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const room = profile.current_room;
@@ -72,17 +73,19 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ ok: true, found: false, already: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Roll a 12-sided die; must meet or beat the cache's find_dc.
-    const roll = 1 + Math.floor(Math.random() * 12);
+    // Roll a 12-sided die + WIS modifier + level bonus; must meet or beat the cache's find_dc.
+    // Stays a d12 so the stored find_dc values keep their meaning.
     const dc = cache.find_dc ?? 7;
-    const success = roll >= dc;
+    const chk = check({ die: 12, dc, modifier: checkModifier(abilityScores(profile as any), "wis", (profile as any).level ?? 1) });
+    const { roll, success } = chk;
+    const rollText = formatCheck(chk);
 
     // Cache already uncovered by someone before this player?
     if (cache.revealed_at) {
       if (!success) {
         await admin.from("messages").insert({
           room, author_name: "—", kind: "ambient",
-          content: `*${profile.username} searches around (rolled **${roll}** vs **${dc}**) — they sense something was here, but the moment slips past them.*`,
+          content: `*${profile.username} searches around (rolled **${rollText}**) — they sense something was here, but the moment slips past them.*`,
           user_id: null,
         });
         return new Response(JSON.stringify({ ok: true, found: false, roll, dc }),
@@ -93,7 +96,7 @@ Deno.serve(async (req) => {
       const finder = cache.revealed_by_name ?? "someone";
       await admin.from("messages").insert({
         room, author_name: "—", kind: "ambient",
-        content: `*${profile.username} uncovers the hiding place (rolled **${roll}** vs **${dc}**) — but the chest lies open and looted clean. ${finder} got here first.*`,
+        content: `*${profile.username} uncovers the hiding place (rolled **${rollText}**) — but the chest lies open and looted clean. ${finder} got here first.*`,
         user_id: null,
       });
       return new Response(JSON.stringify({ ok: true, found: true, empty: true, roll, dc }),
@@ -104,7 +107,7 @@ Deno.serve(async (req) => {
     if (!success) {
       await admin.from("messages").insert({
         room, author_name: "—", kind: "ambient",
-        content: `*${profile.username} searches the area (rolled **${roll}** vs **${dc}**) but turns up nothing.*`,
+        content: `*${profile.username} searches the area (rolled **${rollText}**) but turns up nothing.*`,
         user_id: null,
       });
       return new Response(JSON.stringify({ ok: true, found: false, roll, dc }),
@@ -144,7 +147,7 @@ Deno.serve(async (req) => {
 
     await admin.from("messages").insert({
       room, author_name: "—", kind: "ambient",
-      content: `*${profile.username} rolled **${roll}** vs **${dc}** — ${cache.reveal_text}* The treasure lies revealed: **${cache.gold}g**${cache.item_key ? ` and **${cache.item_key}**` : ""}. Use **take** to claim it.`,
+      content: `*${profile.username} rolled **${rollText}** — ${cache.reveal_text}* The treasure lies revealed: **${cache.gold}g**${cache.item_key ? ` and **${cache.item_key}**` : ""}. Use **take** to claim it.`,
       user_id: null,
     });
     await admin.from("world_events").insert({
