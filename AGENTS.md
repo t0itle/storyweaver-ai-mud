@@ -9,6 +9,11 @@ named next to it. If the code and this file disagree, the code wins. Fix this fi
 - Guild rank math and board picks live in `supabase/functions/_shared/guildRanks.ts`. Edge functions
   and tests import it so thresholds stay in one place. **Do not copy the constants into other files.**
   (One existing copy in the frontend is a known exception; see "Known drift" below.)
+- Dice, ability modifiers and checks live in `supabase/functions/_shared/dice.ts` (tests:
+  `src/test/dice.test.ts`). Any new chance-based outcome should be a `check(...)` with an ability
+  modifier, not a bare `Math.random()`. When converting an old probability `p`, use `dcForChance(p)`
+  so a level-1 character with all scores at 10 keeps the old odds. The AI narrates outcomes; it
+  never decides them. See README §4.
 
 ---
 
