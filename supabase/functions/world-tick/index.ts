@@ -34,8 +34,13 @@ Deno.serve(async (req) => {
     const { data: npcs } = await admin.from("npcs").select("*")
       .or(`dead_until.is.null,dead_until.lte.${nowIso}`);
 
+    // NPCs enrolled as agents (npc_state) live by needs in npc-agent-tick instead of the fixed schedule.
+    const { data: agentRows } = await admin.from("npc_state").select("npc_id");
+    const agentIds = new Set((agentRows ?? []).map((r: any) => r.npc_id));
+
     let moved = 0, logged = 0;
     for (const npc of npcs ?? []) {
+      if (agentIds.has(npc.id)) continue;
       const sched = (npc.schedule ?? {}) as Record<string, { room: string; activity: string }>;
       const slot = sched[bucket];
       if (!slot) continue;
@@ -78,6 +83,18 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Run the NPC agents' code brain (no AI calls).
+    let agentResult: any = null;
+    try {
+      const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/npc-agent-tick`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+      });
+      agentResult = await res.json().catch(() => null);
+    } catch (e) {
+      console.error("npc-agent-tick failed", e);
+    }
+
     // Roll for dragon stir based on current hoards.
     let dragonResult: any = null;
     try {
@@ -93,7 +110,7 @@ Deno.serve(async (req) => {
       console.error("dragon-check failed", e);
     }
 
-    return new Response(JSON.stringify({ ok: true, bucket, moved, logged, dragonResult }),
+    return new Response(JSON.stringify({ ok: true, bucket, moved, logged, agentResult, dragonResult }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
