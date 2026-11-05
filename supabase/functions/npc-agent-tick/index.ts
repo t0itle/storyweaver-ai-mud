@@ -139,8 +139,9 @@ Deno.serve(async (req) => {
       }
 
       const mood = moodFor(needs);
+      const goals = (st.goals ?? []).filter((g: any) => !g.until || g.until > nowIso); // a god's charge lasts its term
       await admin.from("npc_state").update({
-        needs, wants, mood: mood.mood, mood_intensity: mood.intensity, current_action: action,
+        needs, wants, goals, mood: mood.mood, mood_intensity: mood.intensity, current_action: action,
         last_tick_at: nowIso, updated_at: nowIso,
         next_think_at: new Date(now.getTime() + THINK_EVERY_MIN * 60_000).toISOString(),
       }).eq("npc_id", npc.id);

@@ -95,6 +95,18 @@ Deno.serve(async (req) => {
       console.error("npc-agent-tick failed", e);
     }
 
+    // The Seven: at most one god wakes per 24h/7 and issues decrees (one AI call when it does).
+    let sevenResult: any = null;
+    try {
+      const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/seven-tick`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+      });
+      sevenResult = await res.json().catch(() => null);
+    } catch (e) {
+      console.error("seven-tick failed", e);
+    }
+
     // Roll for dragon stir based on current hoards.
     let dragonResult: any = null;
     try {
@@ -110,7 +122,7 @@ Deno.serve(async (req) => {
       console.error("dragon-check failed", e);
     }
 
-    return new Response(JSON.stringify({ ok: true, bucket, moved, logged, agentResult, dragonResult }),
+    return new Response(JSON.stringify({ ok: true, bucket, moved, logged, agentResult, sevenResult, dragonResult }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     console.error(e);
