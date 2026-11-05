@@ -232,3 +232,5 @@ The project is also editable through Lovable, which commits back to this repo.
 - Some race "gain" texts promise perks that are only partly implemented. For example, the elf's
   "+1 to discovery" now comes from WIS through the search check.
 - Guild-system drift is listed in `AGENTS.md` §8.
+- NPCs as independent agents (their own memory, needs, goals, relationships and daily lives) are
+  being explored in `docs/npc-agents.md`.
