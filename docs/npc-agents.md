@@ -214,7 +214,7 @@ The budget is minimal, so most NPC "thinking" has to cost nothing. Three layers:
 |---|---|---|---|
 | **1. Code brain** (utility AI) | Plain TypeScript in `_shared/npcMind.ts`: needs decay, every candidate action scored against needs, goals and personality traits, the best one picked | every tick, every agent | where to go, what to do, when a need becomes a **want** (and so a quest or a reach-out) |
 | **2. Small model** (optional, later) | A 1–8B open model (Llama / Qwen / Gemma class), quantized, run with llama.cpp or Ollama on a cheap always-on box, with JSON-schema / grammar-constrained output | batched, off-peak | short barks, journal summaries, rumor phrasing, picking between options the code brain already ranked |
-| **3. Director ("God AI")** | The large model on the current gateway, called a few times per in-game day | scheduled | world arcs: reads a compact world digest (economy, notable events, tensions, player activity) and returns validated directives such as assigning goals to agents, triggering shortages, feuds and festivals, seeding quests, or writing a soul for a newly important NPC |
+| **3. The Seven** (god-level directors) | The large model on the current gateway, wearing **one of the seven Aethers** per call. Each god rules its own kingdom (§6.2) | each god once per in-game day | that kingdom's arcs: reads a compact digest of its kingdom and returns validated **decrees**, such as assigning goals to its NPCs, setting shortages, laws, feuds and festivals, seeding quests, or writing a soul for a newly important NPC |
 
 **Talking to players stays on the large model** (today's `npc-respond`). It's on demand, so its cost
 grows with the number of players, not the number of NPCs, and it's where players notice quality.
@@ -230,8 +230,55 @@ Notes on running a model "locally":
   constrained choices and short text. Give them only constrained jobs.
 - Everything calls an `NpcBrain` interface (`plan`, `bark`, `summarize`, `direct`), so switching a
   job between code, the gateway and a local model is a config change. **Start with layer 1 and the
-  Director. Add layer 2 only when measurements show the gateway bill for barks and summaries is
+  Seven. Add layer 2 only when measurements show the gateway bill for barks and summaries is
   worth replacing.**
+
+### 6.2 The Seven: one director per god, one kingdom each
+
+The lore already supplies the "God AI": **seven Aethers rule seven kingdoms**. So instead of one
+neutral director, each Aether is its own director, with its own domain, agenda and temperament. The
+big decisions come from what each god wants, and the gods compete with one another.
+
+| Aether (`aethers.key`) | Domain | Capital (throne room's city) | What its decrees act on |
+|---|---|---|---|
+| Solastin | the Sun | High Sanctum | faith, wardens, defense against the Shadow, pilgrimages |
+| Khalvaris | Judgement | Iron Bastion | laws, guards, bounties, trials, punishments |
+| Nyxara | Silence | Silent Horizon | secrets, suppressing rumors, assassins, vows of silence |
+| Thalvora | Trade | Gilded Bazaar | prices, tariffs, caravans, merchant guild, debts |
+| Lazareth | Memory | Mirrorlands Court | lore revealed, histories, rumors that spread, old grudges resurfacing |
+| Velithria | Love | Evershade Court | NPC relationships: courtships, marriages, rivalries, reconciliations |
+| Morvayne | Plenty | Feastlands Keep | harvests, food supply, festivals, famine |
+
+How it runs:
+- **A cheap cadence.** The tick wakes **one god per in-game time slot**, rotating, so it's 7 calls per
+  in-game day for the whole world. Each god gets only its own kingdom's digest (needs and wants of
+  its key NPCs, prices, crimes, deaths, player deeds, its rivals' last decrees, Shadow pressure).
+- **Decrees, not free text.** A god returns a short list from a fixed decree vocabulary (for example
+  `set_goal(npc, goal)`, `shortage(item, town, days)`, `law(kind, town, days)`, `festival(town)`,
+  `bounty(target, gold)`, `rumor(text, town)`, `favor(player, reason)`, `summon_sworn(task)`), plus
+  one line of proclamation flavour. Code checks every decree against hard limits (how big, how many,
+  how long) before applying it. The house rule still holds: the god chooses what it wants; code
+  decides what happens.
+- **The gods are visible.** Decrees appear as proclamations at the throne room, the town board and
+  through NPC talk ("By the Verdict Throne, no blade is drawn in the Bastion for seven days"). NPCs
+  in that kingdom pick up the god's goals as their own wants, so they post jobs, change prices and
+  gossip about the new law.
+- **Divine politics.** The gods have standing relations with each other (stored like
+  `npc_relations`, between `aether` keys). Trade versus Plenty over grain prices, Judgement versus
+  Silence over secrets. Kingdoms bordering each other react to each other's decrees.
+- **Sworn players are the gods' hands.** A player sworn to an Aether (`profiles.aether`) can receive
+  direct tasks through `summon_sworn`, which ties into the existing vow chains
+  (`aether-loyalty-action`).
+- **Gods can fall.** `aethers.alive`, `fallen_at` and `wardens_killed` already exist. A fallen god
+  issues no decrees. Its kingdom drifts on the code brain alone, Shadow pressure rises, and rival
+  gods may claim influence there. This is the biggest-impact lever in the world.
+- **The Shadow is the eighth voice.** It doesn't issue decrees. Chaos pressure and corruption feed
+  every god's digest as a threat, and Non Serviam players work against them.
+
+**Open lore question:** a later migration (`20260526044930`) swapped the *well rooms* of Lazareth
+and Nyxara (Lazareth's well is now in Silent Horizon, Nyxara's in Mirrorlands Court), while the
+throne rooms still sit in the original cities. Which city each of those two gods rules needs a
+decision before kingdoms are wired up.
 
 ### 6.1 Presenting rich NPCs on a small budget
 
@@ -265,6 +312,7 @@ Notes on running a model "locally":
    player is present, and keep any AI calls behind a global daily cap.
 4. **Visibility:** players learn NPC inner life by talking to them, gated by amity.
 5. **Initiative:** yes. NPCs post quests from real wants and can reach out to players directly.
+6. **Directors:** the "God AI" is the seven Aethers, each ruling its own kingdom (§6.2).
 
 Still open: whether to run a self-hosted small model (§6), and if so which host and monthly budget.
 
@@ -278,6 +326,6 @@ Still open: whether to run a self-hosted small model (§6), and if so which host
 | **1. Bones** | Tables (`npc_souls`, `npc_state`, `npc_journal`, `npc_relations`) with a `disclosure` level; `_shared/npcMind.ts` (needs, utility scoring, wants) with unit tests; `npc-agent-tick` running the code brain only, for hand-placed and role NPCs; the `NpcBrain` interface | none |
 | **2. Voice** | `npc-respond` reads soul + state + amity-gated journal and writes conversation entries; template barks; catch-up on arrival | same as today |
 | **3. Wants → quests** | NPC-authored `posted_quests`; letters inbox; rewards paid from the NPC's purse | none to low |
-| **4. Director** | Daily world digest → large-model directives (validated); souls written for newly important NPCs | a few calls/day |
+| **4. The Seven** | Per-kingdom digests; one god per time slot issues validated decrees; proclamations; sworn-player tasks; god-to-god relations | 7 calls/in-game day |
 | **5. Society** | NPC↔NPC relations, rumor propagation, feuds, households, shops opening and closing, migration, deaths | low |
 | **6. Small model (optional)** | Self-hosted model behind `NpcBrain` for barks and summaries | fixed hosting cost |
