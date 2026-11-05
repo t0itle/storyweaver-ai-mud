@@ -52,6 +52,8 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   const [step, setStep] = useState<"direction" | "choose">("direction");
   const [direction, setDirection] = useState<Direction | null>(null);
   const [name, setName] = useState("");
+  const [classes, setClasses] = useState<{ key: string; name: string; tagline: string }[]>([]);
+  const [klass, setKlass] = useState<string | null>(null);
 
   const buildDescription = (): string => {
     if (!chosen || !gender) return "";
@@ -64,6 +66,8 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   useEffect(() => {
     supabase.from("races").select("*").order("sort_order")
       .then(({ data }) => setRaces((data ?? []) as Race[]));
+    supabase.from("class_defs").select("key, name, tagline").order("sort_order")
+      .then(({ data }) => setClasses(data ?? []));
     supabase.from("profiles").select("username").eq("id", session.user.id).maybeSingle()
       .then(({ data }) => {
         const u = (data?.username ?? "").trim();
@@ -75,6 +79,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
   const submit = async () => {
     if (!chosen) { toast.error("Choose a race first."); return; }
     if (!gender) { toast.error("Choose a gender first."); return; }
+    if (!klass) { toast.error("Choose a class first."); return; }
     if (name.trim().length < 2) { toast.error("Speak a name — at least two letters."); return; }
     const filled = AD_LIB_FIELDS.filter((f) => (adlib[f.key]?.trim().length ?? 0) >= 2).length;
     if (filled < 3) { toast.error("Fill in at least three details — the pool needs a face."); return; }
@@ -82,7 +87,7 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
     setBusy(true);
     try {
       const { error } = await supabase.functions.invoke("create-character", {
-        body: { race_key: chosen.key, description, direction, name: name.trim() },
+        body: { race_key: chosen.key, description, direction, name: name.trim(), class_key: klass },
       });
       if (error) throw error;
 
@@ -231,6 +236,24 @@ export default function CharacterCreation({ session, onCreated }: { session: Ses
                   <p className="text-sm text-ash italic mb-3">{r.flavor}</p>
                   <p className="text-xs text-moss"><span className="text-ash uppercase tracking-wider mr-1">gain</span> {r.gain}</p>
                   <p className="text-xs text-ember mt-1"><span className="text-ash uppercase tracking-wider mr-1">cost</span> {r.cost}</p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <div className="font-mono text-[11px] uppercase tracking-widest text-ash mb-2">
+            Choose your calling {klass && <span className="text-ember normal-case tracking-normal">— {classes.find((c) => c.key === klass)?.name} ✓</span>}
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {classes.map((c) => {
+              const active = klass === c.key;
+              return (
+                <button key={c.key} type="button" onClick={() => setKlass(c.key)}
+                  className={`text-left p-3 border-l-4 active:scale-[0.97] transition-all touch-manipulation ${active ? "border-ember bg-ember/10" : "border-border bg-card/40 hover:border-ember/50"}`}>
+                  <div className={`font-display text-sm ${active ? "text-ember" : "text-parchment"}`}>{c.name}</div>
+                  <div className="text-[11px] text-ash italic">{c.tagline}</div>
                 </button>
               );
             })}
