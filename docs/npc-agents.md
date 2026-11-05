@@ -1,6 +1,6 @@
 # NPCs as dedicated agents: exploration and proposal
 
-Status: **exploration / proposal**. Nothing in this document is built yet. Its goal is to turn every
+Status: **design agreed (see §7); not built yet**. Its goal is to turn every
 important NPC from "a persona string fed into a shared prompt" into **its own agent**: a self with
 its own memory, needs, goals and relationships, that lives a life whether or not any player is near.
 
@@ -206,32 +206,78 @@ much a call costs on the gateway.** Measure both first (Phase 0).
 
 ---
 
-## 6. Suggested phases
+## 6. Brains: who thinks, how often, and on what hardware
 
-| Phase | Deliverable | Player-visible? |
-|---|---|---|
-| **0. Measure** | Count NPCs by kind; log AI calls and latency in `npc-respond`; confirm how `world-tick` is scheduled | no |
-| **1. Souls + journal** | New tables; a one-time backfill that expands each `agent`-tier NPC's persona into a `core` soul; `npc-respond` reads soul + state + journal and writes conversation entries | yes: richer, more consistent NPC voices |
-| **2. Needs + daily plans** | `npc-agent-tick` (pg_cron) with needs decay, a daily plan per agent and code execution of the plan; replaces static schedules for agents | yes: NPCs keep their own days |
-| **3. NPC↔NPC** | `npc_relations`, budgeted conversations, rumor propagation | yes: overheard conversations, news that travels |
-| **4. Reflection + goals** | Nightly reflection; goals that complete or fail; NPC-sourced notices and quests | yes: NPCs change over weeks |
-| **5. Consequences** | Agents' lives change the world: open or close shops, move towns, fall out, marry, die (with rules) | yes |
+The budget is minimal, so most NPC "thinking" has to cost nothing. Three layers:
 
-Each phase can ship on its own and be turned off with a flag on `npc_state.tier`.
+| Layer | What it is | Runs | Decides |
+|---|---|---|---|
+| **1. Code brain** (utility AI) | Plain TypeScript in `_shared/npcMind.ts`: needs decay, every candidate action scored against needs, goals and personality traits, the best one picked | every tick, every agent | where to go, what to do, when a need becomes a **want** (and so a quest or a reach-out) |
+| **2. Small model** (optional, later) | A 1–8B open model (Llama / Qwen / Gemma class), quantized, run with llama.cpp or Ollama on a cheap always-on box, with JSON-schema / grammar-constrained output | batched, off-peak | short barks, journal summaries, rumor phrasing, picking between options the code brain already ranked |
+| **3. Director ("God AI")** | The large model on the current gateway, called a few times per in-game day | scheduled | world arcs: reads a compact world digest (economy, notable events, tensions, player activity) and returns validated directives such as assigning goals to agents, triggering shortages, feuds and festivals, seeding quests, or writing a soul for a newly important NPC |
+
+**Talking to players stays on the large model** (today's `npc-respond`). It's on demand, so its cost
+grows with the number of players, not the number of NPCs, and it's where players notice quality.
+
+Notes on running a model "locally":
+- Supabase Edge Functions **cannot** host a model: no GPU, small memory, short time limits. "Local"
+  means a separate server that the tick calls over HTTP. That's a new running cost (a fixed monthly
+  bill instead of paying per call) and something new to operate.
+- **One shared small model, not one model per NPC.** What makes an NPC an individual is its state
+  (soul, journal, relations) in the prompt, not its weights. Fine-tuning per NPC is wasted effort.
+  Per-culture adapters (LoRA) could come much later.
+- Small models are poor at long prompts, lore and keeping a character's voice consistent, and good at
+  constrained choices and short text. Give them only constrained jobs.
+- Everything calls an `NpcBrain` interface (`plan`, `bark`, `summarize`, `direct`), so switching a
+  job between code, the gateway and a local model is a config change. **Start with layer 1 and the
+  Director. Add layer 2 only when measurements show the gateway bill for barks and summaries is
+  worth replacing.**
+
+### 6.1 Presenting rich NPCs on a small budget
+
+- **Simulate only what a player can see.** Off-screen agents run on the code brain only. When a
+  player enters a room or talks to an NPC, the code works out what the NPC "did" since it was last
+  seen from its journal and plan (a cheap catch-up), then presents it.
+- **Disclosure is gated by amity (decision 4).** Every journal entry and soul field gets a
+  `disclosure` level: public, then acquaintance (amity ≥ 20), then trusted (≥ 50), then confidant
+  (≥ 80). `npc-respond` passes the model only what the player has earned, so secrets are learned by
+  building relationships. This costs no extra AI calls.
+- **Barks from templates first.** Ambient lines ("*Maren counts her last coins twice.*") come from
+  trait- and need-driven templates filled in by code. The AI writes barks only where players are
+  actually present.
+- **Wants become quests (decision 5).** When a need stays unmet (coin low for days, a missing tool,
+  a rival, a sick relative), the code brain creates a *want*. Depending on amity:
+  - **Public:** post to the town board (`posted_quests`, with a new `author_npc_id`). The template
+    comes from the want's kind, and the NPC pays from its own purse.
+  - **Personal:** the NPC reaches out to a specific player it trusts. This needs a new **letters**
+    feature (a per-player inbox; today messages only go to rooms). Delivery is shown in the world
+    ("*A runner presses a sealed note into your hand.*").
+  - Either way, `quest-award` pays the reward and the NPC's need is resolved. That closes the loop
+    and leaves a journal memory.
 
 ---
 
-## 7. Decisions needed from the project owner
+## 7. Decisions (answered 2026-11)
 
-1. **How far may NPC lives change the world?** Flavour only (moods, chatter), or real consequences
-   (prices, shops closing, NPCs leaving, dying, feuding)?
-2. **Which NPCs become agents first?** For example only hand-placed and role NPCs, or also
-   AI-populated residents once a player engages them.
-3. **Budget:** a daily ceiling on AI calls for the background world.
-4. **Visibility:** should players be able to read any of an NPC's inner life (a chronicle or
-   "rumors" panel), or only see it through behaviour?
-5. **Initiative toward players:** may an agent seek out a player, send a message, or post a job for
-   them on its own?
-6. **Platform:** stay entirely on Supabase (pg_cron + edge functions + the current AI gateway), which
-   is recommended for consistency, or add a separate always-on worker if edge-function time limits
-   become the bottleneck.
+1. **World impact:** big, built up over time. Agents' lives should change the world eventually.
+2. **Order:** build the bones (data, loop, interfaces) before the meat (rich behaviour).
+3. **Budget:** minimal. Use the code brain, gate disclosure behind amity, catch up only when a
+   player is present, and keep any AI calls behind a global daily cap.
+4. **Visibility:** players learn NPC inner life by talking to them, gated by amity.
+5. **Initiative:** yes. NPCs post quests from real wants and can reach out to players directly.
+
+Still open: whether to run a self-hosted small model (§6), and if so which host and monthly budget.
+
+---
+
+## 8. Phases (revised)
+
+| Phase | Deliverable | AI cost |
+|---|---|---|
+| **0. Measure** | Count NPCs by kind and role; log `npc-respond` calls and latency; confirm `world-tick` scheduling | none |
+| **1. Bones** | Tables (`npc_souls`, `npc_state`, `npc_journal`, `npc_relations`) with a `disclosure` level; `_shared/npcMind.ts` (needs, utility scoring, wants) with unit tests; `npc-agent-tick` running the code brain only, for hand-placed and role NPCs; the `NpcBrain` interface | none |
+| **2. Voice** | `npc-respond` reads soul + state + amity-gated journal and writes conversation entries; template barks; catch-up on arrival | same as today |
+| **3. Wants → quests** | NPC-authored `posted_quests`; letters inbox; rewards paid from the NPC's purse | none to low |
+| **4. Director** | Daily world digest → large-model directives (validated); souls written for newly important NPCs | a few calls/day |
+| **5. Society** | NPC↔NPC relations, rumor propagation, feuds, households, shops opening and closing, migration, deaths | low |
+| **6. Small model (optional)** | Self-hosted model behind `NpcBrain` for barks and summaries | fixed hosting cost |
