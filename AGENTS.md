@@ -14,6 +14,12 @@ named next to it. If the code and this file disagree, the code wins. Fix this fi
   modifier, not a bare `Math.random()`. When converting an old probability `p`, use `dcForChance(p)`
   so a level-1 character with all scores at 10 keeps the old odds. The AI narrates outcomes; it
   never decides them. See README §4.
+- NPC agents (`docs/npc-agents.md`): NPC behaviour logic lives in `_shared/npcMind.ts`, what a
+  player may hear about an NPC in `_shared/npcVoice.ts`, and the Seven's decree rules in
+  `_shared/decrees.ts`, all pure and tested. The AI never writes to the database directly. Gods
+  return decrees that `validateDecrees` filters, and NPC wants become quests through fixed
+  templates. Never put journal or player text into a prompt except through `quoteData`. Background
+  AI calls go through `_shared/aiGateway.ts`.
 
 ---
 

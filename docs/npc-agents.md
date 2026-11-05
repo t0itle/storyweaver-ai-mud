@@ -1,6 +1,6 @@
 # NPCs as dedicated agents: exploration and proposal
 
-Status: **design agreed (see §7); not built yet**. Its goal is to turn every
+Status: **phases 1–4 built (see §9)**; phases 0, 5 and 6 still to do. Its goal is to turn every
 important NPC from "a persona string fed into a shared prompt" into **its own agent**: a self with
 its own memory, needs, goals and relationships, that lives a life whether or not any player is near.
 
@@ -328,3 +328,39 @@ Still open: whether to run a self-hosted small model (§6), and if so which host
 | **4. The Seven** | Per-kingdom digests; one god per time slot issues validated decrees; proclamations; sworn-player tasks; god-to-god relations | 7 calls/in-game day |
 | **5. Society** | NPC↔NPC relations, rumor propagation, feuds, households, shops opening and closing, migration, deaths | low |
 | **6. Small model (optional)** | Self-hosted model behind `NpcBrain` for barks and summaries | fixed hosting cost |
+
+---
+
+## 9. What is built (phases 1–4)
+
+| Piece | File | Notes |
+|---|---|---|
+| Code brain | `supabase/functions/_shared/npcMind.ts` | needs, traits from the NPC id, utility-scored actions, mood, wants, want → quest, target rooms, amity disclosure levels, template barks. Tests: `src/test/npcMind.test.ts` |
+| Voice | `supabase/functions/_shared/npcVoice.ts` | builds the soul/state/journal prompt block, including only what the player's amity has earned. Tests: `src/test/npcVoice.test.ts` |
+| The Seven | `supabase/functions/_shared/decrees.ts` | god profiles, divine politics, cadence, decree vocabulary and validation, prompt and digest. Tests: `src/test/decrees.test.ts` |
+| AI call point | `supabase/functions/_shared/aiGateway.ts` | the one place background brains call a model (the swap point for a self-hosted model) |
+| Agent tick | `supabase/functions/npc-agent-tick/` | runs the code brain for due agents; `wants.ts` turns wants into letters or board posts |
+| God tick | `supabase/functions/seven-tick/` | one god per 24h/7: digest, one model call, validated decrees, proclamations |
+| Scheduling | `supabase/functions/world-tick/` | calls both ticks every hour; no longer moves agents by fixed schedule |
+| Talking | `supabase/functions/npc-respond/` | uses the voice block; journals conversations; promotes engaged NPCs to `dreaming` |
+| Quests | `town-board` (claim), `quest-award` (completion) | NPC postings name the real NPC; completing the favour meets the want |
+| Letters | `GameClient.tsx` | `letters` command and an arrival notice |
+| Schema | `drizzle/migrations/0004`–`0006` | `npc_souls`, `npc_state`, `npc_journal`, `npc_relations`, `posted_quests.author_npc_id`, `player_letters`, `aethers.last_decree_at`, `aether_decrees` |
+
+**Tiers as built:** the migration enrols living, visible role NPCs (merchants, guildmasters, wardens,
+bards, fences, guards) as `agent`. Talking to any other NPC (except souls, Aethers and bosses) adds it
+as `dreaming`. Both tiers currently run the same free code brain. Companions and escorted NPCs are
+never moved by the tick.
+
+**AI cost as built:** the agent tick makes no AI calls. `seven-tick` makes at most one call per
+24h/7. With the hourly world tick, that's in practice one call every 4 hours, about 6 a day. A god's
+turn is claimed before its call, so a failing model can't be retried every hour. Player conversations
+cost the same as before.
+
+**Requires** `world-tick` to actually run on a schedule. No `cron.schedule` exists in the repo's
+migrations (see §1), so confirm it's scheduled in Supabase, or nothing here moves.
+
+**Not built yet:** phase 0 measurement; Seven-written souls for newly important NPCs (souls are
+seeded from the old persona); NPC↔NPC conversations and rumor passing between NPCs (relations are
+only set by `bond` decrees so far); catch-up narration on arrival; the shortage, bounty and favor
+decrees; a self-hosted small model; an admin "NPC mind" view.

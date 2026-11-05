@@ -46,7 +46,10 @@ Deno.serve(async (req) => {
     const [{ data: rooms }, { data: souls }, { data: present }, { data: bound }] = await Promise.all([
       admin.from("rooms").select("slug, name, kind, town_key"),
       admin.from("npc_souls").select("npc_id, core").in("npc_id", rows.map((r: any) => r.npc_id)),
-      admin.from("profiles").select("current_room").not("current_room", "is", null),
+      // "Watched" rooms: where a player who has posted in the last hour is standing (offline players
+      // keep a current_room, so it alone would fill empty rooms with unseen barks).
+      admin.from("messages").select("user_id").not("user_id", "is", null)
+        .gte("created_at", new Date(now.getTime() - 3_600_000).toISOString()).limit(1000),
       admin.from("profiles").select("companion_npc_id, escortee_npc_id")
         .or("companion_npc_id.not.is.null,escortee_npc_id.not.is.null"),
     ]);
@@ -57,7 +60,11 @@ Deno.serve(async (req) => {
     const tavernByTown = new Map<string, string>();
     for (const r of rooms ?? []) if (r.kind === "tavern" && r.town_key && !tavernByTown.has(r.town_key)) tavernByTown.set(r.town_key, r.slug);
     const soulById = new Map((souls ?? []).map((s: any) => [s.npc_id, s.core]));
-    const occupied = new Set((present ?? []).map((p: any) => p.current_room));
+    const activeIds = [...new Set((present ?? []).map((m: any) => m.user_id))];
+    const { data: activeRooms } = activeIds.length
+      ? await admin.from("profiles").select("current_room").in("id", activeIds)
+      : { data: [] as { current_room: string }[] };
+    const occupied = new Set((activeRooms ?? []).map((p: any) => p.current_room));
     const barkedRooms = new Set<string>();
 
     // Lazily create souls (background + voice from the existing persona, stable traits from the id).

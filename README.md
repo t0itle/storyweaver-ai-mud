@@ -154,6 +154,8 @@ random ranges. Moving it onto this system is planned as a separate pass.
 | Exploration | Map discovery, wagon travel, desert wandering, caches, loot, free-form interactions | `discover-location`, `wagon-travel`, `desert-wander`, `search-cache`, `take-loot`, `interact` |
 | Character | Creation, talents, awakenings, inventory, rest, rename, restart | `create-character`, `spend-talent`, `awaken-class`, `inventory-action`, `rest-action`, `rename-character`, `restart-character` |
 | Living world | Hourly NPC schedules, room population, ambience | `world-tick`, `populate-npcs`, `room-ambience` |
+| NPC agents | Role NPCs live by needs (coin, hunger, rest, safety, belonging, faith). Their wants become board quests or letters to trusted players. Players learn their inner lives through amity. See `docs/npc-agents.md`. | `npc-agent-tick`, `npc-respond` |
+| The Seven | Each living Aether rules its kingdom, waking in turn to issue decrees (goals, laws, rumors, festivals, summons, bonds) | `seven-tick` |
 | Art and sound | Scene art, portrait wound and gear variants, room music and ambience, bardic performance | `scene-image`, `portrait-state-variant`, `restyle-portrait`, `scene-music`, `room-audio-generate`, `music-action`, `intro-music`, `intro-narration` |
 | Ops | Lore sync, admin wipe | `sync-lore`, `admin-wipe` |
 
@@ -232,5 +234,4 @@ The project is also editable through Lovable, which commits back to this repo.
 - Some race "gain" texts promise perks that are only partly implemented. For example, the elf's
   "+1 to discovery" now comes from WIS through the search check.
 - Guild-system drift is listed in `AGENTS.md` §8.
-- NPCs as independent agents (their own memory, needs, goals, relationships and daily lives) are
-  being explored in `docs/npc-agents.md`.
+- NPC agents and the Seven: phases 1–4 are built. What's still missing is listed in `docs/npc-agents.md` §9.
