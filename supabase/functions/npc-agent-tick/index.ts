@@ -43,11 +43,16 @@ Deno.serve(async (req) => {
     if (!rows.length) return json({ ok: true, processed: 0 });
 
     // World lookups, once per tick.
-    const [{ data: rooms }, { data: souls }, { data: present }] = await Promise.all([
+    const [{ data: rooms }, { data: souls }, { data: present }, { data: bound }] = await Promise.all([
       admin.from("rooms").select("slug, name, kind, town_key"),
       admin.from("npc_souls").select("npc_id, core").in("npc_id", rows.map((r: any) => r.npc_id)),
       admin.from("profiles").select("current_room").not("current_room", "is", null),
+      admin.from("profiles").select("companion_npc_id, escortee_npc_id")
+        .or("companion_npc_id.not.is.null,escortee_npc_id.not.is.null"),
     ]);
+    // Companions and escorted travellers go where their player goes; the tick must not move them.
+    const following = new Set<string>();
+    for (const p of bound ?? []) { if (p.companion_npc_id) following.add(p.companion_npc_id); if (p.escortee_npc_id) following.add(p.escortee_npc_id); }
     const roomBySlug = new Map((rooms ?? []).map((r: any) => [r.slug, r]));
     const tavernByTown = new Map<string, string>();
     for (const r of rooms ?? []) if (r.kind === "tavern" && r.town_key && !tavernByTown.has(r.town_key)) tavernByTown.set(r.town_key, r.slug);
@@ -88,9 +93,11 @@ Deno.serve(async (req) => {
       const slot = (npc.schedule ?? {})[bucket] as { room?: string; activity?: string } | undefined;
       const routineRoom = slot?.room && roomBySlug.has(slot.room) ? slot.room : home;
       const town = roomBySlug.get(home)?.town_key;
-      let room = routineRoom;
-      if (action === "sleep") room = home;
-      if ((action === "eat" || action === "socialize") && town && tavernByTown.has(town)) room = tavernByTown.get(town)!;
+      let room = following.has(npc.id) ? npc.room : routineRoom;
+      if (!following.has(npc.id)) {
+        if (action === "sleep") room = home;
+        if ((action === "eat" || action === "socialize") && town && tavernByTown.has(town)) room = tavernByTown.get(town)!;
+      }
       const activity = action === "work" && slot?.activity ? slot.activity : ACTIVITY[action];
       const roomChanged = room !== npc.room;
 

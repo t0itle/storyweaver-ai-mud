@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { abilityScores, check, checkModifier, DEFAULT_DC, outcomeOf } from "../_shared/dice.ts";
+import { buildLifeBlock } from "../_shared/npcVoice.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -110,6 +111,21 @@ Deno.serve(async (req) => {
     const amityWord = (s: number) =>
       s <= -60 ? "Hostile" : s <= -20 ? "Wary" : s < 20 ? "Neutral" : s < 60 ? "Friendly" : "Devoted";
     const amityBlock = `${amityWord(currentScore)} (${currentScore >= 0 ? "+" : ""}${currentScore})`;
+
+    // The NPC's own self: soul, live state and journal, gated by how much this player has earned.
+    // These tables are service-role only, so read them with a service client.
+    const agentDb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const [{ data: soulRow }, { data: agentState }, { data: journalRows }] = await Promise.all([
+      agentDb.from("npc_souls").select("core").eq("npc_id", npc_id).maybeSingle(),
+      agentDb.from("npc_state").select("mood, current_action, goals, wants").eq("npc_id", npc_id).maybeSingle(),
+      agentDb.from("npc_journal").select("kind, summary, disclosure, importance, source, created_at")
+        .eq("npc_id", npc_id).order("created_at", { ascending: false }).limit(40),
+    ]);
+    const lifeBlock = buildLifeBlock({
+      playerName: player_name, amity: currentScore,
+      soul: (soulRow?.core as any) ?? { background: npc.persona },
+      state: agentState as any, journal: (journalRows ?? []) as any,
+    });
 
     // Pull all lore for the NPC's knowledge — they may reference it naturally.
     const { data: lore } = await supabase.from("lore_entries").select("slug,title,summary,keywords");
@@ -417,6 +433,8 @@ This MUST color your tone, generosity, and willingness to share secrets, give fa
 HOW ${player_name}'S WORDS LAND THIS TURN (decided by a dice roll — it is final): **${socialOutcome}**.
 Apply this ONLY if ${player_name} is trying to persuade, haggle, deceive, intimidate, charm or ask a favour of you. Success = you are moved (within what your character and amity allow); failure = you are not convinced; critical success = unusually swayed; critical failure = they offend or alarm you. For ordinary conversation, ignore this line. Never mention dice or rolls.
 
+${lifeBlock}
+
 WHAT YOU KNOW OF ${player_name}'S STANDING WITH THE SEVEN:
 ${stanceBlock}
 
@@ -718,6 +736,18 @@ Do not mention these tags in your prose.`;
         importance: Math.max(1, Math.min(5, Number(memoryToStore.importance) || 1)),
         room,
       });
+      // Also into the NPC's own journal, so the conversation shapes its life. Shared with acquaintances.
+      await admin.from("npc_journal").insert({
+        npc_id: npc.id, kind: "conversation", subject_kind: "player", subject_id: user.id,
+        summary: `Spoke with ${player_name}: ${String(memoryToStore.summary).slice(0, 400)}`,
+        emotion: memoryToStore.emotion ? String(memoryToStore.emotion).slice(0, 32) : null,
+        importance: Math.max(1, Math.min(5, Number(memoryToStore.importance) || 1)),
+        disclosure: 1, source: "witnessed", room,
+      });
+    }
+    // Being engaged by a player wakes a background NPC: it now lives by needs (code brain, no AI).
+    if (!agentState && !(npc as any).is_soul && !(npc as any).is_aether && !(npc as any).is_boss) {
+      await admin.from("npc_state").upsert({ npc_id: npc.id, tier: "dreaming" }, { onConflict: "npc_id", ignoreDuplicates: true });
     }
     const newScore = Math.max(-100, Math.min(100, currentScore + amityDelta));
     if (amityDelta !== 0 || !amityRow) {
