@@ -275,10 +275,9 @@ How it runs:
 - **The Shadow is the eighth voice.** It doesn't issue decrees. Chaos pressure and corruption feed
   every god's digest as a threat, and Non Serviam players work against them.
 
-**Open lore question:** a later migration (`20260526044930`) swapped the *well rooms* of Lazareth
-and Nyxara (Lazareth's well is now in Silent Horizon, Nyxara's in Mirrorlands Court), while the
-throne rooms still sit in the original cities. Which city each of those two gods rules needs a
-decision before kingdoms are wired up.
+**Settled:** Lazareth rules the Mirrorlands (Mirrorlands Court) and Nyxara rules Silent Horizon.
+A 2026-05 migration had swapped their *well rooms*. `drizzle/migrations/0003_fix_lazareth_nyxara_wells.sql`
+reverses it and moves each god's "Mirror of …" guide along with it.
 
 ### 6.1 Presenting rich NPCs on a small budget
 
