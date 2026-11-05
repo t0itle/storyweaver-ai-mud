@@ -1759,6 +1759,50 @@ export type Database = {
           },
         ]
       }
+      player_letters: {
+        Row: {
+          body: string
+          created_at: string
+          from_name: string
+          from_npc_id: string | null
+          id: string
+          quest_id: string | null
+          read_at: string | null
+          subject: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          from_name: string
+          from_npc_id?: string | null
+          id?: string
+          quest_id?: string | null
+          read_at?: string | null
+          subject: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          from_name?: string
+          from_npc_id?: string | null
+          id?: string
+          quest_id?: string | null
+          read_at?: string | null
+          subject?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_letters_from_npc_id_fkey"
+            columns: ["from_npc_id"]
+            isOneToOne: false
+            referencedRelation: "npcs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_lesser_rune_knowledge: {
         Row: {
           knows_symbol: boolean

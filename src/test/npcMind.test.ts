@@ -78,7 +78,7 @@ describe("wants", () => {
     expect(questForWant("Maren", "coin", "x")).toBeNull();
   });
   it("rewards come from the NPC's own purse, and a poor NPC can't post one", () => {
-    expect(rewardFor(100)).toBe(25);
+    expect(rewardFor(100)).toBe(20); // capped at the minor-severity payout
     expect(rewardFor(40)).toBe(12);
     expect(rewardFor(10)).toBeNull();
   });
@@ -103,4 +103,22 @@ describe("presentation", () => {
     expect(barkFor("Maren", "work", fine, 0)).toContain("Maren");
     expect(barkFor("Maren", "work", { ...fine, hunger: 5 }, 0)).toContain("stomach");
   });
+});
+
+import { targetRoomFor, type RoomLite } from "../../supabase/functions/_shared/npcMind";
+describe("where a want sends the player", () => {
+  const rooms: RoomLite[] = [
+    { slug: "home-road", kind: "road", town_key: "home" },
+    { slug: "far-square", kind: "square", town_key: "far" },
+    { slug: "home-square", kind: "square", town_key: "home" },
+    { slug: "sun-throne", kind: "throne", town_key: null },
+  ];
+  const npc = { id: "n1", room: "home-square" };
+  it("hunger: to the NPC itself", () => expect(targetRoomFor("hunger", npc, "home", rooms)).toBe("home-square"));
+  it("safety: a road in the NPC's own town", () => expect(targetRoomFor("safety", npc, "home", rooms)).toBe("home-road"));
+  it("belonging: somewhere in a different town (carrying word away)", () => expect(targetRoomFor("belonging", npc, "home", rooms)).toBe("far-square"));
+  it("faith: a throne room", () => expect(targetRoomFor("faith", npc, "home", rooms)).toBe("sun-throne"));
+  it("is stable for the same NPC so a repeated ask points to the same place", () =>
+    expect(targetRoomFor("safety", npc, "home", rooms)).toBe(targetRoomFor("safety", npc, "home", rooms)));
+  it("returns null when nowhere fits", () => expect(targetRoomFor("faith", npc, "home", [])).toBeNull());
 });

@@ -116,6 +116,26 @@ export async function completeQuest(admin: any, questId: string, note = "") {
     await admin.from("npcs").update({ hidden: true }).eq("id", quest.escort_npc_id);
   }
 
+  // An agent NPC's want is met when a player completes the favour it asked for (board post or letter).
+  const { data: giverState } = await admin.from("npc_state").select("wants, needs")
+    .eq("npc_id", quest.giver_npc_id).maybeSingle();
+  const met = (giverState?.wants ?? []).find((w: any) => w.quest_title && w.quest_title === quest.title);
+  if (met) {
+    await admin.from("npc_state").update({
+      wants: giverState!.wants.filter((w: any) => w !== met),
+      needs: { ...(giverState!.needs ?? {}), [met.need]: 80 },
+      updated_at: new Date().toISOString(),
+    }).eq("npc_id", quest.giver_npc_id);
+    await admin.from("npc_journal").insert({
+      npc_id: quest.giver_npc_id, kind: "deed", subject_kind: "player", subject_id: quest.user_id,
+      summary: `${profile?.username ?? "A traveller"} helped me: ${quest.objective ?? quest.title}`,
+      emotion: "grateful", importance: 4, disclosure: 0, source: "witnessed",
+    });
+    if (met.posted_quest_id) {
+      await admin.from("posted_quests").update({ status: "complete" }).eq("id", met.posted_quest_id);
+    }
+  }
+
   // Guild XP + rank-up announcement.
   if (quest.source_guild && !quest.is_initiation) {
     const { data: mem } = await admin.from("player_guild_membership")

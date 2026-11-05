@@ -117,6 +117,7 @@ const HELP = [
   ["services", "list services any NPC here will sell you"],
   ["pay <npc> <service>", "pay an NPC for a service (e.g. pay senna bind)"],
   ["buy <npc> [item]", "buy an item from an NPC after striking a verbal deal"],
+  ["letters", "read letters NPCs have sent you"],
   ["help", "show this list"],
 ];
 
@@ -301,6 +302,20 @@ export default function GameClient({ session }: { session: Session }) {
   };
 
   useEffect(() => { reloadInventory(); reloadRunes(); reloadQuestCounts(); }, [session.user.id]);
+
+  // NPCs who trust the player write to them (npc-agent-tick). Announce new letters once each,
+  // checked on load and whenever the player moves.
+  const announcedLettersRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("player_letters").select("id, from_name")
+        .eq("user_id", session.user.id).is("read_at", null);
+      const fresh = (data ?? []).filter((l) => !announcedLettersRef.current.has(l.id));
+      if (!fresh.length) return;
+      fresh.forEach((l) => announcedLettersRef.current.add(l.id));
+      toast(`A runner presses a sealed note from ${fresh[0].from_name}${fresh.length > 1 ? ` (and ${fresh.length - 1} more)` : ""} into your hand. Type \`letters\`.`);
+    })();
+  }, [session.user.id, profile?.current_room]);
 
   // World atlas: every charted (non-hidden) room, fetched once for the automap.
   useEffect(() => {
@@ -1284,6 +1299,19 @@ export default function GameClient({ session }: { session: Session }) {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
       } finally { setThinking(false); }
+    } else if (c === "letters" || c === "letter" || c === "mail") {
+      const { data: letters } = await supabase.from("player_letters")
+        .select("id, from_name, subject, body, created_at, read_at")
+        .eq("user_id", session.user.id).order("created_at", { ascending: false }).limit(10);
+      if (!letters?.length) {
+        setMessages((mm) => [...mm, localSys("No one has written to you. Yet.")]);
+      } else {
+        const lines = letters.map((l) =>
+          `${l.read_at ? "" : "✉ "}**${l.subject}** — from ${l.from_name} (${new Date(l.created_at).toLocaleDateString()})\n${l.body}`);
+        setMessages((mm) => [...mm, localSys(lines.join("\n\n"))]);
+        const unread = letters.filter((l) => !l.read_at).map((l) => l.id);
+        if (unread.length) await supabase.from("player_letters").update({ read_at: new Date().toISOString() }).in("id", unread);
+      }
     } else if (c === "riddle" || c === "riddles") {
       if (!args) {
         setMessages((mm) => [...mm, localSys("Usage: riddle <npc>   (ask an NPC here to pose a riddle)")]);

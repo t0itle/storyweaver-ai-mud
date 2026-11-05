@@ -232,9 +232,11 @@ export function questForWant(npcName: string, need: Need, targetName: string): Q
   }
 }
 
-/** Reward an NPC offers: up to 30% of its purse, between 5 and 25 gold. Null if it can't afford 5. */
+/** Reward an NPC offers: up to 30% of its purse, between 5 and 20 gold (20 = the 'minor' quest
+ *  severity cap in quest_reward_caps, so the player receives what the NPC paid). Null if under 5. */
+export const NPC_REWARD_MAX = 20;
 export function rewardFor(purse: number): number | null {
-  const r = Math.min(25, Math.floor(purse * 0.3));
+  const r = Math.min(NPC_REWARD_MAX, Math.floor(purse * 0.3));
   return r >= 5 ? r : null;
 }
 
@@ -280,4 +282,31 @@ export function barkFor(name: string, action: Action, needs: Needs, seed: number
     ? NEED_BARKS[low]
     : BARKS[action][Math.abs(seed) % BARKS[action].length];
   return `*${line.replace("{n}", name)}*`;
+}
+
+// ---------- asking for help ----------
+
+/** A want must last this long before the NPC asks anyone for help (no asking over a skipped meal). */
+export const ASK_AFTER_HOURS = 6;
+/** An unanswered request (board post or letter) lapses after this, and the NPC may ask again. */
+export const ASK_AGAIN_AFTER_DAYS = 3;
+
+export interface RoomLite { slug: string; kind: string; town_key: string | null }
+
+/** Where a player must go to fulfil a want. Deterministic per NPC so re-asks point to the same place. */
+export function targetRoomFor(need: Need, npc: { id: string; room: string }, homeTown: string | null, rooms: RoomLite[]): string | null {
+  const pick = (cands: RoomLite[]) => {
+    if (!cands.length) return null;
+    const sorted = [...cands].sort((a, b) => a.slug.localeCompare(b.slug));
+    return sorted[fnv1a(`${npc.id}:${need}`) % sorted.length].slug;
+  };
+  switch (need) {
+    case "hunger": return npc.room;   // bring the meal to them
+    case "safety": return pick(rooms.filter((r) => (r.kind === "road" || r.kind === "gate") && r.town_key === homeTown))
+      ?? pick(rooms.filter((r) => r.kind === "road"));
+    case "belonging": return pick(rooms.filter((r) =>
+      ["square", "tavern", "market"].includes(r.kind) && r.town_key && r.town_key !== homeTown));
+    case "faith": return pick(rooms.filter((r) => r.kind === "throne"));
+    default: return null;
+  }
 }

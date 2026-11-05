@@ -126,7 +126,8 @@ Deno.serve(async (req) => {
       // Mirror into the player's own quests table so the existing UI/auto-resolve picks it up.
       const { data: insertedQuest } = await admin.from("quests").insert({
         user_id: user.id,
-        giver_npc_id: crypto.randomUUID(), // placeholder; not a real NPC
+        // NPC-authored postings name their real NPC so completing it resolves that NPC's want.
+        giver_npc_id: q.author_npc_id ?? crypto.randomUUID(), // otherwise a placeholder; not a real NPC
         giver_npc_name: q.author_name,
         title: q.title,
         description: q.description,
@@ -137,7 +138,8 @@ Deno.serve(async (req) => {
         target_ref: q.target_ref ?? town_key,
         reward_gold: q.reward_gold,
         reward_xp: q.reward_xp,
-        reward_amity: 0,
+        reward_amity: q.author_npc_id ? 4 : 0,
+        ...(q.author_npc_id ? { severity: "minor" } : {}),
         offered_room: profile.current_room,
         accepted_at: new Date().toISOString(),
       }).select("id").single();
