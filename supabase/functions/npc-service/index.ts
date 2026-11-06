@@ -1,5 +1,6 @@
 // Pay an NPC for a service (healing, cures, etc).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { takeFromNpc } from "../_shared/npcOutfit.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -23,7 +24,7 @@ Deno.serve(async (req) => {
     if (!action || !npc_id) return json({ error: "action and npc_id required" }, 400);
 
     const { data: npc } = await admin.from("npcs")
-      .select("id, name, room, dead_until, hidden, purse_gold").eq("id", npc_id).maybeSingle();
+      .select("id, name, room, dead_until, hidden, purse_gold, is_merchant, merchant_categories").eq("id", npc_id).maybeSingle();
     if (!npc) return json({ error: "no such NPC" }, 404);
     if (npc.hidden || (npc.dead_until && new Date(npc.dead_until) > new Date()))
       return json({ error: `${npc.name} cannot help you right now.` }, 400);
@@ -125,6 +126,17 @@ Deno.serve(async (req) => {
 
       if ((profile.gold ?? 0) < offer.price_gold)
         return json({ error: `You lack the silver. ${it.name} costs ${offer.price_gold}g.` }, 400);
+
+      // The item has to come from somewhere: a merchant's trade goods are unlimited (like its market
+      // stall); anything else leaves the NPC's own pack, and can't be sold twice.
+      const cats = (npc.is_merchant ? (npc.merchant_categories ?? []) : []) as string[];
+      const { data: tradeGood } = cats.length
+        ? await admin.from("trade_goods").select("item_key").eq("item_key", item_key).in("category", cats).maybeSingle()
+        : { data: null };
+      if (!tradeGood && !(await takeFromNpc(admin, npc_id, item_key))) {
+        await admin.from("npc_item_offers").update({ used_at: new Date().toISOString() }).eq("id", offer.id);
+        return json({ error: `${npc.name} no longer has ${it.name}.` }, 400);
+      }
 
       // Stack into existing pile if possible (and not over max_stack), else new row.
       let placed = false;

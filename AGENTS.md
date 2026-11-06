@@ -37,6 +37,12 @@ named next to it. If the code and this file disagree, the code wins. Fix this fi
   `posted_quests.escrow_gold`, drizzle 0011): taken from the NPC's purse or the poster when offered
   or posted, paid out by `completeQuest`, and refunded through `_shared/questEscrow.ts` on decline,
   abandon, fail, lapse or withdrawal. Never pay or refund quest gold any other way.
+- NPC possessions: `_shared/npcKit.ts` (tested) decides an NPC's starting purse and kit (modest,
+  by role, hashed from its id, real catalog items only); `_shared/npcOutfit.ts` applies it once, on
+  first contact (talk, fight, theft), marked by `npcs.outfitted_at` (drizzle 0012). An NPC sells,
+  promises as a quest reward, or loses to theft only what is in its pack (`npc_items`, not worn);
+  merchants may also sell their trade goods. Promised reward items are escrowed
+  (`quests.escrow_item_key`) and returned by `settleQuestEscrow` if not given.
 - Room memory and cadence (`docs/room-scene.md`): rules live in `_shared/roomScene.ts` (tested). Code
   decides what happens in a room each pulse; the AI only writes the line. Room lines are saved to
   `messages`; lasting changes go in `room_scene.facts`, which expire.

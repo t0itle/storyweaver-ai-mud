@@ -30,10 +30,6 @@ export async function completeQuest(admin: any, questId: string, note = "") {
     xp: (profile?.xp ?? 0) + xp,
   }).eq("id", quest.user_id);
 
-  // If the gold was escrowed (an NPC's purse or a board poster), it already left the funder; return
-  // any part a severity cap kept from the player. Quests without escrow (guild, escort…) pay as before.
-  await settleQuestEscrow(admin, questId, gold);
-
   // Bump amity with the giver.
   if (amity > 0) {
     const { data: a } = await admin.from("npc_amity").select("score")
@@ -66,6 +62,11 @@ export async function completeQuest(admin: any, questId: string, note = "") {
       }
     }
   }
+
+  // Settle escrow now that we know what was given: gold a severity cap kept from the player goes back
+  // to the funder, and an NPC's escrowed reward item goes back to it if it wasn't granted (severity
+  // without items, or a unique item the player already has). Quests without escrow pay as before.
+  await settleQuestEscrow(admin, questId, gold, !!itemGranted);
 
   // Knowledge rewards (only if severity allows).
   if (caps.knowledge && quest.reward_rune_key) {

@@ -1,5 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { abilityScores, check, checkModifier, formatCheck } from "../_shared/dice.ts";
+import { partableKeys } from "../_shared/npcKit.ts";
+import { ensureOutfitted, takeFromNpc } from "../_shared/npcOutfit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,7 +30,7 @@ Deno.serve(async (req) => {
     if (!profile) throw new Error("no profile");
 
     const { data: npc } = await admin.from("npcs")
-      .select("id, name, title, room, purse_gold, is_warden, is_aether, is_merchant, is_guildmaster, is_soul")
+      .select("*")   // full row: ensureOutfitted reads the role flags
       .eq("id", npcId).maybeSingle();
     if (!npc) return new Response(JSON.stringify({ error: "no such soul here" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     if (npc.room !== profile.current_room) {
@@ -73,6 +75,8 @@ Deno.serve(async (req) => {
         { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // First contact: the NPC has its starting purse and kit before anything is lifted from it.
+    await ensureOutfitted(admin, npc);
     // Success — take 5–25% of the purse, capped at 30g per attempt.
     const purse = npc.purse_gold ?? 0;
     if (purse <= 0) {
@@ -88,27 +92,34 @@ Deno.serve(async (req) => {
     const taken = Math.max(1, Math.min(30, Math.floor(purse * pct)));
     await admin.from("npcs").update({ purse_gold: purse - taken }).eq("id", npc.id);
 
-    // Roughly 1-in-3 successful pickpockets on a merchant also lift a small item
-    // from their stock — flagged STOLEN, sellable only to a fence (or risky to use).
+    // Roughly 1-in-3 successful pickpockets also lift a small item — flagged STOLEN, sellable only to a
+    // fence (or risky to use). It comes out of what the NPC really carries (not what it wears); a
+    // merchant with nothing loose in its pack loses a cheap good from its trade stock instead.
     let stolenItem: { key: string; name: string } | null = null;
-    if ((npc as any).is_merchant && Math.random() < 0.34) {
-      const cats: string[] = ((npc as any).merchant_categories ?? []) as string[];
-      // pick a cheap pocketable item to steal
-      let q = admin.from("items").select("key, name, value, slot")
-        .lte("value", 40).gte("value", 3)
-        .in("slot", ["misc", "consumable", "focus"])
-        .limit(40);
-      const { data: pool } = await q;
-      const filtered = (pool ?? []).filter((it: any) => {
-        if (!cats.length) return true;
-        return cats.some((c) => it.key.includes(c) || it.name.toLowerCase().includes(c));
-      });
-      const pick = (filtered.length ? filtered : (pool ?? []))[Math.floor(Math.random() * Math.max(1, (filtered.length ? filtered.length : (pool ?? []).length)))];
-      if (pick) {
+    if (Math.random() < 0.34) {
+      const { data: carried } = await admin.from("npc_items")
+        .select("item_key, quantity, equipped_slot").eq("npc_id", npc.id);
+      const loose = partableKeys((carried ?? []) as { item_key: string; quantity: number; equipped_slot: string | null }[]);
+      let pickKey: string | null = null;
+      if (loose.size) {
+        const keys = [...loose].sort();
+        const k = keys[Math.floor(Math.random() * keys.length)];
+        if (await takeFromNpc(admin, npc.id, k)) pickKey = k;
+      } else if (npc.is_merchant) {
+        const cats: string[] = (npc.merchant_categories ?? []) as string[];
+        const { data: pool } = cats.length
+          ? await admin.from("trade_goods").select("item_key, items!inner(value, slot)")
+            .in("category", cats).lte("items.value", 40).gte("items.value", 3)
+            .in("items.slot", ["misc", "consumable", "focus"]).limit(40)
+          : { data: [] as { item_key: string }[] };
+        if (pool?.length) pickKey = pool[Math.floor(Math.random() * pool.length)].item_key;
+      }
+      if (pickKey) {
+        const { data: it } = await admin.from("items").select("key, name").eq("key", pickKey).maybeSingle();
         await admin.from("player_items").insert({
-          user_id: user.id, item_key: pick.key, quantity: 1, stolen: true,
+          user_id: user.id, item_key: pickKey, quantity: 1, stolen: true,
         });
-        stolenItem = { key: pick.key, name: pick.name };
+        stolenItem = { key: pickKey, name: it?.name ?? pickKey };
       }
     }
 

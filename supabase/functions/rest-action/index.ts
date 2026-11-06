@@ -3,6 +3,7 @@
 //   action: "camp" — in road / wilds / desert / grove / hollow / shore / bridge:
 //                    free, partial heal, ~35% chance of an ambush mid-rest.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { ensureOutfitted } from "../_shared/npcOutfit.ts";
 import { abilityScores, check, checkModifier, dcForChance, formatCheck } from "../_shared/dice.ts";
 
 const cors = {
@@ -125,6 +126,8 @@ Deno.serve(async (req) => {
       name: t.name, title: t.title, persona: "ambusher",
       greeting: t.greeting, room, home_room: room,
     }).select("id, name").single();
+    // The ambusher is met in a fight: it carries a starting kit (weapon, coin) like any other NPC.
+    if (npc) await ensureOutfitted(admin, npc);
 
     const playerHp = profile.hp + partial;
     const npcMax = 12 + SR(8);

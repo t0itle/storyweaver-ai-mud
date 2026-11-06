@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { ensureOutfitted } from "../_shared/npcOutfit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -514,6 +515,9 @@ Deno.serve(async (req) => {
       const stats = await playerStats(user.id);
       const playerMaxHp = (stats.prof?.max_hp ?? 20) + stats.hpBonus;
       const playerHp = Math.min(stats.prof?.hp ?? 20, playerMaxHp);
+
+      // First contact: an NPC picks up its starting kit before the fight, so its weapon and armour count.
+      if (target.kind === "npc") await ensureOutfitted(admin, target);
 
       const { data: combat } = await admin.from("combats").insert({
         room: profile.current_room, status: "active", turn_number: 1,

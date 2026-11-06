@@ -1,7 +1,8 @@
-// Moving escrowed quest gold back to whoever funded it (an NPC's purse or a player's gold).
+// Moving escrowed quest gold (and an NPC's escrowed reward item) back to whoever funded it.
 // Rules (how much, when) are pure in questRules.ts; this file only does the writes. Each refund
 // first claims the escrow with a conditional update, so two calls can never refund twice.
 import { refundAfterPayout } from "./questRules.ts";
+import { giveToNpc } from "./npcOutfit.ts";
 
 // deno-lint-ignore no-explicit-any
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -20,13 +21,21 @@ export async function creditFunder(admin: Db, npcId: string | null, userId: stri
 }
 
 /**
- * Settle a quest's escrow: `paid` gold went to the player, the rest goes back to the funder.
+ * Settle a quest's escrow: `paid` gold went to the player, the rest goes back to the funder. An
+ * escrowed reward item goes back to the NPC unless `itemGranted` (the player received it).
  * Call with paid = 0 when a quest is declined, abandoned or failed. Returns the gold refunded.
  */
-export async function settleQuestEscrow(admin: Db, questId: string, paid = 0): Promise<number> {
+export async function settleQuestEscrow(admin: Db, questId: string, paid = 0, itemGranted = false): Promise<number> {
   const { data: q } = await admin.from("quests")
-    .select("escrow_gold, escrow_npc_id, escrow_user_id").eq("id", questId).maybeSingle();
-  if (!q || !(q.escrow_gold > 0)) return 0;
+    .select("escrow_gold, escrow_npc_id, escrow_user_id, escrow_item_key").eq("id", questId).maybeSingle();
+  if (!q) return 0;
+  // Item first: claim it so it can only be returned once.
+  if (q.escrow_item_key) {
+    const { data: took } = await admin.from("quests").update({ escrow_item_key: null })
+      .eq("id", questId).eq("escrow_item_key", q.escrow_item_key).select("id");
+    if (took?.length && !itemGranted && q.escrow_npc_id) await giveToNpc(admin, q.escrow_npc_id, q.escrow_item_key);
+  }
+  if (!(q.escrow_gold > 0)) return 0;
   const { data: claimed } = await admin.from("quests").update({ escrow_gold: 0 })
     .eq("id", questId).eq("escrow_gold", q.escrow_gold).select("id");
   if (!claimed?.length) return 0;   // someone else settled it first

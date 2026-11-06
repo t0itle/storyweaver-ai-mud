@@ -8,6 +8,8 @@ import {
   severityCeiling, TARGET_POLICY, type CompletionMode,
 } from "../_shared/questRules.ts";
 import { settleQuestEscrow } from "../_shared/questEscrow.ts";
+import { maySell, partableKeys } from "../_shared/npcKit.ts";
+import { ensureOutfitted, giveToNpc, takeFromNpc } from "../_shared/npcOutfit.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -122,6 +124,8 @@ Deno.serve(async (req) => {
     // The NPC's own self: soul, live state and journal, gated by how much this player has earned.
     // These tables are service-role only, so read them with a service client.
     const agentDb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    // First contact: give the NPC its starting purse and kit if it has never had one (_shared/npcKit.ts).
+    await ensureOutfitted(agentDb, npc);
     const [{ data: soulRow }, { data: agentState }, { data: journalRows }, { data: sceneRow }] = await Promise.all([
       agentDb.from("npc_souls").select("core").eq("npc_id", npc_id).maybeSingle(),
       agentDb.from("npc_state").select("mood, current_action, goals, wants").eq("npc_id", npc_id).maybeSingle(),
@@ -319,7 +323,7 @@ Deno.serve(async (req) => {
       const { data: townNpcs } = slugs.length
         ? await agentDb.from("npcs").select("name").in("room", slugs).eq("hidden", false).neq("id", npc.id).limit(20)
         : { data: [] as { name: string }[] };
-      questLimitsBlock = `QUEST LIMITS: the biggest quest you can set is "${questCeiling}". Any gold reward comes out of your own purse (${npc.purse_gold ?? 0}g); if you have none, offer 0 gold — XP and amity still count.
+      questLimitsBlock = `QUEST LIMITS: the biggest quest you can set is "${questCeiling}". Any gold reward comes out of your own purse (${npc.purse_gold ?? 0}g); if you have none, offer 0 gold — XP and amity still count. A reward item_key must be one of the ITEMS YOU CAN PART WITH that is "in your pack"; otherwise use null.
 REAL TARGETS (a quest's target_ref must name one of these; for fetch, name a real item; a quest with a made-up target is not given):
 Places (target_kind "room", use the slug): ${(townRooms ?? []).map((r) => `${r.slug} (${r.name})`).join("; ") || "(none listed)"}
 People (target_kind "npc", use the name): ${(townNpcs ?? []).map((n) => n.name).join("; ") || "(none listed)"}`;
@@ -344,16 +348,26 @@ People (target_kind "npc", use the name): ${(townNpcs ?? []).map((n) => n.name).
         }).join("\n")
       : "(you sell no formal services)";
 
-    // ── Item-for-sale context: surface candidate items when player input mentions item words,
-    //    plus any active personal item offers from this NPC to this player. ──
+    // ── Item-for-sale context (owner's decision, phase 3): what this NPC actually carries and isn't
+    //    wearing, plus, for a merchant, goods in its trade categories that the player asked about. ──
     const itemWords = inputLower.match(/[a-z][a-z\-]{2,}/g) ?? [];
     const itemSearchTerms = [...new Set(itemWords.filter(w => w.length >= 4))].slice(0, 8);
-    let itemCandidates: Array<{ key: string; name: string; slot: string; value: number; description: string }> = [];
-    if (itemSearchTerms.length) {
+    const { data: carriedRows } = await agentDb.from("npc_items")
+      .select("item_key, quantity, equipped_slot, items:item_key(key,name,slot,value,description)").eq("npc_id", npc.id);
+    type CatalogRow = { key: string; name: string; slot: string; value: number; description: string };
+    const carried = (carriedRows ?? []) as { item_key: string; quantity: number; equipped_slot: string | null; items: CatalogRow | null }[];
+    const partable = partableKeys(carried);
+    const merchantCats = (npc.is_merchant ? (npc.merchant_categories ?? []) : []) as string[];
+    const itemCandidates: Array<CatalogRow & { source: string }> = carried
+      .filter((c) => partable.has(c.item_key) && c.items)
+      .map((c) => ({ ...(c.items as CatalogRow), source: `in your pack ×${c.quantity}` }));
+    if (merchantCats.length && itemSearchTerms.length) {
       const orParts = itemSearchTerms.flatMap(w => [`name.ilike.%${w}%`, `key.ilike.%${w}%`]).join(",");
-      const { data: hits } = await supabase.from("items")
-        .select("key,name,slot,value,description").or(orParts).limit(20);
-      itemCandidates = hits ?? [];
+      const { data: hits } = await agentDb.from("items").select("key,name,slot,value,description, trade_goods!inner(category)")
+        .in("trade_goods.category", merchantCats).or(orParts).limit(15);
+      for (const h of (hits ?? []) as CatalogRow[]) {
+        if (!itemCandidates.some((c) => c.key === h.key)) itemCandidates.push({ ...h, source: "from your trade stock" });
+      }
     }
     const { data: liveItemOffers } = await supabase.from("npc_item_offers")
       .select("item_key, price_gold, expires_at")
@@ -365,9 +379,9 @@ People (target_kind "npc", use the name): ${(townNpcs ?? []).map((n) => n.name).
       ? itemCandidates.map((it: any) => {
           const cur = itemOfferMap.get(it.key);
           const priceLine = cur != null ? `your standing offer to them: **${cur}g** (catalog value ${it.value}g)` : `catalog value ${it.value}g`;
-          return `- key:${it.key} | "${it.name}" (${it.slot}) — ${priceLine} — ${it.description}`;
+          return `- key:${it.key} | "${it.name}" (${it.slot}, ${it.source}) — ${priceLine} — ${it.description}`;
         }).join("\n")
-      : "(no specific items in mind right now)";
+      : "(you carry nothing you could sell)";
     const standingItemOffersBlock = (liveItemOffers ?? []).length
       ? (liveItemOffers ?? []).map((o: any) => `- ${o.item_key} for **${o.price_gold}g** (good until ${new Date(o.expires_at).toISOString().slice(11,16)} UTC)`).join("\n")
       : "(none right now)";
@@ -497,14 +511,14 @@ ${questLimitsBlock}
 YOUR SERVICES (these are what you formally sell to ${player_name}; the player can pay you with the in-game "pay" command. NEVER make up new services — only haggle on the ones below):
 ${servicesBlock}
 
-ITEMS YOU CARRY OR COULD PART WITH (only items in the world catalog are real — when ${player_name} asks about a specific item by name, the matching catalog entries below are what you might actually have on you. NEVER invent item_keys not listed here. If they ask about something not in the world's catalog, say honestly that you don't have it.):
+ITEMS YOU CAN PART WITH (this is everything you have to sell or give — nothing else is on you. NEVER offer or promise an item not listed here. If ${player_name} asks for something you don't have, say so honestly, or point them to someone who might.):
 ${itemContextBlock}
 
 YOUR STANDING ITEM OFFERS TO ${player_name} (verbal deals you have already cut — they can take you up on these with the "buy" command):
 ${standingItemOffersBlock}
 
 ITEM OFFER RULES (selling goods at the table, the same way as services):
-- You MAY offer to sell ${player_name} an item from the catalog above at a price you name. Only offer items you would plausibly carry given your persona.
+- You MAY offer to sell ${player_name} an item from the list above at a price you name. Anything else is refused by the world.
 - Floor: half the catalog value (rounded up). You may charge ABOVE list value if the moment earns it (rare, dangerous, sentimental, scarcity, your tariff).
 - A standing offer lasts ~2 hours and is one-shot. Only your latest offer per item counts.
 - Selling a unique/legendary heirloom should feel like a real moment — not casual.
@@ -920,6 +934,19 @@ Do not mention these tags in your prose.`;
       }
       // No step 4: an NPC can only offer items that already exist in the catalog. (The AI used to
       // be able to create new items here, with stats and a value set by the price it named.)
+      // The NPC can only sell what it carries or, if a merchant, its trade goods (_shared/npcKit.ts).
+      if (it) {
+        let tradeGoods = new Set<string>();
+        if (merchantCats.length) {
+          const { data: tg } = await admin.from("trade_goods").select("item_key")
+            .eq("item_key", it.key).in("category", merchantCats).maybeSingle();
+          if (tg) tradeGoods = new Set([tg.item_key]);
+        }
+        if (!maySell(it.key, partable, tradeGoods)) {
+          console.log("[npc-respond] item offer dropped — NPC doesn't have:", it.key);
+          it = null;
+        }
+      }
       if (it) {
         // Floor: half catalog value (rounded up), min 1g. NPCs may charge above value.
         const floor = Math.max(1, Math.ceil((it.value ?? 0) / 2));
@@ -982,6 +1009,10 @@ Do not mention these tags in your prose.`;
             .eq("id", npc.id).eq("purse_gold", purse).select("id");
           if (!paid?.length) gold = 0;   // the purse changed under us; offer no gold rather than overdraw
         }
+        // 4) A reward item must come out of the NPC's own pack; it is set aside now, like the gold.
+        let rewardItem: string | null = null;
+        const askedItem = r.item_key ? String(r.item_key) : "";
+        if (askedItem && partable.has(askedItem) && await takeFromNpc(admin, npc.id, askedItem)) rewardItem = askedItem;
         const { data: ins } = await admin.from("quests").insert({
           user_id: user.id,
           giver_npc_id: npc.id,
@@ -996,14 +1027,16 @@ Do not mention these tags in your prose.`;
           reward_gold: gold,
           reward_xp: Math.max(0, Math.min(caps.xp_max, Number(r.xp) || 0)),
           reward_amity: Math.max(0, Math.min(caps.amity_max, Number(r.amity) || 0)),
-          reward_item_key: r.item_key ?? null,
+          reward_item_key: rewardItem,
           reward_rune_key: r.rune_key ?? null,
           reward_kanji_key: r.kanji_key ?? null,
           escrow_gold: gold,
-          escrow_npc_id: gold > 0 ? npc.id : null,
+          escrow_item_key: rewardItem,
+          escrow_npc_id: gold > 0 || rewardItem ? npc.id : null,
           offered_room: room,
         }).select("*").maybeSingle();
         if (!ins && gold > 0) await admin.from("npcs").update({ purse_gold: purse }).eq("id", npc.id);   // undo
+        if (!ins && rewardItem) await giveToNpc(admin, npc.id, rewardItem);
         offeredQuest = ins;
       }
     }

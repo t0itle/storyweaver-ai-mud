@@ -8,6 +8,7 @@
 //   discovery   - flavor beat + small reward (gold or xp). No spawn.
 //   patrol      - spawns a faction patrol NPC; greeting depends on alignment.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { ensureOutfitted } from "../_shared/npcOutfit.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -187,6 +188,8 @@ Deno.serve(async (req) => {
         name: t.name, title: t.title, persona: "ambusher",
         greeting: t.greeting, room, home_room: room,
       }).select("id, name").single();
+      // The ambusher is met in a fight: it carries a starting kit (weapon, coin) like any other NPC.
+      if (npc) await ensureOutfitted(admin, npc);
       await admin.from("messages").insert({
         room, author_name: "—", kind: "ambient",
         content: `*${t.name}, ${t.title}, steps from cover, blocking the road.*${cargoFlavor} "${t.greeting}"`,
