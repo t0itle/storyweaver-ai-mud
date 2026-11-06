@@ -118,6 +118,8 @@ const HELP = [
   ["pay <npc> <service>", "pay an NPC for a service (e.g. pay senna bind)"],
   ["buy <npc> [item]", "buy an item from an NPC after striking a verbal deal"],
   ["letters", "read letters NPCs have sent you"],
+  ["shatter", "try to shatter a relic Warden of an Aether here (STR check)"],
+  ["desecrate", "try to desecrate a sacred-place Warden here (WIS check)"],
   ["help", "show this list"],
 ];
 
@@ -1298,6 +1300,17 @@ export default function GameClient({ session }: { session: Session }) {
         // NPCs may name places — but the world is fixed. We no longer auto-create rooms.
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
+      } finally { setThinking(false); }
+    } else if (c === "shatter" || c === "desecrate") {
+      // An Aether lives while any of its 12 Wardens stands; relics and sacred places can be destroyed.
+      setThinking(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("warden-action", { body: { action: c } });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        if (data.success && data.aether_fell) toast.success("The last Warden falls. An Aether desynchronizes.");
+        reloadProfile();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "nothing happens");
       } finally { setThinking(false); }
     } else if (c === "letters" || c === "letter" || c === "mail") {
       const { data: letters } = await supabase.from("player_letters")
