@@ -70,12 +70,43 @@ describe("the god's prompt", () => {
     agents: [{ id: "n1", name: "Maren", title: "baker", mood: "hungry", wants: ["I haven't eaten"], goals: [] }],
     eventCounts: { steal_failed: 2 }, swornPlayers: 3, forsakenPlayers: 1, activeLaws: [], rivalDecrees: [],
   };
+  it("rules NPC subjects but may only nudge players", () => {
+    expect(godSystemPrompt(d)).toMatch(/cannot command them, only nudge them/);
+  });
   it("speaks as the god of its own domain", () => {
-    expect(godSystemPrompt(d)).toContain("Aether of Trade");
+    expect(godSystemPrompt(d)).toContain("Aether of Exchange and Value");
+    expect(godSystemPrompt(d)).toContain("Virtue is Charity");
   });
   it("lists subjects by id so decrees can target them, plus rivals from divine politics", () => {
     const t = godDigestText(d);
     expect(t).toContain("n1 | Maren");
-    expect(t).toContain("morvayne: rivals over the price of grain");
+    expect(t).toContain("morvayne: regulated exchange against raw consumption");
   });
+});
+
+// The wiki (everbloom-lore/) is canon. These tests fail if the gods in code drift from it.
+import { readFileSync, readdirSync } from "fs";
+import { join } from "path";
+import { AETHERS } from "../../supabase/functions/_shared/decrees";
+
+describe("the Seven in code match the wiki", () => {
+  const dir = join(__dirname, "../../everbloom-lore/characters");
+  const page = (key: string) => {
+    const f = readdirSync(dir).find((n) => n.startsWith(`${key}--`));
+    if (!f) throw new Error(`no wiki page for ${key}`);
+    return readFileSync(join(dir, f), "utf8");
+  };
+  for (const [key, p] of Object.entries(AETHERS)) {
+    it(`${key}: title, virtue, sin, governance and kingdom`, () => {
+      const md = page(key);
+      const heading = md.match(/^# \w+ \((\w+) \/ (\w+)\)/m);
+      expect(heading?.[1]).toBe(p.sin);
+      expect(heading?.[2]).toBe(p.virtue);
+      expect(md).toContain(`**The ${p.title.replace(/^the /, "")}.**`);
+      expect(md).toContain(`The Aether of ${p.governs}`);
+      const domain = md.match(/\*\*Domain:\*\*\s*(.*)/)?.[1] ?? "";
+      expect(domain.toLowerCase()).toContain(p.kingdom.replace(/^the /, "").toLowerCase());
+    });
+  }
+  it("covers all seven", () => expect(Object.keys(AETHERS)).toHaveLength(7));
 });

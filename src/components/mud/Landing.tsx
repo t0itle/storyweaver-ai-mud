@@ -110,7 +110,7 @@ export default function Landing() {
           But some things are <span className="text-ember">not</span> spoken into being.
           For every light there is a <span className="text-ember">Shadow</span>, and the Shadow was already waiting.
           <br /><br />
-          Now the Speaker is silenced. The maps are eaten, the cities forget their names —
+          Now the Speaker has withdrawn into silence. The maps are eaten, the cities forget their names —
           <span className="text-parchment"> yet a single pool still blooms in the deep desert,</span>
           <span className="text-ember"> and it is asking who you mean to be.</span>
         </p>

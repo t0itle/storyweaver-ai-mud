@@ -1,5 +1,7 @@
 // Top up NPCs in a room if it has none. Called by the client when a player enters.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { WORLD_CANON } from "../_shared/worldCanon.ts";
+import { AETHERS } from "../_shared/decrees.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,6 +66,15 @@ Deno.serve(async (req) => {
       room:     [1, 2],
     };
     const [minN, maxN] = DENSITY[room.kind] ?? [1, 2];
+    // Residents belong to the kingdom of the town they live in (towns.aether_key; null = neutral).
+    const { data: townRow } = room.town_key
+      ? await admin.from("towns").select("aether_key").eq("key", room.town_key).maybeSingle()
+      : { data: null };
+    const kingdomAether: string | null = townRow?.aether_key ?? null;
+    const ruler = kingdomAether ? AETHERS[kingdomAether] : null;
+    const kingdomLine = ruler
+      ? `This place lies in ${ruler.kingdom}, ruled by the Aether ${kingdomAether![0].toUpperCase()}${kingdomAether!.slice(1)}, ${ruler.title} (${ruler.governs}; Virtue ${ruler.virtue}, Sin ${ruler.sin}). Residents live under that Aether's bias: let it colour their trades, worries and manners.`
+      : `This place is under no Aether's dominion.`;
 
     // Count current living residents in this room (excluding companions / dead).
     const nowIso = new Date().toISOString();
@@ -116,7 +127,7 @@ Return STRICT JSON:
 {"npcs":[{"name":"","title":"","persona":"","greeting":"","schedule":{"dawn":{"room":"here","activity":""},"morning":{...},"midday":{...},"dusk":{...},"night":{...}}}]}
 
 Generate exactly ${need} souls. Each persona (2-3 sentences) describes WHO THEY WERE in life, HOW they died, and what unfinished thing keeps them tethered here. Title should be a death-epithet ("the Drowned Scribe", "the Last Coin-Counter"). Greeting is what they would whisper IF a living tongue could hear them — a fragment, a grievance, a name. Activities are present-tense but ghostly ("rearranging coins that no longer exist", "weeping over a sealed jar", "counting the seams in the wall").`
-      : `You add residents to a location in EverBloom (the dying world; First City; seven Aethers; mouth-bound Veiled).
+      : `You add residents to a location in EverBloom. World canon: ${WORLD_CANON} ${kingdomLine}
 ${NAMING_RULES}
 
 Return STRICT JSON:
@@ -175,6 +186,7 @@ Generate exactly ${need} NPCs that BELONG here. They live here ("here" in schedu
           is_soul: isCrypt,
           hidden: isCrypt,
           requires_rune_key: isCrypt ? "necros" : null,
+          aether_key: isCrypt ? null : kingdomAether,
         };
       });
     if (rows.length) await admin.from("npcs").insert(rows);

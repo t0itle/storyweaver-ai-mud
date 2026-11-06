@@ -110,7 +110,7 @@ const HELP = [
   ["take", "claim everything in the room's loot pile"],
   ["steal <npc>", "pickpocket — risky, they may catch you"],
   ["fence", "sell stolen goods (find a fence in certain inns)"],
-  ["align", "kneel at the Hall of Choosing (First City)"],
+  ["align", "kneel at the Hall of Seven Ways (First City)"],
   ["wagon", "hire the wagonmaster (open the fast-travel panel)"],
   ["rest", "sleep at an inn — full heal, costs gold"],
   ["camp", "make camp in the wilds — partial heal, may be ambushed"],
@@ -729,7 +729,7 @@ export default function GameClient({ session }: { session: Session }) {
     return () => { cancelled = true; };
   }, [profile?.current_room, room?.slug, roomEvents.length, playersSig]);
 
-  // Auto-open Hall of the Seven when player enters it (only if not yet sworn)
+  // Auto-open the Hall of Seven Ways when player enters it (only if not yet sworn)
   useEffect(() => {
     const inHall = profile?.current_room === "sevenfold-square" || profile?.current_room === "hall-of-the-seven";
     if (inHall && !profile?.aether) setHallOpen(true);
@@ -1674,7 +1674,7 @@ export default function GameClient({ session }: { session: Session }) {
     } else if (c === "align" || c === "kneel") {
       const inHall = profile.current_room === "sevenfold-square" || profile.current_room === "hall-of-the-seven";
       if (!inHall) {
-        setMessages((m) => [...m, localSys("There is no basin here. Seek the Hall of Choosing at the heart of the First City.")]);
+        setMessages((m) => [...m, localSys("There is no basin here. Seek the Hall of Seven Ways at the heart of the First City.")]);
       } else {
         setHallOpen(true);
       }

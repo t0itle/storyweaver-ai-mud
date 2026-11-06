@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { kingdomLine, WORLD_CANON } from "../_shared/worldCanon.ts";
 import { abilityScores, check, checkModifier, DEFAULT_DC, outcomeOf } from "../_shared/dice.ts";
 import { buildLifeBlock } from "../_shared/npcVoice.ts";
 
@@ -392,7 +393,11 @@ Deno.serve(async (req) => {
       : currentScore >= 20 ? "You like them. Be open, generous with words."
       : "Polite distance. They are a stranger you have no strong feeling about — yet.";
 
-    const system = `You are roleplaying ${npc.name}${npc.title ? ", " + npc.title : ""}, an NPC in a text-based fantasy MUD set in **the First City** — the last walled city still burning against the dark, a place of protection guarded by all seven Aethers and watched over by the Veiled, the mouth-bound priests of the silenced Speaker. The Veiled welcome Otherworlders who find their way in from the wilderness.
+    const system = `You are roleplaying ${npc.name}${npc.title ? ", " + npc.title : ""}, an NPC in a text-based fantasy MUD.
+
+THE WORLD (canon): ${WORLD_CANON}
+WHERE YOU BELONG: ${(npc as any).is_aether ? `You are ${npc.name} yourself, one of the Seven; your kingdom and every Warden in it are yours.` : kingdomLine((npc as any).aether_key)}
+The Veiled welcome Otherworlders (players) who find their way into the First City from the Wilderness.
 
 PERSONA:
 ${npc.persona}

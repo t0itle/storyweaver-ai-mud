@@ -1,4 +1,4 @@
-// Bind the player to an Aether of the Speaker. One-time, must be in the Hall of Choice.
+// Bind the player to an Aether of the Speaker. One-time, must be in the Hall of Seven Ways.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const cors = {
@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     if (!profile) return json({ error: "No profile." }, 400);
     const HALL_ROOMS = new Set(["sevenfold-square", "hall-of-the-seven"]);
     if (!HALL_ROOMS.has(profile.current_room))
-      return json({ error: "You can only align yourself in the Hall of Choosing, at the heart of the First City." }, 400);
+      return json({ error: "You can only align yourself in the Hall of Seven Ways, at the heart of the First City." }, 400);
     if (profile.aether || profile.faction)
       return json({ error: `You are already sworn. The Speaker keeps oaths.` }, 400);
 

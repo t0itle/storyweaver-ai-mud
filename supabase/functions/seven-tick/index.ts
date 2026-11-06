@@ -39,14 +39,20 @@ Deno.serve(async (req) => {
     await admin.from("aethers").update({ last_decree_at: nowIso }).eq("key", aether.key);
 
     // ---- the kingdom ----
+    // The kingdom: every town aligned to this Aether (towns.aether_key), with the well room as capital.
     const { data: capital } = await admin.from("rooms").select("slug, name, town_key").eq("slug", aether.well_room).maybeSingle();
-    if (!capital?.town_key) return json({ ok: false, aether: aether.key, error: "no kingdom (well room has no town)" });
-    const { data: kRooms } = await admin.from("rooms").select("slug").eq("town_key", capital.town_key);
+    if (!capital) return json({ ok: false, aether: aether.key, error: "no capital (well room missing)" });
+    const { data: kTowns } = await admin.from("towns").select("key").eq("aether_key", aether.key);
+    const townKeys = [...new Set([...(kTowns ?? []).map((t: any) => t.key), capital.town_key].filter(Boolean))];
+    const { data: kRooms } = townKeys.length
+      ? await admin.from("rooms").select("slug").in("town_key", townKeys)
+      : { data: [{ slug: capital.slug }] };
     const roomSlugs = (kRooms ?? []).map((r: any) => r.slug);
 
     const [{ data: subjects }, { data: events }, { count: sworn }, { count: forsaken }, { data: ownLaws }, { data: rivals }] = await Promise.all([
-      admin.from("npc_state").select("npc_id, mood, wants, goals, npcs!inner(id, name, title, room)")
-        .in("npcs.room", roomSlugs).limit(25),
+      // Subjects: agent NPCs aligned to this Aether (residents of its kingdom).
+      admin.from("npc_state").select("npc_id, mood, wants, goals, npcs!inner(id, name, title, room, aether_key)")
+        .eq("npcs.aether_key", aether.key).limit(25),
       admin.from("world_events").select("kind").in("room", roomSlugs).gte("created_at", new Date(now.getTime() - DAY).toISOString()).limit(500),
       admin.from("profiles").select("id", { count: "exact", head: true }).eq("aether", aether.key),
       admin.from("profiles").select("id", { count: "exact", head: true }).not("non_serviam_at", "is", null),

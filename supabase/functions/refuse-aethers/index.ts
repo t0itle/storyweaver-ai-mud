@@ -1,4 +1,4 @@
-// Logged when a player walks out of the Hall of the Seven without choosing.
+// Logged when a player walks out of the Hall of Seven Ways without choosing.
 // Increments hall_refusals + chaos_pressure. Shadow whispers scale with pressure.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 

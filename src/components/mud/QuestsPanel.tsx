@@ -232,7 +232,7 @@ function VowsView({
   if (!vow) {
     return (
       <div className="text-ash italic text-sm">
-        You walk under no vow. Kneel at the Hall of the Seven to swear to an Aether — or cry *Non Serviam* in the open world to bind yourself to Chaos.
+        You walk under no vow. Kneel at the Hall of Seven Ways to swear to an Aether — or cry *Non Serviam* in the open world to bind yourself to Chaos.
       </div>
     );
   }

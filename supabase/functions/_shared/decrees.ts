@@ -2,25 +2,34 @@
 // Pure, dependency-free rules shared by seven-tick and tests: who acts when, what a god may decree,
 // and validation of the model's reply. The model chooses what the god wants; code decides what happens.
 
-export interface AetherProfile { domain: string; temperament: string; levers: string }
+export interface AetherProfile {
+  title: string; virtue: string; sin: string; governs: string; kingdom: string; temperament: string; levers: string;
+}
 
-/** Domains from the throne-room lore. Keyed by aethers.key. */
+/** The Seven, from the wiki (everbloom-lore/characters/*). Keyed by aethers.key. */
 export const AETHERS: Record<string, AetherProfile> = {
-  solastin:  { domain: "the Sun",   temperament: "radiant, protective, zealous",   levers: "faith, wardens, defense against the Shadow, pilgrimages" },
-  khalvaris: { domain: "Judgement", temperament: "stern, exacting, impartial",     levers: "laws, guards, bounties, trials, punishments" },
-  nyxara:    { domain: "Silence",   temperament: "patient, secretive, watchful",   levers: "secrets, suppressing rumors, vows of silence" },
-  thalvora:  { domain: "Trade",     temperament: "shrewd, generous to partners",   levers: "prices, tariffs, caravans, debts, merchants" },
-  lazareth:  { domain: "Memory",    temperament: "melancholy, exacting about truth", levers: "lore, histories, old grudges resurfacing, rumors" },
-  velithria: { domain: "Love",      temperament: "warm, meddling, fierce for her own", levers: "courtships, marriages, rivalries, reconciliations" },
-  morvayne:  { domain: "Plenty",    temperament: "jovial, indulgent, fearful of want", levers: "harvests, food, festivals, famine" },
+  khalvaris: { title: "the Judge", virtue: "Patience", sin: "Wrath", governs: "War and Law", kingdom: "the Iron Bastion",
+    temperament: "stern, exacting, disciplined", levers: "laws, soldiers, judges, trials, defense" },
+  solastin:  { title: "the Architect", virtue: "Humility", sin: "Pride", governs: "Civilization and Leadership", kingdom: "the High Sanctum",
+    temperament: "radiant, certain, a builder", levers: "building, leadership, truth, order, the Grand Luminares" },
+  nyxara:    { title: "the Muse", virtue: "Kindness", sin: "Envy", governs: "Ambition and Transformation", kingdom: "the Mirrorlands",
+    temperament: "shifting, inspiring, covetous when crossed", levers: "ambition, disguise, art, spies, transformation" },
+  velithria: { title: "the Lover", virtue: "Chastity", sin: "Lust", governs: "Passion and Discipline", kingdom: "the Evershade",
+    temperament: "warm, intense, fiercely loyal", levers: "bonds, vows, courtships, rivalries, duels" },
+  thalvora:  { title: "the Merchant", virtue: "Charity", sin: "Greed", governs: "Exchange and Value", kingdom: "the Gilded Bazaar",
+    temperament: "shrewd, generous to partners, hates stagnation", levers: "trade, prices, debts, investment, keeping gold moving" },
+  lazareth:  { title: "the Archivist", virtue: "Diligence", sin: "Sloth", governs: "Time and Knowledge", kingdom: "the Silent Horizon",
+    temperament: "quiet, exact, slightly absent", levers: "records, histories, scholarship, truths found or buried" },
+  morvayne:  { title: "the Harvester", virtue: "Temperance", sin: "Gluttony", governs: "Nature and Consumption", kingdom: "the Feastlands",
+    temperament: "jovial, indulgent, fearful of want", levers: "harvests, hunts, food, festivals, famine" },
 };
 
 /** Standing divine politics (seeded from the design doc; not yet changed by play). */
 export const DIVINE_RELATIONS: { a: string; b: string; label: string }[] = [
-  { a: "thalvora", b: "morvayne", label: "rivals over the price of grain" },
-  { a: "khalvaris", b: "nyxara", label: "at odds over secrets kept from the law" },
-  { a: "solastin", b: "nyxara", label: "light distrusts what hides from it" },
-  { a: "lazareth", b: "velithria", label: "old allies — memory keeps love's vows" },
+  { a: "thalvora", b: "morvayne", label: "regulated exchange against raw consumption (wiki: Thalvora)" },
+  { a: "thalvora", b: "solastin", label: "the Bazaar's great banks borrow the Spires' structure (wiki: Thalvora)" },
+  { a: "thalvora", b: "nyxara", label: "Nyxara's followers steal secrets in the Bazaar's alleys (wiki: Thalvora)" },
+  { a: "solastin", b: "khalvaris", label: "complementary justice: one reveals truth, the other executes it (wiki: Solastin)" },
 ];
 
 export function relationsOf(key: string): string[] {
@@ -132,9 +141,11 @@ export interface KingdomDigest {
 
 export function godSystemPrompt(d: KingdomDigest): string {
   const p = AETHERS[d.aetherKey];
-  return `You are ${d.aetherName}, Aether of ${p.domain}, one of the Seven who rule the kingdoms of EverBloom since the Speaker fell silent. You rule from ${d.capitalName}. Your temperament: ${p.temperament}. You act through ${p.levers}.
+  return `You are ${d.aetherName}, ${p.title}, Aether of ${p.governs}: your Virtue is ${p.virtue} and your Sin is ${p.sin}. You are one of the Seven who rule the Crescent Kingdoms since the Speaker withdrew into silence. You rule ${p.kingdom} from ${d.capitalName}. Your temperament: ${p.temperament}. You act through ${p.levers}.
 
-Each time you wake you look over your kingdom and issue at most ${MAX_DECREES} decrees that serve your domain and your people, and answer what you see (fear, hunger, crime, rivals, the Shadow). Stay in character as a god, not a game master.
+The people of your kingdom (the subjects listed below) are yours to rule: you may set their goals, laws, festivals, rumors and bonds. Otherworlders (players) are free; you cannot command them, only nudge them, so summons to your sworn are invitations, never orders.
+
+Each time you wake you look over your kingdom and issue at most ${MAX_DECREES} decrees that express your Virtue (or, when you are tested, your Sin) and answer what you see: want, fear, crime, rivals, Chaos. Stay in character as an Aether, not a game master.
 
 Reply with ONE JSON object only:
 {"proclamation":"one or two sentences your people hear, in your voice","decrees":[ ... ]}

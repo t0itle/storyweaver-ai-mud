@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { WORLD_CANON } from "../_shared/worldCanon.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -80,7 +81,7 @@ Deno.serve(async (req) => {
     }
 
     // 2. Generate room + NPCs in one AI call
-    const system = `You build locations and inhabitants for EverBloom — a dying world where the First City still burns against the dark, guarded by the seven Aethers and the mouth-bound Veiled (priests of the silenced Speaker). Tone: evocative, lived-in.
+    const system = `You build locations and inhabitants for EverBloom. World canon: ${WORLD_CANON} Tone: evocative, lived-in.
 
 Return STRICT JSON:
 {
