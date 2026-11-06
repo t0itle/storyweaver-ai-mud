@@ -3,7 +3,7 @@
 > First there was the Light. Then the **Speaker** opened its mouth, and the **Aethers** poured forth:
 > every spoken thing. But some things are not spoken into being. For every light there is a
 > **Shadow**, and the Shadow was already waiting.
-> Now the Speaker is silenced. The maps are eaten and the cities forget their names. Yet a single
+> Now the Speaker has withdrawn into silence. The maps are eaten and the cities forget their names. Yet a single
 > pool still blooms in the deep desert, and it is asking who you mean to be.
 
 EverBloom (repo: `storyweaver-ai-mud`) is a **persistent, multiplayer, browser-based MUD**. AI writes
@@ -28,7 +28,7 @@ runes by hand to cast them, and leave marks on a world that keeps moving while t
    tag (`<<QUEST_OFFER>>`, `<<PRICE_OFFER>>`, `<<ITEM_OFFER>>`, `<<AMITY>>`) that the server then
    validates. Chance events are settled by **dice rolls plus the character's ability modifiers**
    (§4). The AI is told the result and narrates it.
-3. **Choice with weight.** Every walker comes to the Hall of the Seven and must choose. They can
+3. **Choice with weight.** Every walker comes to the Hall of Seven Ways and must choose. They can
    swear to one of the seven Aethers and walk its seven-step vow chain. They can refuse, which builds
    chaos pressure and lets the Shadow's whispers in. Or they can declare **Non Serviam** and walk the
    Chaos path. These choices are one-way and the whole world reacts to them.
@@ -45,17 +45,38 @@ runes by hand to cast them, and leave marks on a world that keeps moving while t
 
 ## 2. The world
 
-- **The Speaker:** the silenced god whose words made the world.
-- **The seven Aethers:** the Speaker's voices. Players swear to one in the Hall of Choice. Each has a
-  throne room, a home city "well room", a seven-step vow chain and relic boons. In the database they
-  are keyed `solastin`, `khalvaris`, `nyxara`, `thalvora`, `lazareth`, `velithria` and `morvayne`.
-  Each Aether's well room is in one of these cities: High Sanctum, Iron Bastion, Silent Horizon,
-  Gilded Bazaar, Mirrorlands Court, Evershade Court and Feastlands Keep. The Mirror greets sworn
-  players when they return to their Aether's well room.
-- **The Veiled:** mouth-bound priests of the silenced Speaker. They welcome Otherworlders (players)
-  into **the First City**, the last walled city still burning against the dark.
-- **The Shadow / Chaos:** the unspoken counterweight. It tempts players, raises corruption, and backs
-  the Non Serviam path. When corruption reaches 70 or more, it shows to every NPC.
+**Canon lives in the wiki: [`everbloom-lore/`](everbloom-lore/).** When the wiki and the code
+disagree, the wiki wins. The game's codex is generated from it (`npm run lore`), and tests fail when
+code, data and wiki drift apart.
+
+- **The Speaker:** spoke the world out of the Light, then **withdrew into silence** so its people
+  could choose freely ("What will you become, when you are free to choose?"). Its echoes remain as
+  Relics.
+- **The seven Aethers:** each a Virtue bound to a Sin, each ruling one of the seven **Crescent
+  Kingdoms**. Their own subjects (NPCs) live under them. Otherworlders (players) are free: an Aether
+  can only nudge them.
+
+  | Aether | Virtue / Sin | Governs | Kingdom (capital) |
+  |---|---|---|---|
+  | Khalvaris, the Judge | Patience / Wrath | War and Law | the Iron Bastion |
+  | Solastin, the Architect | Humility / Pride | Civilization and Leadership | the High Sanctum |
+  | Nyxara, the Muse | Kindness / Envy | Ambition and Transformation | the Mirrorlands (Mirrorlands Court) |
+  | Velithria, the Lover | Chastity / Lust | Passion and Discipline | the Evershade (Evershade Court) |
+  | Thalvora, the Merchant | Charity / Greed | Exchange and Value | the Gilded Bazaar |
+  | Lazareth, the Archivist | Diligence / Sloth | Time and Knowledge | the Silent Horizon |
+  | Morvayne, the Harvester | Temperance / Gluttony | Nature and Consumption | the Feastlands (Feastlands Keep) |
+
+  Players swear to one in **the Hall of Seven Ways**. Each Aether has a throne room, a city "well
+  room" (where its sworn are carried home at death: Borrowed Immortality), a seven-step vow chain,
+  and **twelve Wardens** (people, relics and sacred places). **An Aether lives while any of its
+  Wardens stands.**
+- **The Veiled:** the mouth-bound Followers of the Speaker. They maintain (not rule) **the First
+  City**, the neutral convergence point where no Aether holds dominion, and welcome Otherworlders at
+  the Gate of Form.
+- **Chaos / the Shadow:** Chaos (the Unbound) is the refusal of all alignment; its whisper is the
+  Shadow. It tempts players, raises corruption, and backs the **Non Serviam** path. When corruption
+  reaches 70 or more, it shows to every NPC. (Canon: Chaos players die permanently. Not yet enforced.)
+- **Dragons** wake where gold lies hoarded. The age is the Quiet Rot: stable but stagnant.
 - **The EverBloom:** the last blooming pool in the deep desert, where players are "bloomed" into the
   world.
 - **Regions:** towns and their halls, roads, wilds, groves, shores, bridges, crypts, and the deep
@@ -76,7 +97,7 @@ Each class gets a talent tree and an Awakening at level 15.
    humble starting portrait. HP comes from race and class modifiers. **Ability scores** are 10 plus
    race and class modifiers (§4). You also get the class starting kit (`create-character`).
 3. **Onboarding:** a shore guide teaches the basics (`onboarding-tick`).
-4. **The Hall of Choice:** swear to an Aether (`align-aether`), walk out and refuse
+4. **The Hall of Seven Ways:** swear to an Aether (`align-aether`), walk out and refuse
    (`refuse-aethers`), or later declare Non Serviam (`declare-non-serviam`).
 5. **The open world:** talk to AI NPCs, take and finish quests, join a guild, trade, craft, gather,
    travel by wagon, wander the desert, fight, rest, and level up.
@@ -154,6 +175,8 @@ random ranges. Moving it onto this system is planned as a separate pass.
 | Exploration | Map discovery, wagon travel, desert wandering, caches, loot, free-form interactions | `discover-location`, `wagon-travel`, `desert-wander`, `search-cache`, `take-loot`, `interact` |
 | Character | Creation, talents, awakenings, inventory, rest, rename, restart | `create-character`, `spend-talent`, `awaken-class`, `inventory-action`, `rest-action`, `rename-character`, `restart-character` |
 | Living world | Hourly NPC schedules, room population, ambience | `world-tick`, `populate-npcs`, `room-ambience` |
+| NPC agents | Role NPCs live by needs (coin, hunger, rest, safety, belonging, faith). Their wants become board quests or letters to trusted players. Players learn their inner lives through amity. See `docs/npc-agents.md`. | `npc-agent-tick`, `npc-respond` |
+| The Seven | Each living Aether rules its kingdom, waking in turn to issue decrees (goals, laws, rumors, festivals, summons, bonds) | `seven-tick` |
 | Art and sound | Scene art, portrait wound and gear variants, room music and ambience, bardic performance | `scene-image`, `portrait-state-variant`, `restyle-portrait`, `scene-music`, `room-audio-generate`, `music-action`, `intro-music`, `intro-narration` |
 | Ops | Lore sync, admin wipe | `sync-lore`, `admin-wipe` |
 
@@ -232,5 +255,4 @@ The project is also editable through Lovable, which commits back to this repo.
 - Some race "gain" texts promise perks that are only partly implemented. For example, the elf's
   "+1 to discovery" now comes from WIS through the search check.
 - Guild-system drift is listed in `AGENTS.md` §8.
-- NPCs as independent agents (their own memory, needs, goals, relationships and daily lives) are
-  being explored in `docs/npc-agents.md`.
+- NPC agents and the Seven: phases 1–4 are built. What's still missing is listed in `docs/npc-agents.md` §9.

@@ -29,6 +29,48 @@
       "when": 1793900000000,
       "tag": "0003_fix_lazareth_nyxara_wells",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794000000000,
+      "tag": "0004_npc_agents",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794100000000,
+      "tag": "0005_npc_wants_letters",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1794200000000,
+      "tag": "0006_the_seven",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1794300000000,
+      "tag": "0007_wiki_canon_kingdoms",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794400000000,
+      "tag": "0008_wardens",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794500000000,
+      "tag": "0009_lore_from_wiki",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,7 @@
 ever bloom: 1
 id: "55ada5be-be91-4fb2-8684-fd7f877b536a"
 title: "The Crescent Kingdoms"
+slug: "crescent-kingdoms"
 category: "locations"
 tags: ["imported"]
 ---

@@ -54,7 +54,7 @@ export default function HallOfChoice({
     <div className="fixed inset-0 z-50 bg-background/90 backdrop-blur-sm flex items-center justify-center p-4" onClick={handleClose}>
       <div className="bg-card border border-border max-w-4xl w-full max-h-[88vh] flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-          <h2 className="font-display text-2xl text-ember">The Hall of Choice</h2>
+          <h2 className="font-display text-2xl text-ember">The Hall of Seven Ways</h2>
           <button onClick={handleClose} className="text-ash hover:text-parchment"><X className="w-5 h-5" /></button>
         </div>
 

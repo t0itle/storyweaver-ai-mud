@@ -1,6 +1,6 @@
 # NPCs as dedicated agents: exploration and proposal
 
-Status: **design agreed (see §7); not built yet**. Its goal is to turn every
+Status: **phases 1–4 built (see §9)**; phases 0, 5 and 6 still to do. Its goal is to turn every
 important NPC from "a persona string fed into a shared prompt" into **its own agent**: a self with
 its own memory, needs, goals and relationships, that lives a life whether or not any player is near.
 
@@ -239,15 +239,20 @@ The lore already supplies the "God AI": **seven Aethers rule seven kingdoms**. S
 neutral director, each Aether is its own director, with its own domain, agenda and temperament. The
 big decisions come from what each god wants, and the gods compete with one another.
 
-| Aether (`aethers.key`) | Domain | Capital (throne room's city) | What its decrees act on |
+| Aether (`aethers.key`) | Virtue / Sin | Governs | Kingdom (capital) |
 |---|---|---|---|
-| Solastin | the Sun | High Sanctum | faith, wardens, defense against the Shadow, pilgrimages |
-| Khalvaris | Judgement | Iron Bastion | laws, guards, bounties, trials, punishments |
-| Nyxara | Silence | Silent Horizon | secrets, suppressing rumors, assassins, vows of silence |
-| Thalvora | Trade | Gilded Bazaar | prices, tariffs, caravans, merchant guild, debts |
-| Lazareth | Memory | Mirrorlands Court | lore revealed, histories, rumors that spread, old grudges resurfacing |
-| Velithria | Love | Evershade Court | NPC relationships: courtships, marriages, rivalries, reconciliations |
-| Morvayne | Plenty | Feastlands Keep | harvests, food supply, festivals, famine |
+| Khalvaris | Patience / Wrath | War and Law | the Iron Bastion |
+| Solastin | Humility / Pride | Civilization and Leadership | the High Sanctum |
+| Nyxara | Kindness / Envy | Ambition and Transformation | the Mirrorlands (Mirrorlands Court) |
+| Velithria | Chastity / Lust | Passion and Discipline | the Evershade (Evershade Court) |
+| Thalvora | Charity / Greed | Exchange and Value | the Gilded Bazaar |
+| Lazareth | Diligence / Sloth | Time and Knowledge | the Silent Horizon |
+| Morvayne | Temperance / Gluttony | Nature and Consumption | the Feastlands (Feastlands Keep) |
+
+Source: the wiki (`everbloom-lore/characters/`). `AETHERS` in `_shared/decrees.ts` mirrors it, and
+`src/test/decrees.test.ts` fails if they drift. Every town belongs to a kingdom (`towns.aether_key`),
+and resident NPCs are aligned to its Aether (`npcs.aether_key`): **a god rules its NPC subjects and
+can only nudge players.**
 
 How it runs:
 - **A cheap cadence.** The tick wakes **one god per in-game time slot**, rotating, so it's 7 calls per
@@ -264,20 +269,21 @@ How it runs:
   in that kingdom pick up the god's goals as their own wants, so they post jobs, change prices and
   gossip about the new law.
 - **Divine politics.** The gods have standing relations with each other (stored like
-  `npc_relations`, between `aether` keys). Trade versus Plenty over grain prices, Judgement versus
-  Silence over secrets. Kingdoms bordering each other react to each other's decrees.
+  `DIVINE_RELATIONS` in `decrees.ts`, taken from the wiki's "Connections" sections), e.g. Thalvora's
+  regulated exchange against Morvayne's raw consumption.
 - **Sworn players are the gods' hands.** A player sworn to an Aether (`profiles.aether`) can receive
   direct tasks through `summon_sworn`, which ties into the existing vow chains
   (`aether-loyalty-action`).
-- **Gods can fall.** `aethers.alive`, `fallen_at` and `wardens_killed` already exist. A fallen god
+- **Gods can fall.** An Aether lives while any of its twelve Wardens stands (`wardens` table, drizzle
+  0008; people are slain, relics shattered, places desecrated via `warden-action`). A fallen god
   issues no decrees. Its kingdom drifts on the code brain alone, Shadow pressure rises, and rival
   gods may claim influence there. This is the biggest-impact lever in the world.
 - **The Shadow is the eighth voice.** It doesn't issue decrees. Chaos pressure and corruption feed
   every god's digest as a threat, and Non Serviam players work against them.
 
-**Settled:** Lazareth rules the Mirrorlands (Mirrorlands Court) and Nyxara rules Silent Horizon.
-A 2026-05 migration had swapped their *well rooms*. `drizzle/migrations/0003_fix_lazareth_nyxara_wells.sql`
-reverses it and moves each god's "Mirror of …" guide along with it.
+**Settled (by the wiki):** Lazareth rules the Silent Horizon and Nyxara rules the Mirrorlands.
+Migration 0003 had assumed the opposite. 0007 corrects the well rooms, thrones, wardens and Mirror
+guides.
 
 ### 6.1 Presenting rich NPCs on a small budget
 
@@ -328,3 +334,39 @@ Still open: whether to run a self-hosted small model (§6), and if so which host
 | **4. The Seven** | Per-kingdom digests; one god per time slot issues validated decrees; proclamations; sworn-player tasks; god-to-god relations | 7 calls/in-game day |
 | **5. Society** | NPC↔NPC relations, rumor propagation, feuds, households, shops opening and closing, migration, deaths | low |
 | **6. Small model (optional)** | Self-hosted model behind `NpcBrain` for barks and summaries | fixed hosting cost |
+
+---
+
+## 9. What is built (phases 1–4)
+
+| Piece | File | Notes |
+|---|---|---|
+| Code brain | `supabase/functions/_shared/npcMind.ts` | needs, traits from the NPC id, utility-scored actions, mood, wants, want → quest, target rooms, amity disclosure levels, template barks. Tests: `src/test/npcMind.test.ts` |
+| Voice | `supabase/functions/_shared/npcVoice.ts` | builds the soul/state/journal prompt block, including only what the player's amity has earned. Tests: `src/test/npcVoice.test.ts` |
+| The Seven | `supabase/functions/_shared/decrees.ts` | god profiles, divine politics, cadence, decree vocabulary and validation, prompt and digest. Tests: `src/test/decrees.test.ts` |
+| AI call point | `supabase/functions/_shared/aiGateway.ts` | the one place background brains call a model (the swap point for a self-hosted model) |
+| Agent tick | `supabase/functions/npc-agent-tick/` | runs the code brain for due agents; `wants.ts` turns wants into letters or board posts |
+| God tick | `supabase/functions/seven-tick/` | one god per 24h/7: digest, one model call, validated decrees, proclamations |
+| Scheduling | `supabase/functions/world-tick/` | calls both ticks every hour; no longer moves agents by fixed schedule |
+| Talking | `supabase/functions/npc-respond/` | uses the voice block; journals conversations; promotes engaged NPCs to `dreaming` |
+| Quests | `town-board` (claim), `quest-award` (completion) | NPC postings name the real NPC; completing the favour meets the want |
+| Letters | `GameClient.tsx` | `letters` command and an arrival notice |
+| Schema | `drizzle/migrations/0004`–`0006` | `npc_souls`, `npc_state`, `npc_journal`, `npc_relations`, `posted_quests.author_npc_id`, `player_letters`, `aethers.last_decree_at`, `aether_decrees` |
+
+**Tiers as built:** the migration enrols living, visible role NPCs (merchants, guildmasters, wardens,
+bards, fences, guards) as `agent`. Talking to any other NPC (except souls, Aethers and bosses) adds it
+as `dreaming`. Both tiers currently run the same free code brain. Companions and escorted NPCs are
+never moved by the tick.
+
+**AI cost as built:** the agent tick makes no AI calls. `seven-tick` makes at most one call per
+24h/7. With the hourly world tick, that's in practice one call every 4 hours, about 6 a day. A god's
+turn is claimed before its call, so a failing model can't be retried every hour. Player conversations
+cost the same as before.
+
+**Requires** `world-tick` to actually run on a schedule. No `cron.schedule` exists in the repo's
+migrations (see §1), so confirm it's scheduled in Supabase, or nothing here moves.
+
+**Not built yet:** phase 0 measurement; Seven-written souls for newly important NPCs (souls are
+seeded from the old persona); NPC↔NPC conversations and rumor passing between NPCs (relations are
+only set by `bond` decrees so far); catch-up narration on arrival; the shortage, bounty and favor
+decrees; a self-hosted small model; an admin "NPC mind" view.

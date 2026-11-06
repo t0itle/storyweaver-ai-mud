@@ -2,6 +2,7 @@
 // Resolves the target against the player's inventory, NPCs in the room, or just the room itself,
 // then asks the AI to write a short, in-world flavor response. May unlock lore.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { WORLD_CANON } from "../_shared/worldCanon.ts";
 import { abilityScores, check, checkModifier, DEFAULT_DC, INTERACT_VERB_ABILITY, outcomeOf, type CheckResult } from "../_shared/dice.ts";
 
 const corsHeaders = {
@@ -71,7 +72,7 @@ Deno.serve(async (req) => {
       roll = { ...r, ability, outcome: outcomeOf(r) };
     }
 
-    const system = `You narrate small in-world interactions for EverBloom — a dying world; First City; seven Aethers; mouth-bound Veiled (priests of the silenced Speaker); the EverBloom in the deep dunes; the Shadow as unspoken counterweight.
+    const system = `You narrate small in-world interactions for EverBloom. World canon: ${WORLD_CANON}
 
 Write a single short paragraph (1-3 sentences, max ~70 words) describing what happens when ${player_name} ${v}s "${resolvedName}". Stay grounded, evocative, sensory. No second person ("you"). No game mechanics. No quest hooks unless the object naturally implies one.
 

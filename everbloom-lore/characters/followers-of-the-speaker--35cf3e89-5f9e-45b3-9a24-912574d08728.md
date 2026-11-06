@@ -2,6 +2,7 @@
 ever bloom: 1
 id: "35cf3e89-5f9e-45b3-9a24-912574d08728"
 title: "Followers of the Speaker"
+slug: "the-veiled"
 category: "characters"
 tags: ["imported"]
 ---

@@ -110,13 +110,16 @@ const HELP = [
   ["take", "claim everything in the room's loot pile"],
   ["steal <npc>", "pickpocket — risky, they may catch you"],
   ["fence", "sell stolen goods (find a fence in certain inns)"],
-  ["align", "kneel at the Hall of Choosing (First City)"],
+  ["align", "kneel at the Hall of Seven Ways (First City)"],
   ["wagon", "hire the wagonmaster (open the fast-travel panel)"],
   ["rest", "sleep at an inn — full heal, costs gold"],
   ["camp", "make camp in the wilds — partial heal, may be ambushed"],
   ["services", "list services any NPC here will sell you"],
   ["pay <npc> <service>", "pay an NPC for a service (e.g. pay senna bind)"],
   ["buy <npc> [item]", "buy an item from an NPC after striking a verbal deal"],
+  ["letters", "read letters NPCs have sent you"],
+  ["shatter", "try to shatter a relic Warden of an Aether here (STR check)"],
+  ["desecrate", "try to desecrate a sacred-place Warden here (WIS check)"],
   ["help", "show this list"],
 ];
 
@@ -301,6 +304,20 @@ export default function GameClient({ session }: { session: Session }) {
   };
 
   useEffect(() => { reloadInventory(); reloadRunes(); reloadQuestCounts(); }, [session.user.id]);
+
+  // NPCs who trust the player write to them (npc-agent-tick). Announce new letters once each,
+  // checked on load and whenever the player moves.
+  const announcedLettersRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("player_letters").select("id, from_name")
+        .eq("user_id", session.user.id).is("read_at", null);
+      const fresh = (data ?? []).filter((l) => !announcedLettersRef.current.has(l.id));
+      if (!fresh.length) return;
+      fresh.forEach((l) => announcedLettersRef.current.add(l.id));
+      toast(`A runner presses a sealed note from ${fresh[0].from_name}${fresh.length > 1 ? ` (and ${fresh.length - 1} more)` : ""} into your hand. Type \`letters\`.`);
+    })();
+  }, [session.user.id, profile?.current_room]);
 
   // World atlas: every charted (non-hidden) room, fetched once for the automap.
   useEffect(() => {
@@ -714,7 +731,7 @@ export default function GameClient({ session }: { session: Session }) {
     return () => { cancelled = true; };
   }, [profile?.current_room, room?.slug, roomEvents.length, playersSig]);
 
-  // Auto-open Hall of the Seven when player enters it (only if not yet sworn)
+  // Auto-open the Hall of Seven Ways when player enters it (only if not yet sworn)
   useEffect(() => {
     const inHall = profile?.current_room === "sevenfold-square" || profile?.current_room === "hall-of-the-seven";
     if (inHall && !profile?.aether) setHallOpen(true);
@@ -1284,6 +1301,30 @@ export default function GameClient({ session }: { session: Session }) {
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "The NPC stays silent.");
       } finally { setThinking(false); }
+    } else if (c === "shatter" || c === "desecrate") {
+      // An Aether lives while any of its 12 Wardens stands; relics and sacred places can be destroyed.
+      setThinking(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("warden-action", { body: { action: c } });
+        if (error || data?.error) throw new Error(data?.error ?? error?.message);
+        if (data.success && data.aether_fell) toast.success("The last Warden falls. An Aether desynchronizes.");
+        reloadProfile();
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "nothing happens");
+      } finally { setThinking(false); }
+    } else if (c === "letters" || c === "letter" || c === "mail") {
+      const { data: letters } = await supabase.from("player_letters")
+        .select("id, from_name, subject, body, created_at, read_at")
+        .eq("user_id", session.user.id).order("created_at", { ascending: false }).limit(10);
+      if (!letters?.length) {
+        setMessages((mm) => [...mm, localSys("No one has written to you. Yet.")]);
+      } else {
+        const lines = letters.map((l) =>
+          `${l.read_at ? "" : "✉ "}**${l.subject}** — from ${l.from_name} (${new Date(l.created_at).toLocaleDateString()})\n${l.body}`);
+        setMessages((mm) => [...mm, localSys(lines.join("\n\n"))]);
+        const unread = letters.filter((l) => !l.read_at).map((l) => l.id);
+        if (unread.length) await supabase.from("player_letters").update({ read_at: new Date().toISOString() }).in("id", unread);
+      }
     } else if (c === "riddle" || c === "riddles") {
       if (!args) {
         setMessages((mm) => [...mm, localSys("Usage: riddle <npc>   (ask an NPC here to pose a riddle)")]);
@@ -1646,7 +1687,7 @@ export default function GameClient({ session }: { session: Session }) {
     } else if (c === "align" || c === "kneel") {
       const inHall = profile.current_room === "sevenfold-square" || profile.current_room === "hall-of-the-seven";
       if (!inHall) {
-        setMessages((m) => [...m, localSys("There is no basin here. Seek the Hall of Choosing at the heart of the First City.")]);
+        setMessages((m) => [...m, localSys("There is no basin here. Seek the Hall of Seven Ways at the heart of the First City.")]);
       } else {
         setHallOpen(true);
       }
