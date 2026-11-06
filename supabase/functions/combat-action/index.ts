@@ -454,12 +454,10 @@ Deno.serve(async (req) => {
             || ref.includes(target.name.toLowerCase());
       });
       for (const q of matchedSlay) {
-        const authHdr = req.headers.get("Authorization");
-        if (!authHdr) continue;
         await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/quest-award`, {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: authHdr },
-          body: JSON.stringify({ quest_id: q.id, note: "auto:slay" }),
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+          body: JSON.stringify({ quest_id: q.id, user_id: user.id, note: "auto:slay" }),
         }).catch(() => null);
       }
     };

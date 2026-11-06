@@ -3,6 +3,7 @@ import { kingdomLine, WORLD_CANON } from "../_shared/worldCanon.ts";
 import { abilityScores, check, checkModifier, DEFAULT_DC, outcomeOf } from "../_shared/dice.ts";
 import { buildLifeBlock } from "../_shared/npcVoice.ts";
 import { addFact, sanitizeAction, sceneBlock, type SceneFact } from "../_shared/roomScene.ts";
+import { aiMayTriggerCompletion, completionHint, completionMode, ROOM_TARGET_KINDS, type CompletionMode } from "../_shared/questRules.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -274,13 +275,29 @@ Deno.serve(async (req) => {
 
     // ── Active and just-offered quests between THIS NPC and THIS player ──
     const { data: questsWithGiver } = await supabase.from("quests")
-      .select("id, title, objective, status, severity, kind")
+      .select("id, title, objective, status, severity, kind, target_kind, target_ref")
       .eq("user_id", user.id).eq("giver_npc_id", npc_id)
       .in("status", ["offered", "active"]);
     const activeQuest = (questsWithGiver ?? []).find((q: any) => q.status === "active");
     const pendingOffer = (questsWithGiver ?? []).find((q: any) => q.status === "offered");
+    // How the active quest's completion is decided (_shared/questRules.ts): real targets are checked
+    // by code; only quests without one are left to this NPC's judgment.
+    let questMode: CompletionMode = "judgment";
+    if (activeQuest) {
+      const ref = activeQuest.target_ref as string | null;
+      const tk = (activeQuest.target_kind ?? "") as string;
+      const isUuid = !!ref && /^[0-9a-f-]{36}$/i.test(ref);
+      const [itemHit, roomHit, npcHit] = ref ? await Promise.all([
+        tk === "item" ? agentDb.from("items").select("key").eq("key", ref).maybeSingle() : { data: null },
+        ROOM_TARGET_KINDS.has(tk) ? agentDb.from("rooms").select("slug").eq("slug", ref).maybeSingle() : { data: null },
+        tk === "npc" ? (isUuid
+          ? agentDb.from("npcs").select("id").eq("id", ref).maybeSingle()
+          : agentDb.from("npcs").select("id").ilike("name", `%${ref}%`).limit(1).maybeSingle()) : { data: null },
+      ]) : [{ data: null }, { data: null }, { data: null }];
+      questMode = completionMode(activeQuest, { item: !!itemHit.data, room: !!roomHit.data, npc: !!npcHit.data });
+    }
     const questBlock = activeQuest
-      ? `ACTIVE QUEST WITH ${player_name}: "${activeQuest.title}" (${activeQuest.severity} ${activeQuest.kind}) — ${activeQuest.objective}\nQUEST_ID: ${activeQuest.id}\nIf they have completed it, emit a <<QUEST_RESOLVE>> tag (see below). Otherwise reference the quest naturally — encourage, taunt, hint.`
+      ? `ACTIVE QUEST WITH ${player_name}: "${activeQuest.title}" (${activeQuest.severity} ${activeQuest.kind}) — ${activeQuest.objective}\nQUEST_ID: ${activeQuest.id}\n${completionHint(questMode, activeQuest.target_ref)} Otherwise reference the quest naturally — encourage, taunt, hint.`
       : pendingOffer
       ? `(You have already offered "${pendingOffer.title}" but they haven't yet accepted. Do not offer another quest.)`
       : `(No active quests with this player. You MAY offer one if a need arises naturally — but only ONE per reply, and only if it fits the moment.)`;
@@ -875,47 +892,8 @@ Do not mention these tags in your prose.`;
           }
         }
       }
-      // 4) absolute fallback: synthesize a catalog row so the verbal deal can stand.
-      //    Uses the AI's slug + a generic description; weight=2, value=price_gold.
-      if (!it && wanted) {
-        const synthKey = `npc-offer-${wanted.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48)}`;
-        if (synthKey.length > 10) {
-          const synthName = wanted.replace(/[-_]+/g, " ").trim();
-          const price = Math.max(1, Math.round(Number(itemOfferRaw.price_gold)));
-          const { data: existed } = await admin.from("items")
-            .select("key,name,value").eq("key", synthKey).maybeSingle();
-          if (existed) {
-            it = existed as any;
-          } else {
-            // Infer slot + base stats from the item name so the verbal deal
-            // can actually be equipped/used after purchase.
-            const lname = synthName.toLowerCase();
-            const has = (...ws: string[]) => ws.some(w => lname.includes(w));
-            let slot = "misc";
-            let base_damage = 0;
-            let base_armor = 0;
-            let heal_amount = 0;
-            if (has("shield", "buckler", "targe")) { slot = "off_hand"; base_armor = 2; }
-            else if (has("sword", "blade", "axe", "mace", "hammer", "spear", "dagger", "knife", "club", "staff", "scimitar", "rapier", "halberd", "glaive", "polearm", "flail", "morningstar", "longsword", "shortsword", "greatsword", "warhammer", "battleaxe", "handaxe", "bow", "crossbow")) {
-              slot = "main_hand"; base_damage = has("great", "long", "war", "battle", "halberd", "glaive") ? 4 : has("dagger", "knife", "hand") ? 2 : 3;
-            }
-            else if (has("helm", "helmet", "cap", "hood", "coif", "circlet", "crown")) { slot = "head"; base_armor = 1; }
-            else if (has("boot", "shoe", "sandal", "greaves")) { slot = "feet"; base_armor = 1; }
-            else if (has("greave", "leggings", "trouser", "pants", "breeches")) { slot = "legs"; base_armor = 1; }
-            else if (has("armor", "armour", "mail", "cuirass", "breastplate", "robe", "tunic", "jerkin", "vest", "hauberk", "plate")) { slot = "body"; base_armor = has("plate", "mail", "cuirass", "breastplate", "hauberk") ? 3 : 2; }
-            else if (has("amulet", "necklace", "pendant", "talisman")) { slot = "neck"; }
-            else if (has("ring", "band", "signet")) { slot = "ring"; }
-            else if (has("focus", "orb", "wand", "rod", "tome")) { slot = "focus"; }
-            else if (has("potion", "elixir", "draught", "tonic", "philter")) { slot = "consumable"; heal_amount = 6; }
-            const { data: ins } = await admin.from("items").insert({
-              key: synthKey, name: synthName, slot, weight: 2,
-              value: price, base_damage, base_armor, heal_amount,
-              description: String(itemOfferRaw.reason ?? `A ${synthName} offered by ${npc.name}.`).slice(0, 240),
-            }).select("key,name,value").maybeSingle();
-            if (ins) it = ins as any;
-          }
-        }
-      }
+      // No step 4: an NPC can only offer items that already exist in the catalog. (The AI used to
+      // be able to create new items here, with stats and a value set by the price it named.)
       if (it) {
         // Floor: half catalog value (rounded up), min 1g. NPCs may charge above value.
         const floor = Math.max(1, Math.ceil((it.value ?? 0) / 2));
@@ -971,15 +949,35 @@ Do not mention these tags in your prose.`;
     // ── Resolve active quest (if AI judged it) ──
     let questResolution: any = null;
     if (questResolveRaw && activeQuest && questResolveRaw.quest_id === activeQuest.id) {
-      if (questResolveRaw.outcome === "complete") {
-        // Call quest-award via HTTP so reward logic stays in one place.
-        const awardRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/quest-award`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: authHeader },
-          body: JSON.stringify({ quest_id: activeQuest.id, note: questResolveRaw.note ?? "" }),
-        });
-        questResolution = await awardRes.json().catch(() => ({ ok: false }));
-        questResolution.outcome = "complete";
+      // The NPC's "complete" counts only where questRules allows it (never for room, kill or riddle
+      // quests), and for a real item only if the item is really in the player's pack.
+      if (questResolveRaw.outcome === "complete" && aiMayTriggerCompletion(questMode)) {
+        let handOver: { id: string; quantity: number } | null = null;
+        if (questMode === "item") {
+          const { data: held } = await admin.from("player_items")
+            .select("id, quantity, equipped_slot").eq("user_id", user.id).eq("item_key", activeQuest.target_ref)
+            .order("equipped_slot", { ascending: true, nullsFirst: true }).limit(1).maybeSingle();
+          handOver = held ? { id: held.id, quantity: held.quantity ?? 1 } : null;
+        }
+        if (questMode === "item" && !handOver) {
+          questResolution = { outcome: "not_met", title: activeQuest.title, note: `You don't have ${activeQuest.target_ref} with you.` };
+        } else {
+          // Call quest-award via HTTP so reward logic stays in one place.
+          const awardRes = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/quest-award`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+            body: JSON.stringify({ quest_id: activeQuest.id, user_id: user.id, note: questResolveRaw.note ?? "" }),
+          });
+          questResolution = await awardRes.json().catch(() => ({ ok: false }));
+          if (questResolution?.ok) {
+            questResolution.outcome = "complete";
+            // The item changes hands only once the quest really completed.
+            if (handOver) {
+              if (handOver.quantity > 1) await admin.from("player_items").update({ quantity: handOver.quantity - 1 }).eq("id", handOver.id);
+              else await admin.from("player_items").delete().eq("id", handOver.id);
+            }
+          }
+        }
       } else if (questResolveRaw.outcome === "fail") {
         await admin.from("quests").update({
           status: "failed", completed_at: new Date().toISOString(),

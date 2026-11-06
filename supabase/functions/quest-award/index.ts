@@ -1,5 +1,5 @@
-// Award quest rewards. Called server-side by npc-respond when a quest resolves,
-// or by automated checks (visit/slay/fetch). Server clamps rewards to severity bands.
+// Award quest rewards. Called only by other edge functions (service-role key), after they have
+// checked the objective (see _shared/questRules.ts). Server clamps rewards to severity bands.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { GUILD_RANK_NAMES, GUILD_XP_PER_QUEST, GUILD_XP_WEEKLY_BONUS, guildRankFor } from "../_shared/guildRanks.ts";
 
@@ -177,22 +177,21 @@ export async function completeQuest(admin: any, questId: string, note = "") {
   };
 }
 
+// Server-only: npc-respond, quest-auto-resolve and combat-action call this with the service-role key
+// after checking the quest's objective themselves. A player's own token is refused, otherwise anyone
+// could complete their active quests without doing them.
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: cors });
   try {
-    const auth = req.headers.get("Authorization");
-    if (!auth) return json({ error: "Unauthorized" }, 401);
-    const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: auth } } });
-    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const { data: { user } } = await supa.auth.getUser();
-    if (!user) return json({ error: "Unauthorized" }, 401);
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    if (req.headers.get("Authorization") !== `Bearer ${serviceKey}`) return json({ error: "forbidden" }, 403);
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
 
-    const { quest_id, note } = await req.json();
-    if (!quest_id) return json({ error: "quest_id required" }, 400);
-    // Verify ownership before awarding.
+    const { quest_id, user_id, note } = await req.json();
+    if (!quest_id || !user_id) return json({ error: "quest_id and user_id required" }, 400);
+    // The caller names whose quest it means; refuse a mismatch rather than award someone else.
     const { data: q } = await admin.from("quests").select("user_id").eq("id", quest_id).maybeSingle();
-    if (!q || q.user_id !== user.id) return json({ error: "no such quest" }, 404);
+    if (!q || q.user_id !== user_id) return json({ error: "no such quest" }, 404);
 
     const result = await completeQuest(admin, quest_id, note ?? "");
     return json(result);

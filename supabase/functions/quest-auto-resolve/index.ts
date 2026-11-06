@@ -1,6 +1,8 @@
-// Auto-resolve active quests when world events happen (slay / visit).
-// Called by GameClient on room arrival and after a kill. Delegates rewards to quest-award.
+// Auto-resolve active room quests when the player arrives somewhere. Called by GameClient after a move.
+// The room is read from the player's profile on the server; anything the client sends is ignored.
+// (Slay quests are completed by combat-action when the kill happens.) Delegates rewards to quest-award.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { arrivalCompletes } from "../_shared/questRules.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -16,39 +18,28 @@ Deno.serve(async (req) => {
     if (!auth) return json({ error: "Unauthorized" }, 401);
     const supa = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: auth } } });
-    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
     const { data: { user } } = await supa.auth.getUser();
     if (!user) return json({ error: "Unauthorized" }, 401);
 
-    const body = await req.json().catch(() => ({}));
-    const ev = body.event ?? body;
-    if (!ev?.kind) return json({ error: "event.kind required" }, 400);
+    const { data: profile } = await admin.from("profiles").select("current_room").eq("id", user.id).maybeSingle();
+    const room = String(profile?.current_room ?? "");
+    if (!room) return json({ ok: true, completed: [] });
 
     const { data: active } = await admin.from("quests")
-      .select("*").eq("user_id", user.id).eq("status", "active");
+      .select("id, kind, target_kind, target_ref").eq("user_id", user.id).eq("status", "active");
 
     const completed: any[] = [];
     for (const q of active ?? []) {
-      let match = false;
-      if (ev.kind === "slay" && q.kind === "slay" && q.target_kind === "npc") {
-        const ref = (q.target_ref ?? "").toLowerCase();
-        const tid = String(ev.target_id ?? "").toLowerCase();
-        const tname = String(ev.target_name ?? "").toLowerCase();
-        if (ref && (ref === tid || (tname && (tname.includes(ref) || ref.includes(tname))))) match = true;
-      } else if (ev.kind === "visit" && (q.kind === "visit" || q.kind === "escort" || q.kind === "favor") && q.target_kind === "room") {
-        const ref = (q.target_ref ?? "").toLowerCase();
-        const rm = String(ev.room ?? "").toLowerCase();
-        if (ref && rm && ref === rm) match = true;
-      }
-      if (match) {
-        const r = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/quest-award`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: auth },
-          body: JSON.stringify({ quest_id: q.id, note: `auto:${ev.kind}` }),
-        });
-        const result = await r.json().catch(() => ({ ok: false }));
-        if (result.ok) completed.push({ ...result, quest_id: q.id });
-      }
+      if (!arrivalCompletes(q, room)) continue;
+      const r = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/quest-award`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${serviceKey}` },
+        body: JSON.stringify({ quest_id: q.id, user_id: user.id, note: "auto:visit" }),
+      });
+      const result = await r.json().catch(() => ({ ok: false }));
+      if (result.ok) completed.push({ ...result, quest_id: q.id });
     }
     return json({ ok: true, completed });
   } catch (e) {

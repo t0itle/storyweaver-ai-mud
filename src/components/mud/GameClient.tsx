@@ -1277,6 +1277,8 @@ export default function GameClient({ session }: { session: Session }) {
           reloadProfile();
         } else if (data?.quest_resolution?.outcome === "fail") {
           toast.error(`Quest failed: ${data.quest_resolution.title}`);
+        } else if (data?.quest_resolution?.outcome === "not_met") {
+          setMessages((mm) => [...mm, localSys(`✦ ${data.quest_resolution.title}: not yet. ${data.quest_resolution.note ?? ""}`)]);
         }
         if (data?.artifact_rumor) {
           const r = data.artifact_rumor;
