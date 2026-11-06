@@ -713,10 +713,10 @@ Do not mention these tags in your prose.`;
     // Additional gates: NPC amity ≥ 20 (Friendly+) AND persona must be plausibly learned.
     const personaText = ((npc.persona ?? "") + " " + (npc.title ?? "")).toLowerCase();
     const isLearned = /mage|witch|scribe|monk|veiled|priest|scholar|wizard|sage|loremaster|hermit|seer|warden|acolyte|oracle|sorcer|enchanter|cleric|bard|elder/.test(personaText);
-    if (teachRuneRaw?.latin_name && currentScore >= 20 && isLearned) {
+    if (teachRuneRaw?.latin_name && currentScore >= 0) {
       const { data: r } = await admin.from("lesser_runes")
         .select("key, latin_name, english_meaning")
-        .ilike("latin_name", teachRuneRaw.latin_name).maybeSingle();
+        .ilike("latin_name", String(teachRuneRaw.latin_name).trim()).maybeSingle();
       if (r) {
         const { data: known } = await admin.from("player_lesser_rune_knowledge")
           .select("rune_key,knows_word").eq("user_id", user.id).eq("rune_key", r.key).maybeSingle();
