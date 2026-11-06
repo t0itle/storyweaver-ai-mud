@@ -2,6 +2,7 @@
 // checked the objective (see _shared/questRules.ts). Server clamps rewards to severity bands.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { GUILD_RANK_NAMES, GUILD_XP_PER_QUEST, GUILD_XP_WEEKLY_BONUS, guildRankFor } from "../_shared/guildRanks.ts";
+import { settleQuestEscrow } from "../_shared/questEscrow.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -28,6 +29,10 @@ export async function completeQuest(admin: any, questId: string, note = "") {
     gold: (profile?.gold ?? 0) + gold,
     xp: (profile?.xp ?? 0) + xp,
   }).eq("id", quest.user_id);
+
+  // If the gold was escrowed (an NPC's purse or a board poster), it already left the funder; return
+  // any part a severity cap kept from the player. Quests without escrow (guild, escort…) pay as before.
+  await settleQuestEscrow(admin, questId, gold);
 
   // Bump amity with the giver.
   if (amity > 0) {

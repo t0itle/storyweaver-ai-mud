@@ -60,3 +60,86 @@ export function completionHint(mode: CompletionMode, targetRef: string | null): 
     default: return `You judge whether they have fulfilled it.`;
   }
 }
+
+// ---------- what an NPC may offer (phase 2) ----------
+
+export const SEVERITIES = ["trivial", "minor", "standard", "major", "legendary"] as const;
+export type Severity = typeof SEVERITIES[number];
+
+/** Reward ceilings per severity, as returned by the SQL function quest_reward_caps (the source of truth). */
+export interface RewardCaps { gold_max: number; xp_max: number; amity_max: number }
+
+export interface NpcRoles {
+  is_aether?: boolean | null; is_warden?: boolean | null; is_boss?: boolean | null;
+  is_merchant?: boolean | null; is_guard?: boolean | null; is_bard?: boolean | null;
+  is_fence?: boolean | null; is_guildmaster?: boolean | null;
+}
+
+/**
+ * The biggest quest an NPC may offer, by who it is (owner's decision, phase 2). Ordinary residents
+ * can only ask small favours; gods can set legendary tasks. The AI's chosen severity is clamped to this.
+ */
+export function severityCeiling(n: NpcRoles): Severity {
+  if (n.is_aether) return "legendary";
+  if (n.is_warden || n.is_boss) return "major";
+  if (n.is_merchant || n.is_guard || n.is_bard || n.is_fence || n.is_guildmaster) return "standard";
+  return "minor";
+}
+
+/** The AI's severity, lowered to the ceiling. Anything unrecognised counts as minor. */
+export function clampSeverity(asked: unknown, ceiling: Severity): Severity {
+  const a = SEVERITIES.includes(asked as Severity) ? (asked as Severity) : "minor";
+  return SEVERITIES.indexOf(a) <= SEVERITIES.indexOf(ceiling) ? a : ceiling;
+}
+
+/** Gold an NPC sets aside for a quest: what it promised, within the severity cap and its own purse. */
+export function escrowFor(askedGold: unknown, capGold: number, purse: number): number {
+  const asked = Math.floor(Number(askedGold) || 0);
+  return Math.max(0, Math.min(asked, capGold, Math.max(0, Math.floor(purse))));
+}
+
+/** Gold that goes back to whoever funded a quest: the escrow minus what the player was paid. */
+export function refundAfterPayout(escrow: number, paid: number): number {
+  return Math.max(0, (escrow ?? 0) - Math.max(0, paid ?? 0));
+}
+
+/**
+ * The smallest severity whose gold cap covers a board reward, so a player's posted reward is paid in
+ * full (it used to be clamped to the minor cap and the rest vanished). Null if no severity covers it.
+ */
+export function severityForGold(gold: number, caps: Record<Severity, RewardCaps>): Severity | null {
+  return SEVERITIES.find((s) => caps[s] && caps[s].gold_max >= gold) ?? null;
+}
+
+/** Which targets each AI quest kind may point at, and whether it must have one. */
+export const TARGET_POLICY: Record<string, { required: boolean; kinds: string[] }> = {
+  fetch:   { required: true,  kinds: ["item"] },
+  deliver: { required: true,  kinds: ["item", "npc", "room"] },
+  visit:   { required: true,  kinds: ["room"] },
+  slay:    { required: true,  kinds: ["npc"] },
+  talk:    { required: false, kinds: ["npc", "room", "item"] },
+  favor:   { required: false, kinds: ["npc", "room", "item"] },
+};
+
+export type TargetCheck =
+  | { ok: true; target_kind: string | null; target_ref: string | null }
+  | { ok: false; reason: string };
+
+/**
+ * Decide an AI quest offer's target once the caller has tried to match it to something real
+ * (`resolved` is the real key/slug/id, or null). Owner's decision: fetch, deliver, visit and slay
+ * quests without a real target are dropped; talk and favour quests just lose the fake target.
+ */
+export function checkOfferTarget(kind: string, targetKind: string | null, resolved: string | null): TargetCheck {
+  const policy = TARGET_POLICY[kind];
+  if (!policy) return { ok: false, reason: `unknown quest kind ${kind}` };
+  const allowed = !!targetKind && policy.kinds.includes(targetKind);
+  if (allowed && resolved) return { ok: true, target_kind: targetKind, target_ref: resolved };
+  if (policy.required) return { ok: false, reason: `${kind} quest needs a real ${policy.kinds.join("/")} target` };
+  return { ok: true, target_kind: null, target_ref: null };
+}
+
+/** Board postings say 'visit' for a room; quests say 'room'. Other target kinds carry over unchanged. */
+export function questTargetKindFromBoard(postedKind: string | null): string {
+  return !postedKind || postedKind === "visit" ? "room" : postedKind;
+}

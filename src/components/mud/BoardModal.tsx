@@ -151,6 +151,12 @@ function QuestsTab({ data, busy, call, userId }: { data: ListResponse; busy: boo
               Take it on
             </Button>
           )}
+          {q.author_user_id === userId && (
+            <Button size="sm" variant="ghost" className="mt-2" disabled={busy}
+              onClick={() => call({ action: "withdraw_quest", posted_quest_id: q.id }, "Taken down. Your reward is returned (the fee is not).")}>
+              Take it down
+            </Button>
+          )}
         </div>
       ))}
     </div>

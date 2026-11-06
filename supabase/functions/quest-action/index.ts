@@ -1,5 +1,6 @@
 // Quest lifecycle: accept | decline | abandon. Server-authoritative.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { settleQuestEscrow } from "../_shared/questEscrow.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -63,6 +64,7 @@ Deno.serve(async (req) => {
     if (action === "decline") {
       if (quest.status !== "offered") return json({ error: "this quest is not on offer" }, 400);
       await admin.from("quests").update({ status: "declined" }).eq("id", quest_id);
+      await settleQuestEscrow(admin, quest_id, 0);   // the funder gets its gold back
       // Declining an escort dismisses the spawned traveler.
       if (quest.kind === "escort" && quest.escort_npc_id) {
         await admin.from("npcs").update({ hidden: true }).eq("id", quest.escort_npc_id);
@@ -73,6 +75,7 @@ Deno.serve(async (req) => {
     if (action === "abandon") {
       if (quest.status !== "active") return json({ error: "this quest is not active" }, 400);
       await admin.from("quests").update({ status: "abandoned" }).eq("id", quest_id);
+      await settleQuestEscrow(admin, quest_id, 0);   // the funder gets its gold back
       // Small amity hit with the giver.
       const { data: amity } = await admin.from("npc_amity").select("score")
         .eq("user_id", user.id).eq("npc_id", quest.giver_npc_id).maybeSingle();

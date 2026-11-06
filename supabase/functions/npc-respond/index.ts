@@ -3,7 +3,11 @@ import { kingdomLine, WORLD_CANON } from "../_shared/worldCanon.ts";
 import { abilityScores, check, checkModifier, DEFAULT_DC, outcomeOf } from "../_shared/dice.ts";
 import { buildLifeBlock } from "../_shared/npcVoice.ts";
 import { addFact, sanitizeAction, sceneBlock, type SceneFact } from "../_shared/roomScene.ts";
-import { aiMayTriggerCompletion, completionHint, completionMode, ROOM_TARGET_KINDS, type CompletionMode } from "../_shared/questRules.ts";
+import {
+  aiMayTriggerCompletion, checkOfferTarget, clampSeverity, completionHint, completionMode, escrowFor, ROOM_TARGET_KINDS,
+  severityCeiling, TARGET_POLICY, type CompletionMode,
+} from "../_shared/questRules.ts";
+import { settleQuestEscrow } from "../_shared/questEscrow.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -302,6 +306,25 @@ Deno.serve(async (req) => {
       ? `(You have already offered "${pendingOffer.title}" but they haven't yet accepted. Do not offer another quest.)`
       : `(No active quests with this player. You MAY offer one if a need arises naturally — but only ONE per reply, and only if it fits the moment.)`;
 
+    // What this NPC can actually offer (_shared/questRules.ts): a severity ceiling by role, gold only
+    // from its own purse, and targets that exist. Listed so the model picks real ones.
+    const questCeiling = severityCeiling(npc);
+    let questLimitsBlock = "";
+    if (!activeQuest && !pendingOffer) {
+      const town = roomRow?.town_key as string | null | undefined;
+      const { data: townRooms } = town
+        ? await agentDb.from("rooms").select("slug, name").eq("town_key", town).eq("hidden", false).limit(20)
+        : { data: [] as { slug: string; name: string }[] };
+      const slugs = (townRooms ?? []).map((r) => r.slug);
+      const { data: townNpcs } = slugs.length
+        ? await agentDb.from("npcs").select("name").in("room", slugs).eq("hidden", false).neq("id", npc.id).limit(20)
+        : { data: [] as { name: string }[] };
+      questLimitsBlock = `QUEST LIMITS: the biggest quest you can set is "${questCeiling}". Any gold reward comes out of your own purse (${npc.purse_gold ?? 0}g); if you have none, offer 0 gold — XP and amity still count.
+REAL TARGETS (a quest's target_ref must name one of these; for fetch, name a real item; a quest with a made-up target is not given):
+Places (target_kind "room", use the slug): ${(townRooms ?? []).map((r) => `${r.slug} (${r.name})`).join("; ") || "(none listed)"}
+People (target_kind "npc", use the name): ${(townNpcs ?? []).map((n) => n.name).join("; ") || "(none listed)"}`;
+    }
+
     // ── Services this NPC sells, and any active personal price-offers for THIS player ──
     const { data: npcServices } = await supabase.from("npc_services")
       .select("key, name, blurb, kind, price_gold").eq("npc_id", npc_id);
@@ -469,6 +492,7 @@ ${stanceBlock}
 
 QUESTS:
 ${questBlock}
+${questLimitsBlock}
 
 YOUR SERVICES (these are what you formally sell to ${player_name}; the player can pay you with the in-game "pay" command. NEVER make up new services — only haggle on the ones below):
 ${servicesBlock}
@@ -539,7 +563,9 @@ TEACH_RUNE (ONLY if you are deliberately teaching a Latin rune word per the stri
 TEACH_KANJI (ONLY if you are deliberately teaching a kanji per the strict rules above — omit otherwise. ONE kanji per reply max.):
 <<TEACH_KANJI>>{"kanji":"火","reason":"..."}<<END>>
 QUEST_OFFER (optional, ONLY if no active/offered quest exists with this player and a need naturally arose):
-<<QUEST_OFFER>>{"title":"The Locket of Renn","description":"A short paragraph from your POV.","objective":"Bring me the silver locket from the dunes.","kind":"fetch","severity":"minor","target_kind":"item","target_ref":"silver-locket","rewards":{"gold":15,"xp":25,"amity":4,"item_key":null,"rune_key":null,"kanji_key":null}}<<END>>
+<<QUEST_OFFER>>{"title":"Bread for the Lamp-Keeper","description":"A short paragraph from your POV.","objective":"Bring me a round of flat bread.","kind":"fetch","severity":"minor","target_kind":"item","target_ref":"flat-bread","rewards":{"gold":5,"xp":25,"amity":4,"item_key":null,"rune_key":null,"kanji_key":null}}<<END>>
+  kind: fetch (target_kind "item") | visit (target_kind "room") | slay (target_kind "npc") | deliver (item, npc or room) | talk / favor (target optional).
+  target_ref: a slug or name from REAL TARGETS above, or a real item's key or name. Severity and gold must stay within QUEST LIMITS.
 QUEST_RESOLVE (ONLY if there is an ACTIVE QUEST above and you judge ${player_name} has either fulfilled or failed it RIGHT NOW based on what they said/did):
 <<QUEST_RESOLVE>>{"quest_id":"<id from QUEST_ID above>","outcome":"complete|fail|in_progress","note":"brief reason"}<<END>>
 ITEM_OFFER (ONLY when you have actually agreed a price for a specific item from the catalog above — omit otherwise):
@@ -917,33 +943,69 @@ Do not mention these tags in your prose.`;
     }
 
     let offeredQuest: any = null;
-    const validKinds = new Set(["fetch","deliver","slay","visit","talk","favor"]);
-    const validSeverities = new Set(["trivial","minor","standard","major","legendary"]);
     if (questOfferRaw && !activeQuest && !pendingOffer
         && questOfferRaw.title && questOfferRaw.objective
-        && validKinds.has(questOfferRaw.kind)
-        && validSeverities.has(questOfferRaw.severity)) {
-      const r = questOfferRaw.rewards ?? {};
-      const { data: ins } = await admin.from("quests").insert({
-        user_id: user.id,
-        giver_npc_id: npc.id,
-        giver_npc_name: npc.name,
-        title: String(questOfferRaw.title).slice(0, 120),
-        description: String(questOfferRaw.description ?? "").slice(0, 800),
-        objective: String(questOfferRaw.objective).slice(0, 400),
-        kind: questOfferRaw.kind,
-        severity: questOfferRaw.severity,
-        target_kind: questOfferRaw.target_kind ?? null,
-        target_ref: questOfferRaw.target_ref ?? null,
-        reward_gold: Math.max(0, Math.min(600, Number(r.gold) || 0)),
-        reward_xp: Math.max(0, Math.min(600, Number(r.xp) || 0)),
-        reward_amity: Math.max(0, Math.min(40, Number(r.amity) || 0)),
-        reward_item_key: r.item_key ?? null,
-        reward_rune_key: r.rune_key ?? null,
-        reward_kanji_key: r.kanji_key ?? null,
-        offered_room: room,
-      }).select("*").maybeSingle();
-      offeredQuest = ins;
+        && TARGET_POLICY[questOfferRaw.kind]) {
+      // 1) The target must be real (owner's decision: match by key/slug/name, or drop the offer).
+      const tk = questOfferRaw.target_kind ? String(questOfferRaw.target_kind) : null;
+      const ref = questOfferRaw.target_ref ? String(questOfferRaw.target_ref).trim().slice(0, 120) : "";
+      let resolved: string | null = null;
+      if (ref && tk === "item") {
+        const loose = `%${ref.replace(/[-_]+/g, " ")}%`;
+        resolved = (await admin.from("items").select("key").eq("key", ref).maybeSingle()).data?.key
+          ?? (await admin.from("items").select("key").ilike("name", ref.replace(/[-_]+/g, " ")).limit(1).maybeSingle()).data?.key
+          ?? (await admin.from("items").select("key").ilike("name", loose).limit(1).maybeSingle()).data?.key ?? null;
+      } else if (ref && tk && ROOM_TARGET_KINDS.has(tk)) {
+        resolved = (await admin.from("rooms").select("slug").eq("slug", ref).eq("hidden", false).maybeSingle()).data?.slug
+          ?? (await admin.from("rooms").select("slug").ilike("name", ref).eq("hidden", false).limit(1).maybeSingle()).data?.slug ?? null;
+      } else if (ref && tk === "npc") {
+        const byId = /^[0-9a-f-]{36}$/i.test(ref)
+          ? (await admin.from("npcs").select("id").eq("id", ref).neq("id", npc.id).maybeSingle()).data?.id : null;
+        resolved = byId
+          ?? (await admin.from("npcs").select("id").ilike("name", ref).neq("id", npc.id).eq("hidden", false).limit(1).maybeSingle()).data?.id
+          ?? (await admin.from("npcs").select("id").ilike("name", `${ref}%`).neq("id", npc.id).eq("hidden", false).limit(1).maybeSingle()).data?.id ?? null;
+      }
+      const target = checkOfferTarget(questOfferRaw.kind, tk === "visit" ? "room" : tk, resolved);
+      if (!target.ok) {
+        console.log("[npc-respond] quest offer dropped:", target.reason, JSON.stringify({ tk, ref }));
+      } else {
+        // 2) Severity clamped to what this NPC may offer; rewards clamped to that severity's caps.
+        const severity = clampSeverity(questOfferRaw.severity, questCeiling);
+        const { data: capsRow } = await admin.rpc("quest_reward_caps", { _severity: severity });
+        const caps = capsRow ?? { gold_max: 20, xp_max: 40, amity_max: 6 };
+        const r = questOfferRaw.rewards ?? {};
+        // 3) Gold is set aside from the NPC's purse now (refunded on decline, abandon or fail).
+        const purse = Number(npc.purse_gold ?? 0);
+        let gold = escrowFor(r.gold, caps.gold_max, purse);
+        if (gold > 0) {
+          const { data: paid } = await admin.from("npcs").update({ purse_gold: purse - gold })
+            .eq("id", npc.id).eq("purse_gold", purse).select("id");
+          if (!paid?.length) gold = 0;   // the purse changed under us; offer no gold rather than overdraw
+        }
+        const { data: ins } = await admin.from("quests").insert({
+          user_id: user.id,
+          giver_npc_id: npc.id,
+          giver_npc_name: npc.name,
+          title: String(questOfferRaw.title).slice(0, 120),
+          description: String(questOfferRaw.description ?? "").slice(0, 800),
+          objective: String(questOfferRaw.objective).slice(0, 400),
+          kind: questOfferRaw.kind,
+          severity,
+          target_kind: target.target_kind,
+          target_ref: target.target_ref,
+          reward_gold: gold,
+          reward_xp: Math.max(0, Math.min(caps.xp_max, Number(r.xp) || 0)),
+          reward_amity: Math.max(0, Math.min(caps.amity_max, Number(r.amity) || 0)),
+          reward_item_key: r.item_key ?? null,
+          reward_rune_key: r.rune_key ?? null,
+          reward_kanji_key: r.kanji_key ?? null,
+          escrow_gold: gold,
+          escrow_npc_id: gold > 0 ? npc.id : null,
+          offered_room: room,
+        }).select("*").maybeSingle();
+        if (!ins && gold > 0) await admin.from("npcs").update({ purse_gold: purse }).eq("id", npc.id);   // undo
+        offeredQuest = ins;
+      }
     }
 
     // ── Resolve active quest (if AI judged it) ──
@@ -982,6 +1044,7 @@ Do not mention these tags in your prose.`;
         await admin.from("quests").update({
           status: "failed", completed_at: new Date().toISOString(),
         }).eq("id", activeQuest.id);
+        await settleQuestEscrow(admin, activeQuest.id, 0);   // the NPC keeps its gold
         await admin.from("world_events").insert({
           kind: "quest_failed", actor_id: user.id, actor_name: player_name, room,
           details: { title: activeQuest.title, giver: npc.name, note: questResolveRaw.note ?? "" },

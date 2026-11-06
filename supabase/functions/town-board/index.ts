@@ -6,6 +6,8 @@
 // Board lives in the capital room (and First City). Player must be standing
 // in a room whose town_key is set to interact.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { questTargetKindFromBoard, severityForGold, SEVERITIES, type RewardCaps, type Severity } from "../_shared/questRules.ts";
+import { closePostedQuest } from "../_shared/questEscrow.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -19,10 +21,19 @@ const TOWN_REP_BANK_BAR = 25;
 const QUEST_POST_FEE = 20;
 const BOUNTY_MIN_REWARD = 50;
 
+/** Reward ceilings for every severity, from the SQL function quest_reward_caps (the source of truth). */
+// deno-lint-ignore no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function rewardCaps(admin: any): Promise<Record<Severity, RewardCaps>> {
+  const rows = await Promise.all(SEVERITIES.map((s) => admin.rpc("quest_reward_caps", { _severity: s })));
+  return Object.fromEntries(SEVERITIES.map((s, i) => [s, rows[i].data])) as Record<Severity, RewardCaps>;
+}
+
 type Action =
   | { action: "list" }
   | { action: "post_quest"; title: string; description: string; objective: string; reward_gold: number; reward_xp?: number }
   | { action: "claim_quest"; posted_quest_id: string }
+  | { action: "withdraw_quest"; posted_quest_id: string }
   | { action: "post_bounty"; target_username: string; reason: string; reward_gold: number; alive_bonus?: number }
   | { action: "claim_bounty"; bounty_id: string; claim_kind: "dead" | "alive" }
   | { action: "bank_open" }
@@ -100,22 +111,44 @@ Deno.serve(async (req) => {
     if (body.action === "post_quest") {
       const reward = Math.max(0, Math.floor(body.reward_gold ?? 0));
       if (reward < 5) return json({ error: "Reward must be at least 5g" }, 400);
+      // The reward is paid in full on completion, so it must fit a quest severity's gold cap.
+      const caps = await rewardCaps(admin);
+      if (!severityForGold(reward, caps))
+        return json({ error: `Rewards above ${caps.legendary.gold_max}g can't be posted` }, 400);
       if ((profile.gold ?? 0) < reward + QUEST_POST_FEE)
         return json({ error: `Not enough gold (need ${reward + QUEST_POST_FEE})` }, 400);
       const title = String(body.title ?? "").trim().slice(0, 80);
       if (title.length < 3) return json({ error: "Title too short" }, 400);
-      // Take gold up front; reward is held in escrow conceptually (deducted on claim).
-      await admin.from("profiles").update({ gold: (profile.gold ?? 0) - QUEST_POST_FEE }).eq("id", user.id);
+      // Fee is spent; the reward is held in escrow on the posting and refunded if it is withdrawn.
+      await admin.from("profiles").update({ gold: (profile.gold ?? 0) - QUEST_POST_FEE - reward }).eq("id", user.id);
       const { data: q, error } = await admin.from("posted_quests").insert({
         town_key, author_user_id: user.id, author_name: profile.username,
         title, description: String(body.description ?? "").slice(0, 600),
         objective: String(body.objective ?? "").slice(0, 200),
-        target_kind: "visit", target_ref: town_key,
-        reward_gold: reward, reward_xp: Math.max(0, Math.floor(body.reward_xp ?? 0)),
+        // The job is handed in back at this board. (It used to target the town key, which only
+        // matched a room in the First City, so posts elsewhere could never complete.)
+        target_kind: "visit", target_ref: profile.current_room,
+        reward_gold: reward,
+        // XP is created by the game, not paid by the poster, so keep it to the minor band as before.
+        reward_xp: Math.min(caps.minor.xp_max, Math.max(0, Math.floor(body.reward_xp ?? 0))),
+        escrow_gold: reward,
         status: "open",
       }).select("*").single();
-      if (error) return json({ error: error.message }, 400);
+      if (error) {
+        await admin.from("profiles").update({ gold: profile.gold ?? 0 }).eq("id", user.id);   // undo the charge
+        return json({ error: error.message }, 400);
+      }
       return json({ ok: true, posted: q });
+    }
+
+    // ─── withdraw an open posting (author only): reward escrow comes back, the fee does not ───
+    if (body.action === "withdraw_quest") {
+      const { data: q } = await admin.from("posted_quests").select("author_user_id")
+        .eq("id", body.posted_quest_id).maybeSingle();
+      if (!q || q.author_user_id !== user.id) return json({ error: "That isn't your posting" }, 400);
+      const refunded = await closePostedQuest(admin, body.posted_quest_id);
+      if (refunded === null) return json({ error: "Someone has already taken it on" }, 400);
+      return json({ ok: true, refunded });
     }
 
     // ─── claim quest ───
@@ -123,6 +156,13 @@ Deno.serve(async (req) => {
       const { data: q } = await admin.from("posted_quests").select("*").eq("id", body.posted_quest_id).maybeSingle();
       if (!q || q.status !== "open") return json({ error: "Already taken" }, 400);
       if (q.author_user_id === user.id) return json({ error: "You cannot claim your own posting" }, 400);
+      // Claim first, atomically, so two players can't both take the same (escrowed) job.
+      const { data: won } = await admin.from("posted_quests").update({
+        status: "claimed", claimed_by: user.id, claimed_at: new Date().toISOString(),
+      }).eq("id", q.id).eq("status", "open").select("id");
+      if (!won?.length) return json({ error: "Already taken" }, 400);
+      // NPC postings are minor favours; a player's posting gets the severity that pays its reward in full.
+      const severity: Severity = q.author_npc_id ? "minor" : (severityForGold(q.reward_gold, await rewardCaps(admin)) ?? "legendary");
       // Mirror into the player's own quests table so the existing UI/auto-resolve picks it up.
       const { data: insertedQuest } = await admin.from("quests").insert({
         user_id: user.id,
@@ -134,18 +174,19 @@ Deno.serve(async (req) => {
         objective: q.objective,
         status: "active",
         kind: "favor",
-        target_kind: "room",
+        severity,
+        target_kind: questTargetKindFromBoard(q.target_kind),
         target_ref: q.target_ref ?? town_key,
         reward_gold: q.reward_gold,
         reward_xp: q.reward_xp,
         reward_amity: q.author_npc_id ? 4 : 0,
-        ...(q.author_npc_id ? { severity: "minor" } : {}),
+        // The posting's escrow moves onto the quest: paid out on completion, refunded on abandon.
+        escrow_gold: q.escrow_gold ?? 0,
+        escrow_npc_id: q.author_npc_id ?? null,
+        escrow_user_id: q.author_npc_id ? null : q.author_user_id,
         offered_room: profile.current_room,
         accepted_at: new Date().toISOString(),
       }).select("id").single();
-      await admin.from("posted_quests").update({
-        status: "claimed", claimed_by: user.id, claimed_at: new Date().toISOString(),
-      }).eq("id", q.id);
       return json({ ok: true, quest_id: insertedQuest?.id });
     }
 

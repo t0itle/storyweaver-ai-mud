@@ -31,6 +31,12 @@ named next to it. If the code and this file disagree, the code wins. Fix this fi
   server, kill recorded by `combat-action`). The NPC's `QUEST_RESOLVE` judges only quests with no
   real target. `quest-award` accepts only the service-role key; never call it with a player's token.
   NPCs may only offer items already in the `items` catalog.
+- Quest offers and gold (same module): an AI quest offer's target must match a real item, room or
+  NPC (fetch/visit/slay/deliver offers without one are dropped), and its severity is clamped by the
+  NPC's role (`severityCeiling`). Funded quest gold is escrowed (`quests.escrow_gold`,
+  `posted_quests.escrow_gold`, drizzle 0011): taken from the NPC's purse or the poster when offered
+  or posted, paid out by `completeQuest`, and refunded through `_shared/questEscrow.ts` on decline,
+  abandon, fail, lapse or withdrawal. Never pay or refund quest gold any other way.
 - Room memory and cadence (`docs/room-scene.md`): rules live in `_shared/roomScene.ts` (tested). Code
   decides what happens in a room each pulse; the AI only writes the line. Room lines are saved to
   `messages`; lasting changes go in `room_scene.facts`, which expire.

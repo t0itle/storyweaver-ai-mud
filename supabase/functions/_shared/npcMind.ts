@@ -205,12 +205,21 @@ export const QUESTABLE_NEEDS: Need[] = ["hunger", "safety", "belonging", "faith"
 
 export interface QuestDraft { title: string; objective: string; description: string }
 
+/** What a hungry NPC asks for: a real catalog item, so handing it over is checked by code
+ *  (_shared/questRules.ts) instead of completing the moment a player walks into the room. */
+export const WANT_FOOD_ITEM = "flat-bread";
+
+/** A want quest's target. Hunger wants an item; the others send the player to a room. */
+export function wantTarget(need: Need, room: string): { kind: "item" | "room"; ref: string } {
+  return need === "hunger" ? { kind: "item", ref: WANT_FOOD_ITEM } : { kind: "room", ref: room };
+}
+
 /** Turn a want into a favour quest. `targetName` is the room the player must reach. */
 export function questForWant(npcName: string, need: Need, targetName: string): QuestDraft | null {
   switch (need) {
     case "hunger": return {
       title: `Bread for ${npcName}`,
-      objective: `Bring a meal to ${npcName} at ${targetName}.`,
+      objective: `Bring ${npcName} a round of flat bread.`,
       description: `${npcName} has gone too long without a proper meal and asks for help.`,
     };
     case "safety": return {
