@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      aether_decrees: {
+        Row: {
+          aether_key: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          kind: string
+          payload: Json
+          proclamation: string | null
+        }
+        Insert: {
+          aether_key: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          kind: string
+          payload?: Json
+          proclamation?: string | null
+        }
+        Update: {
+          aether_key?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          kind?: string
+          payload?: Json
+          proclamation?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aether_decrees_aether_key_fkey"
+            columns: ["aether_key"]
+            isOneToOne: false
+            referencedRelation: "aethers"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       aether_loyalty: {
         Row: {
           aether_key: string
@@ -88,6 +126,7 @@ export type Database = {
           gift: string
           glyph: string
           key: string
+          last_decree_at: string | null
           name: string
           sort_order: number
           throne_room: string | null
@@ -102,6 +141,7 @@ export type Database = {
           gift: string
           glyph?: string
           key: string
+          last_decree_at?: string | null
           name: string
           sort_order?: number
           throne_room?: string | null
@@ -116,6 +156,7 @@ export type Database = {
           gift?: string
           glyph?: string
           key?: string
+          last_decree_at?: string | null
           name?: string
           sort_order?: number
           throne_room?: string | null
@@ -216,6 +257,7 @@ export type Database = {
       }
       class_defs: {
         Row: {
+          ability_mods: Json
           awakenings: Json
           created_at: string
           flavor: string
@@ -227,6 +269,7 @@ export type Database = {
           tagline: string
         }
         Insert: {
+          ability_mods?: Json
           awakenings?: Json
           created_at?: string
           flavor: string
@@ -238,6 +281,7 @@ export type Database = {
           tagline: string
         }
         Update: {
+          ability_mods?: Json
           awakenings?: Json
           created_at?: string
           flavor?: string
@@ -1093,6 +1137,62 @@ export type Database = {
           },
         ]
       }
+      npc_journal: {
+        Row: {
+          created_at: string
+          disclosure: number
+          emotion: string | null
+          expires_at: string | null
+          id: string
+          importance: number
+          kind: string
+          npc_id: string
+          room: string | null
+          source: string
+          subject_id: string | null
+          subject_kind: string | null
+          summary: string
+        }
+        Insert: {
+          created_at?: string
+          disclosure?: number
+          emotion?: string | null
+          expires_at?: string | null
+          id?: string
+          importance?: number
+          kind: string
+          npc_id: string
+          room?: string | null
+          source?: string
+          subject_id?: string | null
+          subject_kind?: string | null
+          summary: string
+        }
+        Update: {
+          created_at?: string
+          disclosure?: number
+          emotion?: string | null
+          expires_at?: string | null
+          id?: string
+          importance?: number
+          kind?: string
+          npc_id?: string
+          room?: string | null
+          source?: string
+          subject_id?: string | null
+          subject_kind?: string | null
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "npc_journal_npc_id_fkey"
+            columns: ["npc_id"]
+            isOneToOne: false
+            referencedRelation: "npcs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       npc_memories: {
         Row: {
           created_at: string
@@ -1125,6 +1225,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      npc_relations: {
+        Row: {
+          affinity: number
+          label: string | null
+          notes: string | null
+          npc_id: string
+          other_id: string
+          other_kind: string
+          updated_at: string
+        }
+        Insert: {
+          affinity?: number
+          label?: string | null
+          notes?: string | null
+          npc_id: string
+          other_id: string
+          other_kind: string
+          updated_at?: string
+        }
+        Update: {
+          affinity?: number
+          label?: string | null
+          notes?: string | null
+          npc_id?: string
+          other_id?: string
+          other_kind?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "npc_relations_npc_id_fkey"
+            columns: ["npc_id"]
+            isOneToOne: false
+            referencedRelation: "npcs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       npc_service_offers: {
         Row: {
@@ -1197,6 +1335,82 @@ export type Database = {
           price_gold?: number
         }
         Relationships: []
+      }
+      npc_souls: {
+        Row: {
+          core: Json
+          created_at: string
+          npc_id: string
+        }
+        Insert: {
+          core?: Json
+          created_at?: string
+          npc_id: string
+        }
+        Update: {
+          core?: Json
+          created_at?: string
+          npc_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "npc_souls_npc_id_fkey"
+            columns: ["npc_id"]
+            isOneToOne: true
+            referencedRelation: "npcs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      npc_state: {
+        Row: {
+          current_action: string | null
+          goals: Json
+          last_tick_at: string | null
+          mood: string
+          mood_intensity: number
+          needs: Json
+          next_think_at: string
+          npc_id: string
+          tier: string
+          updated_at: string
+          wants: Json
+        }
+        Insert: {
+          current_action?: string | null
+          goals?: Json
+          last_tick_at?: string | null
+          mood?: string
+          mood_intensity?: number
+          needs?: Json
+          next_think_at?: string
+          npc_id: string
+          tier?: string
+          updated_at?: string
+          wants?: Json
+        }
+        Update: {
+          current_action?: string | null
+          goals?: Json
+          last_tick_at?: string | null
+          mood?: string
+          mood_intensity?: number
+          needs?: Json
+          next_think_at?: string
+          npc_id?: string
+          tier?: string
+          updated_at?: string
+          wants?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "npc_state_npc_id_fkey"
+            columns: ["npc_id"]
+            isOneToOne: true
+            referencedRelation: "npcs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       npcs: {
         Row: {
@@ -1835,6 +2049,50 @@ export type Database = {
           },
         ]
       }
+      player_letters: {
+        Row: {
+          body: string
+          created_at: string
+          from_name: string
+          from_npc_id: string | null
+          id: string
+          quest_id: string | null
+          read_at: string | null
+          subject: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          from_name: string
+          from_npc_id?: string | null
+          id?: string
+          quest_id?: string | null
+          read_at?: string | null
+          subject: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          from_name?: string
+          from_npc_id?: string | null
+          id?: string
+          quest_id?: string | null
+          read_at?: string | null
+          subject?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_letters_from_npc_id_fkey"
+            columns: ["from_npc_id"]
+            isOneToOne: false
+            referencedRelation: "npcs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       player_lifeskills: {
         Row: {
           level: number
@@ -2178,6 +2436,7 @@ export type Database = {
       posted_quests: {
         Row: {
           author_name: string
+          author_npc_id: string | null
           author_user_id: string | null
           claimed_at: string | null
           claimed_by: string | null
@@ -2196,6 +2455,7 @@ export type Database = {
         }
         Insert: {
           author_name: string
+          author_npc_id?: string | null
           author_user_id?: string | null
           claimed_at?: string | null
           claimed_by?: string | null
@@ -2214,6 +2474,7 @@ export type Database = {
         }
         Update: {
           author_name?: string
+          author_npc_id?: string | null
           author_user_id?: string | null
           claimed_at?: string | null
           claimed_by?: string | null
@@ -2231,6 +2492,13 @@ export type Database = {
           town_key?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "posted_quests_author_npc_id_fkey"
+            columns: ["author_npc_id"]
+            isOneToOne: false
+            referencedRelation: "npcs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "posted_quests_town_key_fkey"
             columns: ["town_key"]
@@ -2274,11 +2542,13 @@ export type Database = {
           awakened_at: string | null
           awakened_class: string | null
           awakening_available: boolean
+          cha: number
           chaos_pressure: number
           char_description: string | null
           class_key: string | null
           companion_mode: string
           companion_npc_id: string | null
+          con: number
           corruption: number
           created: boolean
           created_at: string
@@ -2289,6 +2559,7 @@ export type Database = {
           desert_bearing: number
           desert_depth: number
           desert_entered_from: string | null
+          dex: number
           downed: boolean
           downed_at: string | null
           downed_combat_id: string | null
@@ -2302,6 +2573,7 @@ export type Database = {
           id: string
           in_combat_id: string | null
           infamy: number
+          int: number
           last_damage_kind: string | null
           last_encounter_at: string | null
           level: number
@@ -2314,11 +2586,13 @@ export type Database = {
           race: string | null
           revived_at: string | null
           revived_by: string | null
+          str: number
           talent_points: number
           unique_attribute: Json | null
           updated_at: string
           username: string
           voice: string
+          wis: number
           xp: number
           zombified: boolean
         }
@@ -2328,11 +2602,13 @@ export type Database = {
           awakened_at?: string | null
           awakened_class?: string | null
           awakening_available?: boolean
+          cha?: number
           chaos_pressure?: number
           char_description?: string | null
           class_key?: string | null
           companion_mode?: string
           companion_npc_id?: string | null
+          con?: number
           corruption?: number
           created?: boolean
           created_at?: string
@@ -2343,6 +2619,7 @@ export type Database = {
           desert_bearing?: number
           desert_depth?: number
           desert_entered_from?: string | null
+          dex?: number
           downed?: boolean
           downed_at?: string | null
           downed_combat_id?: string | null
@@ -2356,6 +2633,7 @@ export type Database = {
           id: string
           in_combat_id?: string | null
           infamy?: number
+          int?: number
           last_damage_kind?: string | null
           last_encounter_at?: string | null
           level?: number
@@ -2368,11 +2646,13 @@ export type Database = {
           race?: string | null
           revived_at?: string | null
           revived_by?: string | null
+          str?: number
           talent_points?: number
           unique_attribute?: Json | null
           updated_at?: string
           username: string
           voice?: string
+          wis?: number
           xp?: number
           zombified?: boolean
         }
@@ -2382,11 +2662,13 @@ export type Database = {
           awakened_at?: string | null
           awakened_class?: string | null
           awakening_available?: boolean
+          cha?: number
           chaos_pressure?: number
           char_description?: string | null
           class_key?: string | null
           companion_mode?: string
           companion_npc_id?: string | null
+          con?: number
           corruption?: number
           created?: boolean
           created_at?: string
@@ -2397,6 +2679,7 @@ export type Database = {
           desert_bearing?: number
           desert_depth?: number
           desert_entered_from?: string | null
+          dex?: number
           downed?: boolean
           downed_at?: string | null
           downed_combat_id?: string | null
@@ -2410,6 +2693,7 @@ export type Database = {
           id?: string
           in_combat_id?: string | null
           infamy?: number
+          int?: number
           last_damage_kind?: string | null
           last_encounter_at?: string | null
           level?: number
@@ -2422,11 +2706,13 @@ export type Database = {
           race?: string | null
           revived_at?: string | null
           revived_by?: string | null
+          str?: number
           talent_points?: number
           unique_attribute?: Json | null
           updated_at?: string
           username?: string
           voice?: string
+          wis?: number
           xp?: number
           zombified?: boolean
         }
@@ -2609,6 +2895,7 @@ export type Database = {
       }
       races: {
         Row: {
+          ability_mods: Json
           cost: string
           flavor: string
           gain: string
@@ -2619,6 +2906,7 @@ export type Database = {
           visual_traits: string
         }
         Insert: {
+          ability_mods?: Json
           cost: string
           flavor: string
           gain: string
@@ -2629,6 +2917,7 @@ export type Database = {
           visual_traits: string
         }
         Update: {
+          ability_mods?: Json
           cost?: string
           flavor?: string
           gain?: string
@@ -2825,6 +3114,41 @@ export type Database = {
           source?: string
         }
         Relationships: []
+      }
+      room_scene: {
+        Row: {
+          facts: Json
+          last_npc_ai_at: string | null
+          last_pulse_at: string | null
+          npc_spoke: Json
+          room: string
+          updated_at: string
+        }
+        Insert: {
+          facts?: Json
+          last_npc_ai_at?: string | null
+          last_pulse_at?: string | null
+          npc_spoke?: Json
+          room: string
+          updated_at?: string
+        }
+        Update: {
+          facts?: Json
+          last_npc_ai_at?: string | null
+          last_pulse_at?: string | null
+          npc_spoke?: Json
+          room?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_scene_room_fkey"
+            columns: ["room"]
+            isOneToOne: true
+            referencedRelation: "rooms"
+            referencedColumns: ["slug"]
+          },
+        ]
       }
       room_scenes: {
         Row: {
@@ -3226,18 +3550,21 @@ export type Database = {
       }
       towns: {
         Row: {
+          aether_key: string | null
           blurb: string
           key: string
           name: string
           sort_order: number
         }
         Insert: {
+          aether_key?: string | null
           blurb?: string
           key: string
           name: string
           sort_order?: number
         }
         Update: {
+          aether_key?: string | null
           blurb?: string
           key?: string
           name?: string
@@ -3300,6 +3627,69 @@ export type Database = {
           hub?: string
         }
         Relationships: []
+      }
+      wardens: {
+        Row: {
+          aether_key: string
+          check_ability: string | null
+          check_dc: number | null
+          description: string
+          destroyed_at: string | null
+          destroyed_by: string | null
+          destroyed_by_name: string | null
+          id: string
+          kind: string
+          name: string
+          npc_id: string | null
+          room_slug: string | null
+          warden_index: number
+        }
+        Insert: {
+          aether_key: string
+          check_ability?: string | null
+          check_dc?: number | null
+          description?: string
+          destroyed_at?: string | null
+          destroyed_by?: string | null
+          destroyed_by_name?: string | null
+          id?: string
+          kind: string
+          name: string
+          npc_id?: string | null
+          room_slug?: string | null
+          warden_index: number
+        }
+        Update: {
+          aether_key?: string
+          check_ability?: string | null
+          check_dc?: number | null
+          description?: string
+          destroyed_at?: string | null
+          destroyed_by?: string | null
+          destroyed_by_name?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          npc_id?: string | null
+          room_slug?: string | null
+          warden_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wardens_aether_key_fkey"
+            columns: ["aether_key"]
+            isOneToOne: false
+            referencedRelation: "aethers"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "wardens_npc_id_fkey"
+            columns: ["npc_id"]
+            isOneToOne: false
+            referencedRelation: "npcs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       world_events: {
         Row: {
