@@ -75,7 +75,7 @@ Deno.serve(async (req) => {
         admin.from("bounties").select("id, town_key, reward_gold, alive_bonus_gold, reason, posted_by_name")
           .eq("target_user_id", user.id).eq("status", "open"),
         admin.from("town_bank_item_vault")
-          .select("id, item_key, quantity, stolen, deposited_at, items(name, slot, value_gold)")
+          .select("id, item_key, quantity, stolen, deposited_at, items(name, slot, value_gold:value)")
           .eq("user_id", user.id).eq("town_key", town_key).order("deposited_at", { ascending: false }),
       ]);
       return json({
@@ -249,7 +249,7 @@ Deno.serve(async (req) => {
     if (body.action === "bank_list_items") {
       if (!at_bank) return json({ error: "You must be inside the bank to see the vault." }, 400);
       const { data: vault } = await admin.from("town_bank_item_vault")
-        .select("id, item_key, quantity, stolen, deposited_at, items(name, slot, value_gold)")
+        .select("id, item_key, quantity, stolen, deposited_at, items(name, slot, value_gold:value)")
         .eq("user_id", user.id).eq("town_key", town_key).order("deposited_at", { ascending: false });
       return json({ ok: true, vault_items: vault ?? [] });
     }
