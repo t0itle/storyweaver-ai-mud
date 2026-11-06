@@ -310,7 +310,7 @@ export default function GameClient({ session }: { session: Session }) {
   const announcedLettersRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("player_letters").select("id, from_name")
+      const { data } = await (supabase as any).from("player_letters").select("id, from_name")
         .eq("user_id", session.user.id).is("read_at", null);
       const fresh = (data ?? []).filter((l) => !announcedLettersRef.current.has(l.id));
       if (!fresh.length) return;
@@ -1308,7 +1308,7 @@ export default function GameClient({ session }: { session: Session }) {
         toast.error(e instanceof Error ? e.message : "nothing happens");
       } finally { setThinking(false); }
     } else if (c === "letters" || c === "letter" || c === "mail") {
-      const { data: letters } = await supabase.from("player_letters")
+      const { data: letters } = await (supabase as any).from("player_letters")
         .select("id, from_name, subject, body, created_at, read_at")
         .eq("user_id", session.user.id).order("created_at", { ascending: false }).limit(10);
       if (!letters?.length) {
@@ -1318,7 +1318,7 @@ export default function GameClient({ session }: { session: Session }) {
           `${l.read_at ? "" : "✉ "}**${l.subject}** — from ${l.from_name} (${new Date(l.created_at).toLocaleDateString()})\n${l.body}`);
         setMessages((mm) => [...mm, localSys(lines.join("\n\n"))]);
         const unread = letters.filter((l) => !l.read_at).map((l) => l.id);
-        if (unread.length) await supabase.from("player_letters").update({ read_at: new Date().toISOString() }).in("id", unread);
+        if (unread.length) await (supabase as any).from("player_letters").update({ read_at: new Date().toISOString() }).in("id", unread);
       }
     } else if (c === "riddle" || c === "riddles") {
       if (!args) {
