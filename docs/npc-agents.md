@@ -351,6 +351,7 @@ Still open: whether to run a self-hosted small model (§6), and if so which host
 | Talking | `supabase/functions/npc-respond/` | uses the voice block; journals conversations; promotes engaged NPCs to `dreaming` |
 | Quests | `town-board` (claim), `quest-award` (completion) | NPC postings name the real NPC; completing the favour meets the want |
 | Letters | `GameClient.tsx` | `letters` command and an arrival notice |
+| Room presence | `room-pulse`, `_shared/roomScene.ts` | NPCs act (`<<ACTION>>`), do business and sometimes speak first while a player is in the room; rooms remember changes. See `docs/room-scene.md` |
 | Schema | `drizzle/migrations/0004`–`0006` | `npc_souls`, `npc_state`, `npc_journal`, `npc_relations`, `posted_quests.author_npc_id`, `player_letters`, `aethers.last_decree_at`, `aether_decrees` |
 
 **Tiers as built:** the migration enrols living, visible role NPCs (merchants, guildmasters, wardens,

@@ -71,6 +71,13 @@
       "when": 1794500000000,
       "tag": "0009_lore_from_wiki",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1794600000000,
+      "tag": "0010_room_scene",
+      "breakpoints": true
     }
   ]
 }
