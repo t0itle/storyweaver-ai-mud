@@ -26,6 +26,9 @@ named next to it. If the code and this file disagree, the code wins. Fix this fi
   that file. World summaries in AI prompts come from `_shared/worldCanon.ts`; god profiles from
   `AETHERS` in `_shared/decrees.ts`. `src/test/decrees.test.ts` and `src/test/lore.test.ts` check
   both against the wiki. Use the Latin spelling **Non Serviam**.
+- Room memory and cadence (`docs/room-scene.md`): rules live in `_shared/roomScene.ts` (tested). Code
+  decides what happens in a room each pulse; the AI only writes the line. Room lines are saved to
+  `messages`; lasting changes go in `room_scene.facts`, which expire.
 - Wardens: an Aether lives while **any** of its 12 Wardens (people, items or places; `wardens` table)
   stands. Destruction goes through the `warden_destroyed` trigger, never by editing `aethers.alive`.
 

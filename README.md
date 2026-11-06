@@ -174,7 +174,7 @@ random ranges. Moving it onto this system is planned as a separate pass.
 | Life skills | Gathering nodes, recipes, crafting stations, quality crits | `gather-node`, `learn-recipe`, `craft-item` |
 | Exploration | Map discovery, wagon travel, desert wandering, caches, loot, free-form interactions | `discover-location`, `wagon-travel`, `desert-wander`, `search-cache`, `take-loot`, `interact` |
 | Character | Creation, talents, awakenings, inventory, rest, rename, restart | `create-character`, `spend-talent`, `awaken-class`, `inventory-action`, `rest-action`, `rename-character`, `restart-character` |
-| Living world | Hourly NPC schedules, room population, ambience | `world-tick`, `populate-npcs`, `room-ambience` |
+| Living world | Hourly NPC schedules, room population, ambience | `world-tick`, `populate-npcs`, `room-pulse` |
 | NPC agents | Role NPCs live by needs (coin, hunger, rest, safety, belonging, faith). Their wants become board quests or letters to trusted players. Players learn their inner lives through amity. See `docs/npc-agents.md`. | `npc-agent-tick`, `npc-respond` |
 | The Seven | Each living Aether rules its kingdom, waking in turn to issue decrees (goals, laws, rumors, festivals, summons, bonds) | `seven-tick` |
 | Art and sound | Scene art, portrait wound and gear variants, room music and ambience, bardic performance | `scene-image`, `portrait-state-variant`, `restyle-portrait`, `scene-music`, `room-audio-generate`, `music-action`, `intro-music`, `intro-narration` |

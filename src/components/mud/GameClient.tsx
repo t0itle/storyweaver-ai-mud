@@ -570,25 +570,29 @@ export default function GameClient({ session }: { session: Session }) {
     })();
   }, [profile?.current_room]);
 
-  // Living scene: post a sensory ambient line on entry and every 45-90s while present.
-  // AI-generated per room+player+moment, with a local pool as fallback.
-  // Lines are not persisted — only the current player sees them.
+  // Living scene: pulse the room on entry and every 45-90s while present. The server (room-pulse)
+  // decides what happens — ambience, an NPC doing something, or an NPC speaking first — and saves it
+  // to the room's messages, so it arrives through the realtime subscription below for everyone here.
+  // Only if the AI fails do we show a line from the local pool, to this player only.
   useEffect(() => {
     if (!profile || !room) return;
     const slug = profile.current_room;
     const kind = (room.kind ?? "room") as string;
     let cancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
-    const recent: string[] = [];
 
-    const generate = async (): Promise<string | null> => {
+    const pulse = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("room-ambience", { body: { recent } });
-        if (error) throw error;
-        const line = (data as any)?.line as string | undefined;
-        if (line && line.length > 2) return line;
+        const { data, error } = await supabase.functions.invoke("room-pulse", { body: {} });
+        if (!error && !(data as any)?.error) return;
       } catch (e) { /* fall through */ }
-      return pickAmbience(kind, npcs.map(n => n.name));
+      const line = pickAmbience(kind, npcs.map(n => n.name));
+      if (!line || cancelled) return;
+      setMessages((m) => [...m, {
+        id: crypto.randomUUID(), room: slug, author_name: "—",
+        kind: "ambient", content: `*${line}*`, created_at: new Date().toISOString(),
+        user_id: null, npc_id: null,
+      } as Message]);
     };
 
     const fire = (delay: number) => {
@@ -596,17 +600,8 @@ export default function GameClient({ session }: { session: Session }) {
         if (cancelled) return;
         // skip if room is not the focus anymore
         if (slug !== profile.current_room) return;
-        const line = await generate();
+        await pulse();
         if (cancelled) return;
-        if (line) {
-          recent.push(line);
-          if (recent.length > 8) recent.shift();
-          setMessages((m) => [...m, {
-            id: crypto.randomUUID(), room: slug, author_name: "—",
-            kind: "ambient", content: `*${line}*`, created_at: new Date().toISOString(),
-            user_id: null, npc_id: null,
-          } as Message]);
-        }
         fire(45000 + Math.floor(Math.random() * 45000));
       }, delay);
       timers.push(t);
