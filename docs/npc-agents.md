@@ -239,15 +239,20 @@ The lore already supplies the "God AI": **seven Aethers rule seven kingdoms**. S
 neutral director, each Aether is its own director, with its own domain, agenda and temperament. The
 big decisions come from what each god wants, and the gods compete with one another.
 
-| Aether (`aethers.key`) | Domain | Capital (throne room's city) | What its decrees act on |
+| Aether (`aethers.key`) | Virtue / Sin | Governs | Kingdom (capital) |
 |---|---|---|---|
-| Solastin | the Sun | High Sanctum | faith, wardens, defense against the Shadow, pilgrimages |
-| Khalvaris | Judgement | Iron Bastion | laws, guards, bounties, trials, punishments |
-| Nyxara | Silence | Silent Horizon | secrets, suppressing rumors, assassins, vows of silence |
-| Thalvora | Trade | Gilded Bazaar | prices, tariffs, caravans, merchant guild, debts |
-| Lazareth | Memory | Mirrorlands Court | lore revealed, histories, rumors that spread, old grudges resurfacing |
-| Velithria | Love | Evershade Court | NPC relationships: courtships, marriages, rivalries, reconciliations |
-| Morvayne | Plenty | Feastlands Keep | harvests, food supply, festivals, famine |
+| Khalvaris | Patience / Wrath | War and Law | the Iron Bastion |
+| Solastin | Humility / Pride | Civilization and Leadership | the High Sanctum |
+| Nyxara | Kindness / Envy | Ambition and Transformation | the Mirrorlands (Mirrorlands Court) |
+| Velithria | Chastity / Lust | Passion and Discipline | the Evershade (Evershade Court) |
+| Thalvora | Charity / Greed | Exchange and Value | the Gilded Bazaar |
+| Lazareth | Diligence / Sloth | Time and Knowledge | the Silent Horizon |
+| Morvayne | Temperance / Gluttony | Nature and Consumption | the Feastlands (Feastlands Keep) |
+
+Source: the wiki (`everbloom-lore/characters/`). `AETHERS` in `_shared/decrees.ts` mirrors it, and
+`src/test/decrees.test.ts` fails if they drift. Every town belongs to a kingdom (`towns.aether_key`),
+and resident NPCs are aligned to its Aether (`npcs.aether_key`): **a god rules its NPC subjects and
+can only nudge players.**
 
 How it runs:
 - **A cheap cadence.** The tick wakes **one god per in-game time slot**, rotating, so it's 7 calls per
@@ -264,20 +269,21 @@ How it runs:
   in that kingdom pick up the god's goals as their own wants, so they post jobs, change prices and
   gossip about the new law.
 - **Divine politics.** The gods have standing relations with each other (stored like
-  `npc_relations`, between `aether` keys). Trade versus Plenty over grain prices, Judgement versus
-  Silence over secrets. Kingdoms bordering each other react to each other's decrees.
+  `DIVINE_RELATIONS` in `decrees.ts`, taken from the wiki's "Connections" sections), e.g. Thalvora's
+  regulated exchange against Morvayne's raw consumption.
 - **Sworn players are the gods' hands.** A player sworn to an Aether (`profiles.aether`) can receive
   direct tasks through `summon_sworn`, which ties into the existing vow chains
   (`aether-loyalty-action`).
-- **Gods can fall.** `aethers.alive`, `fallen_at` and `wardens_killed` already exist. A fallen god
+- **Gods can fall.** An Aether lives while any of its twelve Wardens stands (`wardens` table, drizzle
+  0008; people are slain, relics shattered, places desecrated via `warden-action`). A fallen god
   issues no decrees. Its kingdom drifts on the code brain alone, Shadow pressure rises, and rival
   gods may claim influence there. This is the biggest-impact lever in the world.
 - **The Shadow is the eighth voice.** It doesn't issue decrees. Chaos pressure and corruption feed
   every god's digest as a threat, and Non Serviam players work against them.
 
-**Settled:** Lazareth rules the Mirrorlands (Mirrorlands Court) and Nyxara rules Silent Horizon.
-A 2026-05 migration had swapped their *well rooms*. `drizzle/migrations/0003_fix_lazareth_nyxara_wells.sql`
-reverses it and moves each god's "Mirror of …" guide along with it.
+**Settled (by the wiki):** Lazareth rules the Silent Horizon and Nyxara rules the Mirrorlands.
+Migration 0003 had assumed the opposite. 0007 corrects the well rooms, thrones, wardens and Mirror
+guides.
 
 ### 6.1 Presenting rich NPCs on a small budget
 

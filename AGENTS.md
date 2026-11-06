@@ -20,6 +20,14 @@ named next to it. If the code and this file disagree, the code wins. Fix this fi
   return decrees that `validateDecrees` filters, and NPC wants become quests through fixed
   templates. Never put journal or player text into a prompt except through `quoteData`. Background
   AI calls go through `_shared/aiGateway.ts`.
+- **Lore canon is the wiki in `everbloom-lore/`.** When code or data disagree with it, the wiki
+  wins (ask the owner if the wiki contradicts itself). After editing wiki pages, run `npm run lore`
+  to regenerate the codex migration (`drizzle/migrations/0009_lore_from_wiki.sql`). Never hand-edit
+  that file. World summaries in AI prompts come from `_shared/worldCanon.ts`; god profiles from
+  `AETHERS` in `_shared/decrees.ts`. `src/test/decrees.test.ts` and `src/test/lore.test.ts` check
+  both against the wiki. Use the Latin spelling **Non Serviam**.
+- Wardens: an Aether lives while **any** of its 12 Wardens (people, items or places; `wardens` table)
+  stands. Destruction goes through the `warden_destroyed` trigger, never by editing `aethers.alive`.
 
 ---
 
